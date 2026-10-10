@@ -1,0 +1,20 @@
+[package]
+name="universal-frames"
+version="5.0.0"
+edition="2021"
+[lib]
+crate-type=["cdylib","rlib"]
+[dependencies]
+serde={version="1.0",features=["derive"]}
+serde_json="1.0"
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen="=0.2.104"
+js-sys="=0.3.81"
+web-sys={version="=0.3.81",features=["Window","Document","Element","HtmlElement","HtmlInputElement","HtmlSelectElement","Event","EventTarget","KeyboardEvent","MouseEvent","PointerEvent","TouchEvent","Touch","TouchList","AddEventListenerOptions","Node","NodeList","Storage"]}
+console_error_panic_hook="0.1.7"
+[profile.release]
+lto=true
+opt-level="s"
+codegen-units=1
+panic="abort"
+strip=true
