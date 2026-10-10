@@ -402,3 +402,12 @@ fn balconies_have_an_actual_upper_door_supports_and_itemized_materials(){
  assert!(m["rearOutdoor"]["roofs"].as_array().unwrap().is_empty(),"A porch roof cannot cut through the balcony deck");
  c.stories=1;c.active_floor=0;let single=model::build(&c);assert!(single["balcony"].is_null());assert!(!single["items"].as_array().unwrap().iter().any(|i|s(i,"id").starts_with("balcony-")));
 }
+#[test]fn crawlspace_takeoff_has_no_slab_leftovers_or_doubled_single_assemblies(){
+ let mut c=Config::default();c.waste=10.;let m=model::build(&c);let items=m["items"].as_array().unwrap();
+ let row=|id:&str|items.iter().find(|i|s(i,"id")==id);
+ // The crawlspace floor has no slab, and its own sill gasket replaces the slab-era line.
+ for id in ["slab","slabjoints","sillgasket"]{assert!(row(id).is_none(),"{id} should not be ordered for a crawlspace floor");}
+ assert!(near(n(row("crawl-sillseal").unwrap(),"rawNet"),n(&m,"perimeter")/50.));
+ // Ordering waste must not round one access hatch or one moisture system up to two.
+ for id in ["crawl-access","crawl-moisture"]{let i=row(id).unwrap();assert_eq!(n(i,"qty"),1.);assert_eq!(n(i,"wastePercent"),0.);}
+}
