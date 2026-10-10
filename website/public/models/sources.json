@@ -1,0 +1,174 @@
+[
+  {
+    "id": "sofa_02",
+    "textureResolution": "2K",
+    "description": "Tufted leather sofa with carved wooden frame; original realistic Poly Haven geometry and PBR textures.",
+    "frontDirection": "+Z",
+    "path": "/models/sofa_02.glb",
+    "bytes": 1265800,
+    "sha256": "259d5fb630a548fbc2c83c4fb96be5002da90780441c0725aea13b0c118324b2",
+    "source": "https://polyhaven.com/a/sofa_02",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://polyhaven.com/license",
+    "materials": 1,
+    "images": 3,
+    "extensions": [],
+    "boundsMeters": {
+      "min": [
+        -0.903316,
+        0.000206,
+        -0.477698
+      ],
+      "max": [
+        0.903851,
+        0.709695,
+        0.340053
+      ],
+      "size": [
+        1.807167,
+        0.709489,
+        0.817751
+      ],
+      "triangles": 2728
+    },
+    "placement": "Y-up, meter units. Use bounding box center X/Z and min Y to center at floor; scale to feet by 3.28084. Preserve PBR material maps."
+  },
+  {
+    "id": "GothicBed_01",
+    "textureResolution": "2K",
+    "description": "Carved Gothic wooden bed frame; no mattress, pillow, quilt or linen included.",
+    "includesMattress": false,
+    "headboardDirection": "-Z",
+    "footboardDirection": "+Z",
+    "path": "/models/GothicBed_01.glb",
+    "bytes": 2203956,
+    "sha256": "6f7583ad69a51cd00abe1692e171107c950b6f662576b4443cef1e55dd93f8f7",
+    "source": "https://polyhaven.com/a/GothicBed_01",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://polyhaven.com/license",
+    "materials": 1,
+    "images": 3,
+    "extensions": [],
+    "boundsMeters": {
+      "min": [
+        -0.711307,
+        -0.0,
+        -1.053105
+      ],
+      "max": [
+        0.782444,
+        1.53384,
+        0.986895
+      ],
+      "size": [
+        1.493752,
+        1.53384,
+        2.04
+      ],
+      "triangles": 18745
+    },
+    "placement": "Y-up, meter units. Use bounding box center X/Z and min Y to center at floor; scale to feet by 3.28084. Preserve PBR material maps."
+  },
+  {
+    "id": "dining_chair_02",
+    "textureResolution": "2K",
+    "description": "Tufted leather dining chair with dark wooden legs.",
+    "frontDirection": "+Z",
+    "path": "/models/dining_chair_02.glb",
+    "bytes": 1917724,
+    "sha256": "812c81e3f70c24f65d016ff6bbf284ed6c9a02a7d812cb10cfa7abdf8dab6cfe",
+    "source": "https://polyhaven.com/a/dining_chair_02",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://polyhaven.com/license",
+    "materials": 1,
+    "images": 3,
+    "extensions": [],
+    "boundsMeters": {
+      "min": [
+        -0.216785,
+        0.001285,
+        -0.331024
+      ],
+      "max": [
+        0.216785,
+        0.974663,
+        0.245396
+      ],
+      "size": [
+        0.433571,
+        0.973378,
+        0.57642
+      ],
+      "triangles": 22013
+    },
+    "placement": "Y-up, meter units. Use bounding box center X/Z and min Y to center at floor; scale to feet by 3.28084. Preserve PBR material maps."
+  },
+  {
+    "id": "modern_coffee_table_01",
+    "textureResolution": "2K",
+    "description": "Low contemporary wood and stone coffee table, not a dining-height table.",
+    "longAxis": "Z",
+    "path": "/models/modern_coffee_table_01.glb",
+    "bytes": 4700232,
+    "sha256": "967f1b6a0179f681a8f3985784e9d76764e6cd189ed3ca78601d3621ec9c82fa",
+    "source": "https://polyhaven.com/a/modern_coffee_table_01",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://polyhaven.com/license",
+    "materials": 1,
+    "images": 3,
+    "extensions": [],
+    "boundsMeters": {
+      "min": [
+        -0.3,
+        -0.000115,
+        -0.600669
+      ],
+      "max": [
+        0.3,
+        0.389885,
+        0.601161
+      ],
+      "size": [
+        0.6,
+        0.39,
+        1.20183
+      ],
+      "triangles": 4504
+    },
+    "placement": "Y-up, meter units. Use bounding box center X/Z and min Y to center at floor; scale to feet by 3.28084. Preserve PBR material maps."
+  },
+  {
+    "id": "modern_arm_chair_01",
+    "textureResolution": "1K",
+    "description": "Contemporary wooden lounge armchair with black leather cushions.",
+    "frontDirection": "+Z",
+    "path": "/models/modern_arm_chair_01.glb",
+    "bytes": 2696208,
+    "sha256": "48d734dc771d461a8b0b15227ba79d2b97a95d6d86b9e9a14c5d6bb02010555f",
+    "source": "https://polyhaven.com/a/modern_arm_chair_01",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://polyhaven.com/license",
+    "materials": 2,
+    "images": 6,
+    "extensions": [],
+    "boundsMeters": {
+      "min": [
+        -0.406809,
+        0.000382,
+        -0.575452
+      ],
+      "max": [
+        0.413536,
+        1.023234,
+        0.41111
+      ],
+      "size": [
+        0.820344,
+        1.022852,
+        0.986562
+      ],
+      "triangles": 8916
+    },
+    "placement": "Y-up, meter units. Use bounding box center X/Z and min Y to center at floor; scale to feet by 3.28084. Preserve PBR material maps."
+  }
+]

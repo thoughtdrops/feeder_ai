@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {JSDOM} from 'jsdom';
+const dom=new JSDOM('<div id="app"></div>',{url:'https://universal-frame.test/',pretendToBeVisual:true});
+for(const key of ['window','document','Window','Document','Element','HTMLElement','HTMLInputElement','HTMLSelectElement','Event','MouseEvent','Node'])globalThis[key]=dom.window[key];globalThis.self=dom.window;
+let state;globalThis.ufBridge={renderScene(raw){state=JSON.parse(raw);},setEditMode(){},selectScene(){},layoutEditor(){}};
+const app=await import('../../public/pkg/universal_frames.js');app.initSync({module:fs.readFileSync('public/pkg/universal_frames_bg.wasm')});app.start();
+const q=s=>{const e=document.querySelector(s);assert.ok(e,'Missing '+s);return e;},click=s=>q(s).dispatchEvent(new dom.window.MouseEvent('click',{bubbles:true})),change=(s,v)=>{const e=q(s);e.value=String(v);e.dispatchEvent(new dom.window.Event('change',{bubbles:true}));};
+const wallpapers=JSON.parse(fs.readFileSync('rust-app/data/catalog.json')).wallpapers,vinyl=JSON.parse(fs.readFileSync('rust-app/data/vinyl.json'));assert.equal(wallpapers.length,43);assert.equal(vinyl.length,24);
+for(const p of [...wallpapers,...vinyl])for(const mobile of ['', 'mobile/'])assert.ok(fs.existsSync(`public/${mobile}materials/${vinyl.includes(p)?'vinyl':'wallpaper'}/${p.file}`));
+click('[data-tab=finishes]');q('[data-section=room-finishes]').open=true;const room=q('[data-room-wallpaper]').dataset.roomWallpaper;change(`[data-room-wallpaper="${room}"]`,'Sapphire paisley');assert.equal(state.config.roomWallpapers[room],'Sapphire paisley');assert.ok(q('[data-section=room-finishes]').open);assert.ok(state.model.levels.flatMap(l=>l.wallFaces).filter(f=>f.roomId===room).every(f=>f.wallpaper==='Sapphire paisley'&&f.roomOverride));
+change(`[data-room-wallpaper="${room}"]`,'House default');assert.equal(state.config.roomWallpapers[room],undefined);
+change('[data-field=floor]',vinyl[5].name);assert.equal(state.config.colors.floor,'#ffffff');assert.ok(state.model.items.find(i=>i.id==='vinyl').name.includes(vinyl[5].name));
+click('[data-view=walk]');assert.equal(document.querySelectorAll('[data-walk]').length,4);for(const view of ['exterior','dollhouse','framing','plan']){click(`[data-view=${view}]`);assert.equal(document.querySelectorAll('[data-walk]').length,0);}
+click('[data-tab=layout]');click('[data-action=blank-slate]');change('[data-field=stories]',1);q('#width').value=32;q('#depth').value=32;click('[data-action=dimensions]');change('[data-field=garage]','Attached');change('[data-field=garageSide]','Right');const origin=[state.model.garage.x,state.model.garage.z];change('[data-garage-entry]',7);const door=state.model.openings.find(o=>o.id==='G-HOUSE-DOOR');assert.ok(Math.abs(door.at+door.width/2-7)<1e-8);assert.deepEqual([state.model.garage.x,state.model.garage.z],origin);
+click('[data-view=dollhouse]');app.pick_scene(JSON.stringify({kind:'opening',id:door.id,wallId:door.wallId}));q('#edit-at').value=10;q('#edit-width').value=door.width;q('#edit-height').value=door.height;click('[data-action=edit-save-opening]');assert.equal(state.model.openings.find(o=>o.id===door.id).at,10,'3D opening editor persists moved garage access');
+click('[data-tab=layout]');change('[data-field=garage]','None');change('[data-field=stories]',2);change('[data-field=dormerStyle]','Gable');q('[data-section=exterior]').open=true;assert.equal(q('[data-field=dormerCount]').options.length,6);change('[data-field=dormerCount]',6);assert.equal(state.config.dormerCount,6);
+console.log('PASS: 43 complete wallpapers, 24 vinyl choices, per-room override/reset, preserved disclosure, walkthrough-only pad, garage position/3D opening edit and six dormer control.');
