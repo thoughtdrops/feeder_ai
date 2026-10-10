@@ -1,0 +1,279 @@
+{
+  "references": [
+    {
+      "style": "Contemporary",
+      "design": "William B. Wiener House",
+      "source_url": "https://www.loc.gov/item/la0776/",
+      "images": [],
+      "observed": "Historic modernist predecessor; HABS LA-187; sheets 5 (plan) and 8 (elevation). Contemporary model is a source-informed adaptation.",
+      "rights": "Original U.S. government HABS measured drawing; reuse guidance: https://wwws.loc.gov/rr/print/res/114_habs.html",
+      "modelBasis": "Source-informed adaptation on 2-foot grid; not exact replica or current permit/structural approval.",
+      "selectedSheets": [
+        5,
+        8
+      ],
+      "sourceImageUrls": [
+        "https://tile.loc.gov/storage-services/service/pnp/habshaer/la/la0700/la0776/sheet/00005v.jpg",
+        "https://tile.loc.gov/storage-services/service/pnp/habshaer/la/la0700/la0776/sheet/00008v.jpg"
+      ],
+      "downloadStatus": "unavailable: original source image endpoint returned HTTP 403",
+      "downloadErrors": [
+        "HTTP Error 403: Forbidden",
+        "HTTP Error 403: Forbidden"
+      ],
+      "sourceUrl": "https://www.loc.gov/item/la0776/",
+      "builder": "Historic American Buildings Survey reference. Builder attribution is not established in the selected model record; see the original archive for its measured drawings and history."
+    },
+    {
+      "style": "Georgian",
+      "design": "Poplar Hill",
+      "source_url": "https://www.loc.gov/item/md0568/",
+      "images": [],
+      "observed": "Sheet 1 includes measured plans and elevations; Georgian historical precedent.",
+      "rights": "Original U.S. government HABS measured drawing; reuse guidance: https://wwws.loc.gov/rr/print/res/114_habs.html",
+      "modelBasis": "Source-informed adaptation on 2-foot grid; not exact replica or current permit/structural approval.",
+      "selectedSheets": [
+        1
+      ],
+      "sourceImageUrls": [
+        "https://tile.loc.gov/storage-services/service/pnp/habshaer/md/md0500/md0568/sheet/00001v.jpg"
+      ],
+      "downloadStatus": "unavailable: original source image endpoint returned HTTP 403",
+      "downloadErrors": [
+        "HTTP Error 403: Forbidden"
+      ],
+      "sourceUrl": "https://www.loc.gov/item/md0568/",
+      "builder": "Historic American Buildings Survey reference. Builder attribution is not established in the selected model record; see the original archive for its measured drawings and history."
+    },
+    {
+      "style": "Victorian",
+      "design": "Sears Modern Homes No. 114 (1911)",
+      "source_url": "https://archive.org/download/modernhomes00sear/modernhomes00sear.pdf",
+      "images": [
+        "/references/victorian-source.jpg"
+      ],
+      "observed": "Main body approximately 26 \u00d7 46 feet; two stories; hip roof with unequal crossing gables; printed page 51.",
+      "rights": "Public-domain United States catalog (published 1911).",
+      "modelBasis": "Source-informed adaptation on 2-foot grid; not exact replica or current permit/structural approval.",
+      "downloadStatus": "restored",
+      "sourceUrl": "https://archive.org/download/modernhomes00sear/modernhomes00sear.pdf",
+      "builder": "Sears, Roebuck and Co. \u00b7 Modern Homes catalog, 1911. The catalog supplied the design and building materials; local builders assembled the house."
+    },
+    {
+      "style": "Modern farmhouse",
+      "design": "Gordon-Van Tine No. 503 (1927)",
+      "source_url": "https://archive.org/download/GorddonVanTineCoGordonVanTinehomes19270001/GorddonVanTineCoGordonVanTinehomes19270001.pdf",
+      "images": [
+        "/references/modern-farmhouse-source.jpg"
+      ],
+      "observed": "Historical farmhouse precedent with hip roof; approximately 30 \u00d7 32 feet; two stories; printed page 30. Modern farmhouse interpretation is an adaptation.",
+      "rights": "Public Domain Mark 1.0 on Internet Archive; United States catalog published 1927.",
+      "modelBasis": "Source-informed adaptation on 2-foot grid; not exact replica or current permit/structural approval.",
+      "downloadStatus": "restored",
+      "sourceUrl": "https://archive.org/download/GorddonVanTineCoGordonVanTinehomes19270001/GorddonVanTineCoGordonVanTinehomes19270001.pdf",
+      "builder": "Gordon-Van Tine Co. \u00b7 Homes catalog, 1927. Factory-supplied house designs and materials were assembled by local builders."
+    },
+    {
+      "style": "Craftsman",
+      "design": "Sears Modern Homes No. 146 (1911)",
+      "source_url": "https://archive.org/download/modernhomes00sear/modernhomes00sear.pdf",
+      "images": [
+        "/references/craftsman-source.jpg"
+      ],
+      "observed": "Cross-gabled two-story house, approximately 30 \u00d7 38 feet; printed page 4.",
+      "rights": "Public-domain United States catalog (published 1911).",
+      "modelBasis": "Source-informed adaptation on 2-foot grid; not exact replica or current permit/structural approval.",
+      "downloadStatus": "restored",
+      "sourceUrl": "https://archive.org/download/modernhomes00sear/modernhomes00sear.pdf",
+      "builder": "Sears, Roebuck and Co. \u00b7 Modern Homes catalog, 1911. The catalog supplied the design and building materials; local builders assembled the house."
+    },
+    {
+      "style": "Tudor",
+      "design": "Gordon-Van Tine No. 619 (1927)",
+      "source_url": "https://archive.org/download/GorddonVanTineCoGordonVanTinehomes19270001/GorddonVanTineCoGordonVanTinehomes19270001.pdf",
+      "images": [
+        "/references/tudor-source.jpg"
+      ],
+      "observed": "Cross-gabled two-story house, approximately 26 \u00d7 28 feet; printed page 38.",
+      "rights": "Public Domain Mark 1.0 on Internet Archive; United States catalog published 1927.",
+      "modelBasis": "Source-informed adaptation on 2-foot grid; not exact replica or current permit/structural approval.",
+      "downloadStatus": "restored",
+      "sourceUrl": "https://archive.org/download/GorddonVanTineCoGordonVanTinehomes19270001/GorddonVanTineCoGordonVanTinehomes19270001.pdf",
+      "builder": "Gordon-Van Tine Co. \u00b7 Homes catalog, 1927. Factory-supplied house designs and materials were assembled by local builders."
+    },
+    {
+      "style": "Cape Cod",
+      "design": "Solomon Howes House",
+      "source_url": "https://www.loc.gov/item/ma0496/",
+      "images": [],
+      "observed": "Historical gambrel-roof Cape Cod variant; approximately 40 \u00d7 30 feet; sheets 1 and 2.",
+      "rights": "Original U.S. government HABS measured drawing; reuse guidance: https://wwws.loc.gov/rr/print/res/114_habs.html",
+      "modelBasis": "Source-informed adaptation on 2-foot grid; not exact replica or current permit/structural approval.",
+      "selectedSheets": [
+        1,
+        2
+      ],
+      "sourceImageUrls": [
+        "https://tile.loc.gov/storage-services/service/pnp/habshaer/ma/ma0400/ma0496/sheet/00001v.jpg",
+        "https://tile.loc.gov/storage-services/service/pnp/habshaer/ma/ma0400/ma0496/sheet/00002v.jpg"
+      ],
+      "downloadStatus": "unavailable: original source image endpoint returned HTTP 403",
+      "downloadErrors": [
+        "HTTP Error 403: Forbidden",
+        "HTTP Error 403: Forbidden"
+      ],
+      "sourceUrl": "https://www.loc.gov/item/ma0496/",
+      "builder": "Historic American Buildings Survey reference. Builder attribution is not established in the selected model record; see the original archive for its measured drawings and history."
+    },
+    {
+      "style": "Colonial",
+      "design": "Gordon-Van Tine No. 604 (1927)",
+      "source_url": "https://archive.org/download/GorddonVanTineCoGordonVanTinehomes19270001/GorddonVanTineCoGordonVanTinehomes19270001.pdf",
+      "images": [
+        "/references/colonial-source.jpg"
+      ],
+      "observed": "Gabled two-story house, approximately 40 \u00d7 36 feet; printed page 40.",
+      "rights": "Public Domain Mark 1.0 on Internet Archive; United States catalog published 1927.",
+      "modelBasis": "Source-informed adaptation on 2-foot grid; not exact replica or current permit/structural approval.",
+      "downloadStatus": "restored",
+      "sourceUrl": "https://archive.org/download/GorddonVanTineCoGordonVanTinehomes19270001/GorddonVanTineCoGordonVanTinehomes19270001.pdf",
+      "builder": "Gordon-Van Tine Co. \u00b7 Homes catalog, 1927. Factory-supplied house designs and materials were assembled by local builders."
+    },
+    {
+      "style": "French country",
+      "design": "Gordon-Van Tine No. 602 (1927)",
+      "source_url": "https://archive.org/download/GorddonVanTineCoGordonVanTinehomes19270001/GorddonVanTineCoGordonVanTinehomes19270001.pdf",
+      "images": [
+        "/references/french-country-source.jpg"
+      ],
+      "observed": "Hipped-roof two-story house, approximately 44 \u00d7 40 feet; printed page 37. Historical catalog precedent for a French country adaptation.",
+      "rights": "Public Domain Mark 1.0 on Internet Archive; United States catalog published 1927.",
+      "modelBasis": "Source-informed adaptation on 2-foot grid; not exact replica or current permit/structural approval.",
+      "downloadStatus": "restored",
+      "sourceUrl": "https://archive.org/download/GorddonVanTineCoGordonVanTinehomes19270001/GorddonVanTineCoGordonVanTinehomes19270001.pdf",
+      "builder": "Gordon-Van Tine Co. \u00b7 Homes catalog, 1927. Factory-supplied house designs and materials were assembled by local builders."
+    },
+    {
+      "style": "Scandinavian",
+      "design": "Villa Snellman, Gunnar Asplund (1917)",
+      "source_url": "https://digitaltmuseum.se/011024933185",
+      "images": [],
+      "observed": "Historical Nordic classicism precedent. The modern Scandinavian minimal interpretation remains a model adaptation; original ArkDes museum drawing selected in prior research.",
+      "rights": "Public Domain Mark (ArkDes / DigitaltMuseum original drawing).",
+      "modelBasis": "Source-informed adaptation on 2-foot grid; not exact replica or current permit/structural approval.",
+      "downloadStatus": "unavailable: DigitaltMuseum page returned HTTP 403",
+      "sourceUrl": "https://digitaltmuseum.se/011024933185",
+      "builder": "Gunnar Asplund \u00b7 Villa Snellman, 1917. Nordic classical precedent adapted to the selected Scandinavian style."
+    },
+    {
+      "style": "Mid-century",
+      "design": "Farnsworth House",
+      "source_url": "https://www.loc.gov/item/il0323/",
+      "images": [],
+      "observed": "Nearly flat roof, approximately 54 \u00d7 28 feet, one story; sheets 3 and 4.",
+      "rights": "Original U.S. government HABS measured drawing; reuse guidance: https://wwws.loc.gov/rr/print/res/114_habs.html",
+      "modelBasis": "Source-informed adaptation on 2-foot grid; not exact replica or current permit/structural approval.",
+      "selectedSheets": [
+        3,
+        4
+      ],
+      "sourceImageUrls": [
+        "https://tile.loc.gov/storage-services/service/pnp/habshaer/il/il0300/il0323/sheet/00003v.jpg",
+        "https://tile.loc.gov/storage-services/service/pnp/habshaer/il/il0300/il0323/sheet/00004v.jpg"
+      ],
+      "downloadStatus": "unavailable: original source image endpoint returned HTTP 403",
+      "downloadErrors": [
+        "HTTP Error 403: Forbidden",
+        "HTTP Error 403: Forbidden"
+      ],
+      "sourceUrl": "https://www.loc.gov/item/il0323/",
+      "builder": "Historic American Buildings Survey reference. Builder attribution is not established in the selected model record; see the original archive for its measured drawings and history."
+    },
+    {
+      "style": "Ranch",
+      "design": "Historic ranch duplex",
+      "source_url": "https://www.loc.gov/item/nj1854/",
+      "images": [],
+      "observed": "Side-gable historical ranch duplex precedent. Model adapts one unit at approximately 48 \u00d7 28 feet, one story; sheets 1 and 2.",
+      "rights": "Original U.S. government HABS measured drawing; reuse guidance: https://wwws.loc.gov/rr/print/res/114_habs.html",
+      "modelBasis": "Source-informed adaptation on 2-foot grid; not exact replica or current permit/structural approval.",
+      "selectedSheets": [
+        1,
+        2
+      ],
+      "sourceImageUrls": [
+        "https://tile.loc.gov/storage-services/service/pnp/habshaer/nj/nj1800/nj1854/sheet/00001v.jpg",
+        "https://tile.loc.gov/storage-services/service/pnp/habshaer/nj/nj1800/nj1854/sheet/00002v.jpg"
+      ],
+      "downloadStatus": "unavailable: original source image endpoint returned HTTP 403",
+      "downloadErrors": [
+        "HTTP Error 403: Forbidden",
+        "HTTP Error 403: Forbidden"
+      ],
+      "sourceUrl": "https://www.loc.gov/item/nj1854/",
+      "builder": "Historic American Buildings Survey reference. Builder attribution is not established in the selected model record; see the original archive for its measured drawings and history."
+    },
+    {
+      "style": "English cottage",
+      "design": "Gordon-Van Tine No. 628 (1927)",
+      "source_url": "https://archive.org/download/GorddonVanTineCoGordonVanTinehomes19270001/GorddonVanTineCoGordonVanTinehomes19270001.pdf",
+      "images": [
+        "/references/english-cottage-source.jpg"
+      ],
+      "observed": "Clipped-gable two-story house, approximately 24 \u00d7 28 feet; printed page 29.",
+      "rights": "Public Domain Mark 1.0 on Internet Archive; United States catalog published 1927.",
+      "modelBasis": "Source-informed adaptation on 2-foot grid; not exact replica or current permit/structural approval.",
+      "downloadStatus": "restored",
+      "sourceUrl": "https://archive.org/download/GorddonVanTineCoGordonVanTinehomes19270001/GorddonVanTineCoGordonVanTinehomes19270001.pdf",
+      "builder": "Gordon-Van Tine Co. \u00b7 Homes catalog, 1927. Factory-supplied house designs and materials were assembled by local builders."
+    },
+    {
+      "style": "Coastal",
+      "design": "Historic coastal house",
+      "source_url": "https://www.loc.gov/item/sc1181/",
+      "images": [],
+      "observed": "Hipped-roof historical coastal precedent, approximately 40 \u00d7 44 feet, two stories; sheet 4 plan and sheet 6 elevation.",
+      "rights": "Original U.S. government HABS measured drawing; reuse guidance: https://wwws.loc.gov/rr/print/res/114_habs.html",
+      "modelBasis": "Source-informed adaptation on 2-foot grid; not exact replica or current permit/structural approval.",
+      "selectedSheets": [
+        4,
+        6
+      ],
+      "sourceImageUrls": [
+        "https://tile.loc.gov/storage-services/service/pnp/habshaer/sc/sc1100/sc1181/sheet/00004v.jpg",
+        "https://tile.loc.gov/storage-services/service/pnp/habshaer/sc/sc1100/sc1181/sheet/00006v.jpg"
+      ],
+      "downloadStatus": "unavailable: original source image endpoint returned HTTP 403",
+      "downloadErrors": [
+        "HTTP Error 403: Forbidden",
+        "HTTP Error 403: Forbidden"
+      ],
+      "sourceUrl": "https://www.loc.gov/item/sc1181/",
+      "builder": "Historic American Buildings Survey reference. Builder attribution is not established in the selected model record; see the original archive for its measured drawings and history."
+    },
+    {
+      "style": "Industrial",
+      "design": "Historic steel house",
+      "source_url": "https://www.loc.gov/item/in0358/",
+      "images": [],
+      "observed": "Low/flat-roof steel-house precedent, approximately 40 \u00d7 36 feet, two stories; sheets 1 and 3.",
+      "rights": "Original U.S. government HABS measured drawing; reuse guidance: https://wwws.loc.gov/rr/print/res/114_habs.html",
+      "modelBasis": "Source-informed adaptation on 2-foot grid; not exact replica or current permit/structural approval.",
+      "selectedSheets": [
+        1,
+        3
+      ],
+      "sourceImageUrls": [
+        "https://tile.loc.gov/storage-services/service/pnp/habshaer/in/in0300/in0358/sheet/00001v.jpg",
+        "https://tile.loc.gov/storage-services/service/pnp/habshaer/in/in0300/in0358/sheet/00003v.jpg"
+      ],
+      "downloadStatus": "unavailable: original source image endpoint returned HTTP 403",
+      "downloadErrors": [
+        "HTTP Error 403: Forbidden",
+        "HTTP Error 403: Forbidden"
+      ],
+      "sourceUrl": "https://www.loc.gov/item/in0358/",
+      "builder": "Historic American Buildings Survey reference. Builder attribution is not established in the selected model record; see the original archive for its measured drawings and history."
+    }
+  ]
+}
