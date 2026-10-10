@@ -426,3 +426,41 @@ fn balconies_have_an_actual_upper_door_supports_and_itemized_materials(){
  let mut concrete=c.clone();concrete.foundation=piers::CONCRETE.into();let m=model::build(&concrete);assert!(m["items"].as_array().unwrap().iter().any(|i|s(i,"id")=="crawl-wall"));assert!(!m["items"].as_array().unwrap().iter().any(|i|s(i,"id").starts_with("pier-")));
  let mut bad=c.clone();bad.foundation="Slab".into();assert!(validate(&bad).is_err());bad=c.clone();bad.pier_depth=40.;assert!(validate(&bad).is_err());
 }
+#[test]fn three_story_homes_stack_floors_stairs_and_one_roof(){
+ let styles:Vec<String>=catalog()["homeStyles"].as_array().unwrap().iter().map(|v|s(v,"name").to_string()).collect();
+ let mut checked=0;
+ for style in &styles{for catalog_plan in [true,false]{for beds in [1usize,3,4]{
+  let mut c=Config::default();c.home_style=style.clone();architecture::apply(&mut c,true);c.catalog_plan=catalog_plan;c.stories=3;c.bedrooms=beds;c.width=c.width.max(28.);c.depth=c.depth.max(architecture::minimum_depth(&c)).max(36.);
+  if validate(&c).is_err(){continue}
+  let m=model::build(&c);let levels=m["levels"].as_array().unwrap();assert_eq!(levels.len(),3,"{style}");checked+=1;
+  // Floor-specific ids: ground untagged, second "-L2", third "-L3".
+  for(f,level)in levels.iter().enumerate(){for r in level["rooms"].as_array().unwrap(){assert_eq!(tag_floor(s(r,"id")),f,"{style} room {} on floor {f}",s(r,"id"));}}
+  // The stairwell is in the same place on every floor.
+  let stair=|l:&Value|l["rooms"].as_array().unwrap().iter().find(|r|s(r,"type")=="stairs").map(|r|(n(r,"x"),n(r,"z"),n(r,"w"),n(r,"d")));
+  assert!(stair(&levels[0]).is_some(),"{style}: no stair");assert_eq!(stair(&levels[0]),stair(&levels[1]),"{style} {catalog_plan} {beds}");assert_eq!(stair(&levels[1]),stair(&levels[2]),"{style} {catalog_plan} {beds}");
+  // Bedrooms split across the two upper floors.
+  let beds_on=|f:usize|levels[f]["rooms"].as_array().unwrap().iter().filter(|r|s(r,"type")=="bedroom").count();
+  assert!(beds_on(1)+beds_on(2)<=beds&&beds_on(1)>=1,"{style} {catalog_plan} {beds}: {} + {}",beds_on(1),beds_on(2));
+ }}}
+ assert!(checked>=20,"only {checked} three-story combinations validated");
+ // One roof, one foundation, two floor decks and two stair flights.
+ let mut c=Config::default();c.stories=3;let m3=model::build(&c);let mut c2=c.clone();c2.stories=2;let m2=model::build(&c2);
+ let item=|m:&Value,id:&str|m["items"].as_array().unwrap().iter().find(|i|s(i,"id")==id).map(|i|n(i,"rawNet")).unwrap_or(0.);
+ assert!(near(item(&m3,"roofmetal"),item(&m2,"roofmetal")));assert!(near(item(&m3,"pier-leads"),n(&m3["foundation"],"piers")));
+ assert!(near(item(&m3,"stairrisers"),2.*item(&m2,"stairrisers")));assert!(near(item(&m3,"subfloor"),2.*item(&m2,"subfloor")));
+ let hole=c.width*c.depth*2.-n(&m2,"area");assert!(near(n(&m3,"area"),c.width*c.depth*3.-2.*hole));
+ let decks:std::collections::BTreeSet<i64>=m3["floorFrameMembers"].as_array().unwrap().iter().map(|v|(n(v,"y1")*100.).round()as i64).collect();assert_eq!(decks.len(),2,"joists sit at two deck heights");
+ assert!(n(&m3["foundation"],"houseKips")>n(&m2["foundation"],"houseKips"));
+ // Walls and exterior skin grow with the third story; there is still one water heater and service panel.
+ assert!(item(&m3,"zipwall")>item(&m2,"zipwall")*1.3);assert!(near(item(&m3,"waterheater"),1.));assert!(near(item(&m3,"servicepanel"),1.));
+ let mut bad=c.clone();bad.stories=4;assert!(validate(&bad).is_err());
+}
+#[test]fn process_handoff_carries_the_whole_design(){
+ for stories in [1usize,2,3]{let mut c=Config::default();c.stories=stories;if stories==1{c.width=40.;c.depth=32.;}let m=model::build(&c);let h=process::handoff(&c,&m);
+  assert_eq!(n(&h,"width"),c.width);assert_eq!(n(&h,"stories"),stories as f64);let levels=h["levels"].as_array().unwrap();assert_eq!(levels.len(),stories);
+  for l in levels{let ws=l["walls"].as_array().unwrap();assert!(ws.iter().filter(|w|w["exterior"]==true).count()>=4);assert!(!l["rooms"].as_array().unwrap().is_empty());}
+  assert!(levels[0]["walls"].as_array().unwrap().iter().any(|w|w["openings"].as_array().unwrap().iter().any(|o|s(o,"kind")=="door")),"front door");
+  assert!(!h["roof"]["facets"].as_array().unwrap().is_empty());assert!(h["roof"]["facets"][0].as_array().unwrap().len()>=3);
+  assert_eq!(h["stair"].is_object(),stories>1);assert!(n(&h["foundation"],"piers")>0.);
+  assert!(security::parse(&serde_json::to_string(&c).unwrap()).is_ok(),"the return copy restores");}
+}

@@ -46,7 +46,7 @@ export function addRearOutdoor(root:T.Object3D,m:any,framing:boolean,wood:T.Mesh
 }
 
 export function addBalcony(root:T.Object3D,m:any,framing:boolean,wood:T.MeshStandardMaterial,whole:boolean){
- const p=m.balcony;if(!p||whole&&m.floorIndex||!whole&&!m.floorIndex||whole&&p.existingGallery)return;
+ const p=m.balcony;if(!p||whole&&m.floorIndex||!whole&&m.floorIndex!==1||whole&&p.existingGallery)return;
  const group=new T.Group();group.name='Connected upper balcony';root.add(group);const offset=whole?0:-m.floorHeight;
  const pt=(a:number[])=>point([a[0],a[1]+offset,a[2]],m);
  const box=(x:number,y:number,z:number,w:number,h:number,d:number,name:string)=>{const mesh=new T.Mesh(new T.BoxGeometry(w,h,d),wood);mesh.position.set(x-m.w/2,y+offset,z-m.d/2);mesh.castShadow=mesh.receiveShadow=true;mesh.name=name;group.add(mesh);};

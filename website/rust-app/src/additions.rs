@@ -48,8 +48,8 @@ pub fn apply(c:&Config,mut m:Value)->Value{
         let key=format!("windows-{}-{}-{}",kind,w,h);let entry=windows.entry(key).or_insert((0.,w,h,kind.into()));entry.0+=1.;
     }}
     for(id,(count,w,h,kind))in windows{t.add(&id,"Openings",&format!("{} window · {} × {} ft rough opening",kind,w,h),count,"units",(w*h*if kind=="Casement"{65.}else if kind=="Picture"{48.}else{55.}).max(220.),"Actual modeled opening size; retail allowance. Confirm product U-factor, design pressure, rough opening and bedroom escape dimensions.","Size-based retail allowance",false,true);}
-    if c.stories==2{
-        let area=(c.width*c.depth-if m["stair"].is_object(){n(&m["stair"]["opening"],"w")*n(&m["stair"]["opening"],"d")}else{0.}).max(0.);
+    if c.stories>=2{
+        let area=(c.stories-1)as f64*(c.width*c.depth-if m["stair"].is_object(){n(&m["stair"]["opening"],"w")*n(&m["stair"]["opening"],"d")}else{0.}).max(0.);
         t.add("floor-batts","Insulation","R-19 unfaced fiberglass floor / inter-story sound batts",area,"sq ft",0.85,"Inter-story floor area minus stair opening. Sound allowance for conditioned floors, not a thermal code requirement; no kraft facing between conditioned floors.","Area allowance",true,false);
     }
     let mut interior_cavity=0.;
