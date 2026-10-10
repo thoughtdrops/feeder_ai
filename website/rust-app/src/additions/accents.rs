@@ -39,5 +39,5 @@ pub fn apply(c:&Config,m:&mut Value,t:&mut model::Takeoff){
     t.add("accent-sealer","Architectural accents","Exterior roof / accent wood sealer · two coats",new_surface*2./350.,"gallons",65.,"Exposed and back faces of modeled roof trim and accent panels; approximate two-coat product coverage.","Surface allowance",true,true);
     let fasteners:f64=edges.iter().map(|e|(n(e,"length")/(16./12.)).ceil()+1.).sum::<f64>()+ornaments.len()as f64*2.+panel_area*2.+finials.len()as f64*4.;
     t.add("accent-fasteners","Architectural accents","Exterior accent fasteners · 250 pack",fasteners/250.,"packs",32.,"16 in roof-trim stations plus ornament and panel connection allowances. Final fastening and wind design pending.","Fastener allowance",true,true);
-    let data=json!({"style":style,"edges":edges,"ornaments":ornaments,"panels":panels,"finials":finials,"gableAccent":accent,"surfaceArea":new_surface});m["roofAccents"]=data.clone();if c.stories==2{m["levels"][1]["roofAccents"]=data;}
+    let data=json!({"style":style,"edges":edges,"ornaments":ornaments,"panels":panels,"finials":finials,"gableAccent":accent,"surfaceArea":new_surface});m["roofAccents"]=data.clone();if c.stories>=2{m["levels"][c.stories-1]["roofAccents"]=data;}
 }

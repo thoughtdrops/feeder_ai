@@ -3,7 +3,7 @@ use crate::*;
 #[derive(Clone)]
 pub struct Spec{pub side:&'static str,pub at:f64,pub x:f64,pub z:f64,pub w:f64,pub d:f64,pub existing:bool}
 pub fn planned(c:&Config)->Option<Spec>{
- if c.stories!=2||c.balcony=="None"||c.width<16.||c.depth<16.{return None}
+ if c.stories<2||c.balcony=="None"||c.width<16.||c.depth<16.{return None}
  if c.balcony=="Style matched"&&(c.design_mode=="Blank slate"||c.design_mode=="Affordable"||!["Victorian","Colonial","French country","Coastal"].contains(&c.home_style.as_str())){return None}
  let existing=c.balcony=="Style matched"&&c.home_style=="Colonial"&&(c.garage!="Attached"||c.garage_side=="Left");
  let side=if existing{"Right"}else{"Rear"};let mut cc=c.clone();cc.active_floor=1;let(rs,_)=layout(&cc);

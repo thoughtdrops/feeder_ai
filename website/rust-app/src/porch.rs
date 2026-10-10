@@ -34,7 +34,7 @@ pub fn design(c: &Config, ground: &Value) -> Value {
         if !["Colonial","English cottage"].contains(&c.home_style.as_str()){
             rectangles[0]["x"]=json!(if return_side=="Left"{-rw}else{x});rectangles[0]["w"]=json!(width+rw);
         }
-        let deck_ys=if c.home_style=="Colonial"&&c.stories==2{vec![0.2,0.2+c.wall_height+structural::floor_gap(c)]}else{vec![0.2]};
+        let deck_ys=if c.home_style=="Colonial"&&c.stories>=2{vec![0.2,0.2+c.wall_height+structural::floor_gap(c)]}else{vec![0.2]};
         rectangles.push(json!({"x":if return_side=="Left"{-rw}else{c.width},"z":0.,"w":rw,"d":rd,"roofType":"Hip","deckYs":deck_ys}));
     }
     let roof_height=c.wall_height-0.3;
@@ -70,10 +70,10 @@ pub fn design(c: &Config, ground: &Value) -> Value {
 }
 
 pub fn apply(c:&Config,mut m:Value)->Value{
-    let ground=if c.stories==2{&m["levels"][0]}else{&m};
+    let ground=if c.stories>=2{&m["levels"][0]}else{&m};
     let mut ground=ground.clone();ground["garage"]=m["garage"].clone();
     let porch=design(c,&ground);m["porch"]=porch.clone();
-    if c.stories==2{m["levels"][0]["porch"]=porch.clone();}
+    if c.stories>=2{m["levels"][0]["porch"]=porch.clone();}
     if porch.is_null(){return m}
     let mut t=model::Takeoff{items:vec![],c};let area=n(&porch,"area");let deck_area=n(&porch,"deckArea");let roof_area=n(&porch,"roofArea");
     let posts=porch["posts"].as_array().unwrap().len()as f64;

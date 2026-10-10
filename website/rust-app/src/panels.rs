@@ -55,9 +55,9 @@ fn partition_sound(c:&Config,level:&Value,ws:&[Wall],rs:&[Room])->f64{
 }
 pub fn apply(c:&Config,mut m:Value)->Value{
  let footprint=c.width*c.depth;let perimeter=2.*(c.width+c.depth);let floor_area=n(&m,"area");
- let upper_area=if c.stories==2{(floor_area-footprint).max(0.)}else{0.};
+ let upper_area=if c.stories>=2{(floor_area-footprint).max(0.)}else{0.};
  let main_ceiling=roof_panel_area(c,&json!({"roof":m["roof"]}));
- let roof_ceiling=roof_panel_area(c,&m);let lower_ceiling=if c.stories==2{upper_area}else{0.};
+ let roof_ceiling=roof_panel_area(c,&m);let lower_ceiling=if c.stories>=2{upper_area}else{0.};
  m["drywallCeiling"]=json!(round(roof_ceiling+lower_ceiling+if m["garage"].is_object(){576.}else{0.}));
  m["drywallTotal"]=json!(round(n(&m,"drywallWalls")+n(&m,"drywallCeiling")));
  if let Some(i)=m["items"].as_array_mut().unwrap().iter_mut().find(|i|s(i,"id")=="drywallceiling"){
@@ -112,7 +112,7 @@ pub fn apply(c:&Config,mut m:Value)->Value{
  add!("panel-reveals","Interior","Pre-painted drywall joint batten / reveal strips",joints+(n(&m,"drywallCeiling")/16.)+n(&m["garage"],"wallArea")*(1./4.+1./16.),"linear ft",1.2,"4 × 16 board-grid joints with shared edges counted once; cutting/joint layout allowance, trim counted separately.",false);
  add!("panel-sleeves","Plumbing","Coordinated wet-wall floor sleeve sets",sleeve_count*2,"sets",16.,"Drain and supply sleeve coordination per wet room; no drilling through I-joist flanges assumed.",true);
  add!("panel-holeplates","Fasteners","Wire / pipe hole protector plate allowance",sleeve_count*6,"each",1.1,"Coordinated penetrations only; drilling and nail-plate locations require installation drawings.",true);
- add!("panel-nailers","Floor framing","Upper-floor partition / track LSL nailers",if c.stories==2{n(&m["levels"][1],"partitionLength")}else{0.},"linear ft",2.75,"Continuous attachment allowance under upper partitions; track point loads need engineering.",false);
+ add!("panel-nailers","Floor framing","Upper-floor partition / track LSL nailers",(1..c.stories).map(|f|n(&m["levels"][f],"partitionLength")).sum::<f64>(),"linear ft",2.75,"Continuous attachment allowance under upper partitions; track point loads need engineering.",false);
  let roof_area=n(&m["roof"],"area");let insulated_roof=roof_panel_area(c,&m);
  for(id,name,price) in if c.roof_insulation=="R-49"{vec![("atticinsulation","R-49 kraft-faced roof fiberglass · paper down",2.1)]}else{vec![("atticinsulation","R-38 high-density kraft-faced roof fiberglass · paper down",1.8),("roof-r11","R-11 unfaced roof overlay fiberglass",0.65)]}{add!(id,"Insulation",name,insulated_roof,"sq ft of batts",price,"Sloped roof area over conditioned footprint, excluding overhangs; only the innermost layer is faced. Installed R-value requires the selected product/thickness; R-46 is not assumed.",false);}
  let rafter_count=m["rafters"].as_array().map_or(0,Vec::len);let channel_count=rafter_count.saturating_sub(m["roof"]["facets"].as_array().map_or(0,Vec::len));

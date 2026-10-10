@@ -15,13 +15,21 @@ const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced
 const fmtFtIn = v => { v = Math.max(0, v); const ft = Math.floor(v / 12 + 1e-6); return ft + "' " + Math.round(v - ft * 12) + '"'; };
 const fmtNum = v => Math.round(v).toLocaleString('en-US');
 const fmtHM = m => { m = Math.max(0, Math.round(m)); return Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') + ' m'; };
-const fmtClockMin = m => { const t = 7 * 60 + Math.round(m); let h = Math.floor(t / 60) % 24; const mm = t % 60, ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return h + ':' + String(mm).padStart(2, '0') + ' ' + ap; };
+const fmtClockMin = m => { const t = 7 * 60 + Math.round(m), day = Math.floor(t / 1440) + 1; let h = Math.floor(t / 60) % 24; const mm = t % 60, ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return h + ':' + String(mm).padStart(2, '0') + ' ' + ap + (day > 1 ? ` day ${day}` : ''); };
 
 /* ======================================================================
    One job site, in house coordinates (inches): x along the 32 ft front,
    z from the front wall (0) to the back wall (384), y up from grade.
    ====================================================================== */
 const L = 384;
+// The visitor's design, saved by the studio's "See our process" button: walls, openings, rooms,
+// stairwell, roof planes and pier layout, in feet. Without one (or with ?example=1) the example house is built.
+const STORED_DESIGN = (() => {
+  try { const d = JSON.parse(localStorage.getItem('uf-process-design') || 'null'); return d && d.version === 1 && Array.isArray(d.levels) && d.levels.length && d.width > 0 && d.depth > 0 ? d : null; } catch (e) { return null; }
+})();
+const DESIGN = /[?&]example=1\b/.test(location.search) ? null : STORED_DESIGN;
+const HW = DESIGN ? DESIGN.width * 12 : L, HD = DESIGN ? DESIGN.depth * 12 : L;   // house width (x) and depth (z)
+const SX = Math.max(0, HW - L);                                                  // truck, crane and stacks move right for wide houses
 
 // ---------- Pier Beam ----------
 const BEAM_L = 480, BEAM_H = 12.2, BEAM_TOP = 13.2, BEAM_CX = L / 2;
@@ -101,12 +109,44 @@ function autoGrid(stories, dIn) {
 }
 setGrid(16);
 autoGrid(3, 288);
+// Pier Beam setups: one row of piers, up to four within the beam's reach. The example house is one setup per row;
+// a wide design takes several setups per row, worked back and forth across the house.
+let SETUPS = [];
+const REACH = BEAM_L - 60;
+function setupsFor(xs, zs) {
+  const out = [];
+  zs.forEach((z, r) => {
+    const groups = []; let g = [];
+    xs.forEach((x) => { if (g.length && (g.length >= 4 || x - g[0] > REACH)) { groups.push(g); g = []; } g.push(x); });
+    if (g.length) groups.push(g);
+    (r % 2 ? groups.reverse() : groups).forEach((xs2) => out.push({ z, cx: (xs2[0] + xs2[xs2.length - 1]) / 2, xs: xs2 }));
+  });
+  return out;
+}
+const SET = () => SETUPS[Math.min(P.row, SETUPS.length - 1)];
+const NEXT = () => SETUPS[Math.min(P.row + 1, SETUPS.length - 1)];
+const TOTAL_PIERS = () => SETUPS.reduce((a, s) => a + s.xs.length, 0);
+// the design's pier layout, with the studio's own rule: girder lines under both side walls and every 16 ft floor-panel
+// joint, piers along each line at 16 ft or closer, added until they carry the house at the set depth
+const DG = { need: 0, load: 0, kips: 0, spacing: 16, lines: 0, rows: 0 };
+function designGrid() {
+  const W = DESIGN.width, Dp = DESIGN.depth;
+  const load = W * Dp * HOUSE_KIPS[clamp(DESIGN.stories, 1, 3)] / 1024, kips = pierKips(P.depthIn), need = Math.ceil(load / kips - 1e-9);
+  const lines = []; for (let x = 0; x < W - 1e-6; x += 16) lines.push(x); lines.push(W);
+  let perLine = Math.ceil(Dp / 16 - 1e-9) + 1; while (lines.length * perLine < need) perLine++;
+  const at = (ft, size) => clamp(ft * 12, 3.25, size - 3.25);
+  GRID.PX = lines.map((x) => at(x, HW));
+  GRID.RZ = Array.from({ length: perLine }, (_, i) => at(Dp * i / (perLine - 1), HD)).reverse();
+  GRID.spacingFt = Dp / (perLine - 1); GRID.auto = true;
+  Object.assign(DG, { need, load: Math.round(load), kips, spacing: GRID.spacingFt, lines: lines.length, rows: perLine });
+  SETUPS = setupsFor(GRID.PX, GRID.RZ);
+}
 // where each of the 4 heads sits on the beam: used heads on the piers, spare heads parked in the widest gaps
 function headSlots() {
-  const used = GRID.PX.slice(), parked = [];
-  const pts = used.slice();
+  const used = SET().xs.slice(), parked = [];
+  const pts = used.slice(), ends = [SET().cx - BEAM_L / 2 + 30, SET().cx + BEAM_L / 2 - 30];
   while (pts.length + parked.length < 4) {
-    const all = pts.concat(parked).sort((a, b) => a - b);
+    const all = pts.concat(parked, ends).sort((a, b) => a - b);
     let best = 0, at = 0;
     for (let i = 1; i < all.length; i++) if (all[i] - all[i - 1] > best) { best = all[i] - all[i - 1]; at = (all[i] + all[i - 1]) / 2; }
     parked.push(at);
@@ -114,7 +154,7 @@ function headSlots() {
   return used.concat(parked);
 }
 
-const P = { phase: 'idle', row: 0, t: 0, time: 0, depthIn: 288, nHeads: 3, slack: 1, gate: 0, lift: 0, slide: 0, chains: true, kwh: 0, kwNow: 0, archive: [], rowDone: [], rowStart: [], events: [] };
+const P = { phase: 'idle', row: 0, t: 0, time: 0, depthIn: DESIGN && DESIGN.foundation && DESIGN.foundation.depthFeet ? clamp(DESIGN.foundation.depthFeet, 10, 34) * 12 : 288, nHeads: 3, slack: 1, gate: 0, lift: 0, slide: 0, chains: true, kwh: 0, kwNow: 0, archive: [], rowDone: [], rowStart: [], events: [] };
 let heads = [];
 function newHead(k) {
   const active = k < P.nHeads;
@@ -123,7 +163,7 @@ function newHead(k) {
     ring: 0, ring0: 0, home: 0, kwh: 0, lens: [], nextLen: EXT_LEN, log: [], logD: -99,
     arm: 0, rem: 0, cutDone: false, cutLens: null, cutCl: 0, chuck0: CH_TOP, boltP: 0, capP: 0 };
 }
-function resetHeads() { heads = [0, 1, 2, 3].map(newHead); }
+function resetHeads() { if (SETUPS.length) P.nHeads = SET().xs.length; heads = [0, 1, 2, 3].map(newHead); }
 const pileLen = h => h.lens.reduce((a, v) => a + v, 0);
 const pileTop = h => pileLen(h) - h.depth;
 function go(h, st) { h.state = st; h.t = 0; if (P.events) P.events.push([h.k, st]); }
@@ -247,15 +287,17 @@ function stepHeads(d) {
   P.kwNow = heads.reduce((a, h) => a + h.kw, 0) + AUX_KW;
   P.kwh += P.kwNow * d / 3600;
 }
-const rigZ = () => (GRID.RZ[P.row] - PZ) - P.slide;
+// the beam sits on the current setup, slides toward the next one while moving, and backs off the last one when clearing
+const clearing = () => P.phase === 'clear' || P.phase === 'done';
+const rigZ = () => (clearing() ? SET().z - 72 * P.slide : lerp(SET().z, NEXT().z, P.slide)) - PZ;
+const rigX = () => (clearing() ? SET().cx : lerp(SET().cx, NEXT().cx, P.slide));
 function initPier() {
   P.treq = Math.min(T_MAX, 0.95 * torqueBase(P.depthIn));
   Object.assign(P, { phase: 'anchor', row: 0, t: 0, time: 0, slack: 1, gate: 0, lift: 0, slide: 0, chains: true, kwh: 0, kwNow: 0, archive: [], rowDone: [], rowStart: [0], events: [] });
-  P.nHeads = GRID.PX.length;
   resetHeads();
 }
 function archiveRow() {
-  heads.filter(h => h.state === 'done').forEach(h => P.archive.push({ row: P.row, k: h.k, x: GRID.PX[h.k], z: GRID.RZ[P.row], depth: h.depth, theta: h.theta, lens: h.cutLens.slice(), torque: h.torque, kwh: h.kwh, posed: false }));
+  heads.filter(h => h.state === 'done').forEach(h => P.archive.push({ row: P.row, k: h.k, x: SET().xs[h.k], z: SET().z, depth: h.depth, theta: h.theta, lens: h.cutLens.slice(), torque: h.torque, kwh: h.kwh, posed: false }));
 }
 // one fixed step of the whole Pier Beam job: anchor, drive, move, ... clear
 function stepPier() {
@@ -271,17 +313,16 @@ function stepPier() {
       if (heads.every(isDone)) {
         archiveRow();
         P.rowDone[P.row] = P.time;
-        P.phase = P.row < GRID.RZ.length - 1 ? 'move' : 'clear'; P.t = 0;
+        P.phase = P.row < SETUPS.length - 1 ? 'move' : 'clear'; P.t = 0;
       }
       break;
     case 'move':
     case 'clear': {
       const dur = P.phase === 'move' ? MOVE_S : CLEAR_S, u = P.t / dur;
-      const dist = P.phase === 'move' ? GRID.RZ[P.row] - GRID.RZ[P.row + 1] : 72;
       P.slack = smooth(u / 0.12); P.chains = u < 0.13;
       P.gate = u < 0.3 ? smooth((u - 0.13) / 0.12) : 1 - smooth((u - 0.86) / 0.12);
       P.lift = 2.5 * (smooth((u - 0.25) / 0.06) - smooth((u - 0.86) / 0.08));
-      P.slide = dist * smooth((u - 0.32) / 0.52);
+      P.slide = smooth((u - 0.32) / 0.52);
       if (P.t >= dur) {
         P.gate = 0; P.lift = 0;
         if (P.phase === 'move') { P.row++; P.slide = 0; P.slack = 1; P.chains = true; P.phase = 'anchor'; P.t = 0; P.rowStart[P.row] = P.time; resetHeads(); }
@@ -293,7 +334,7 @@ function stepPier() {
 }
 
 /* ---------- House ---------- */
-const GIRDER_D = 11.875, GIRDER_W = 5.25, FLOOR_T = 12.625, WALL_H = 96, EXT_T = 6.5, INT_T = 4.5, ROOF_T = 12;
+const GIRDER_D = 11.875, GIRDER_W = 5.25, FLOOR_T = DESIGN ? 16.71875 : 12.625, WALL_H = DESIGN ? DESIGN.wallHeight * 12 : 96, EXT_T = 6.5, INT_T = 4.5, ROOF_T = DESIGN ? 16.625 : 12;
 const PITCH_A = Math.atan(10 / 12), ROOF_SLOPE = 264;
 const RISE = (L / 2) * Math.tan(PITCH_A);
 const GIRDER_BOT = PIER_TOP + CAP_T;
@@ -347,10 +388,40 @@ function stagesFor(kind) {
   return base.map(([n, m]) => [n, m * tot / sum]);
 }
 const qId = new THREE.Quaternion();
+// polygons are [[x, y], ...]; clip to a rectangle (Sutherland-Hodgman), area, and the spans a line cuts through them
+function clipRect(poly, x0, x1, y0, y1) {
+  let out = poly;
+  [[(p) => p[0] >= x0, (a, b) => [x0, a[1] + (b[1] - a[1]) * (x0 - a[0]) / (b[0] - a[0])]],
+   [(p) => p[0] <= x1, (a, b) => [x1, a[1] + (b[1] - a[1]) * (x1 - a[0]) / (b[0] - a[0])]],
+   [(p) => p[1] >= y0, (a, b) => [a[0] + (b[0] - a[0]) * (y0 - a[1]) / (b[1] - a[1]), y0]],
+   [(p) => p[1] <= y1, (a, b) => [a[0] + (b[0] - a[0]) * (y1 - a[1]) / (b[1] - a[1]), y1]]].forEach(([inside, cut]) => {
+    const src = out; out = [];
+    src.forEach((cur, i) => { const prev = src[(i + src.length - 1) % src.length]; if (inside(cur)) { if (!inside(prev)) out.push(cut(prev, cur)); out.push(cur); } else if (inside(prev)) out.push(cut(prev, cur)); });
+  });
+  return out;
+}
+const polyArea = (poly) => Math.abs(poly.reduce((a, p, i) => { const q = poly[(i + 1) % poly.length]; return a + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2;
+// spans along x where the horizontal line y = v crosses the polygon (axis 1), or along y at x = v (axis 0)
+function polySpans(poly, v, axis) {
+  const a = axis === 0 ? 0 : 1, b = 1 - a, hits = [];
+  poly.forEach((p, i) => { const q = poly[(i + 1) % poly.length]; if ((p[a] <= v) !== (q[a] <= v)) hits.push(p[b] + (q[b] - p[b]) * (v - p[a]) / (q[a] - p[a])); });
+  hits.sort((m, n) => m - n);
+  const spans = []; for (let i = 0; i + 1 < hits.length; i += 2) spans.push([hits[i], hits[i + 1]]);
+  return spans;
+}
+// a flat panel outline extruded to a thickness, centered on y like the job site's flat panels
+function polyGeo(poly, thick) {
+  const sh = new THREE.Shape(); poly.forEach(([x, z], i) => (i ? sh.lineTo(x, z) : sh.moveTo(x, z))); sh.closePath();
+  const geo = new THREE.ExtrudeGeometry(sh, { depth: thick, bevelEnabled: false, curveSegments: 1 });
+  geo.rotateX(PI / 2); geo.translate(0, thick / 2, 0);
+  return geo;
+}
 const qZ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -PI / 2);
+const GIRDERS = { n: 0 };
 let ELEMS = [], STORIES = 3, RIDGE_Y = 0, TOP_S = 2;
-function buildElems(stories) {
-  STORIES = stories; TOP_S = stories - 1; RIDGE_Y = yWallTop(TOP_S) + RISE;
+function buildElems(stories, rowReady) {
+  if (DESIGN) return buildDesignElems(rowReady);
+  STORIES = stories; TOP_S = stories - 1; RIDGE_Y = yWallTop(TOP_S) + RISE; GIRDERS.n = GRID.RZ.length;
   const E = [];
   const add = (e) => { const st = stagesFor(e.kind); e.stages = st; e.fab = st ? st.reduce((a, s) => a + s[1], 0) : 0; e.set = SET_MIN; e.idx = E.length; E.push(e); return e; };
   const wall = (kind, name, s, dir, ox, oz, len, thick, openings, extra) => {
@@ -361,7 +432,7 @@ function buildElems(stories) {
   };
   // girders: one per pier row, set as soon as that row is finished and the beam has moved off
   const girders = GRID.RZ.map((z, r) => ({ kind: 'girder', name: `Girder on pier row ${r + 1}`, story: -1, shape: 'box', len: L, h: GIRDER_D, thick: GIRDER_W,
-    pos: new THREE.Vector3(L / 2, GIRDER_BOT + GIRDER_D / 2, z), quat: qId.clone(), top: GIRDER_BOT + GIRDER_D, row: r }));
+    pos: new THREE.Vector3(L / 2, GIRDER_BOT + GIRDER_D / 2, z), quat: qId.clone(), top: GIRDER_BOT + GIRDER_D, row: r, gi: r }));
   const plans = STORY_PLANS[stories];
   const floorPanel = (s, b) => add({ kind: 'floor', name: `${STORY[s]} deck, ${b ? 'back' : 'front'} 16 × 32 panel`, story: s, shape: 'floor', len: L, h: FLOOR_T, thick: 192,
     hole: b && s > 0 && stories > 1 ? STAIR : null, zoff: b * 192, pos: new THREE.Vector3(L / 2, yFloorTop(s) - FLOOR_T / 2, 96 + b * 192), quat: qId.clone(), top: yFloorTop(s),
@@ -405,6 +476,178 @@ function buildElems(stories) {
   ELEMS = E;
   return E;
 }
+
+/* ---------- The visitor's house, element by element, in install order ---------- */
+// Same panel system as the example house, sized from the design: 16 ft floor-panel strips with the stairwell cut out,
+// exterior walls split into factory panels of at most 32 ft at joints clear of every opening, interior walls with their
+// doors, gable infill above the top walls, ridge, hip and valley beams, and roof panels cut from each real roof plane.
+function buildDesignElems(rowReady) {
+  const D = DESIGN, E = [], ft = (v) => v * 12, near = (a, b) => Math.abs(a - b) < 0.05, feet = (v) => `${Math.round(v * 10) / 10}`;
+  STORIES = clamp(D.stories, 1, 3); TOP_S = STORIES - 1;
+  const size = (e) => e.kind === 'floor' ? (e.len * e.thick) / (L * 192) : e.kind === 'roof' ? polyArea(e.poly) / (L * ROOF_SLOPE) : e.kind === 'gable' ? e.len / L * 0.7 : e.len / L;
+  const add = (e) => {
+    const k = clamp(size(e), 0.25, 1.25), st = stagesFor(e.kind).map(([n, m]) => [n, m * k]);
+    e.stages = st; e.fab = st.reduce((a, x) => a + x[1], 0); e.set = SET_MIN; e.idx = E.length; E.push(e); return e;
+  };
+  const wall = (kind, name, s, dir, ox, oz, len, thick, openings, extra) => {
+    const y0 = yFloorTop(s), h = WALL_H;
+    const q = dir === 'x' ? qId.clone() : qZ.clone();
+    const c = dir === 'x' ? new THREE.Vector3(ox + len / 2, y0 + h / 2, oz + thick / 2) : new THREE.Vector3(ox - thick / 2, y0 + h / 2, oz + len / 2);
+    return add(Object.assign({ kind, name, story: s, shape: 'wall', len, h, thick, openings: openings || [], pos: c, quat: q, top: y0 + h }, extra || {}));
+  };
+  // cut a run into factory panels of at most 32 ft, at joints at least 6 in. from every opening
+  const splitRun = (len, ops) => {
+    const n = Math.ceil(len / L - 1e-9); if (n <= 1) return [[0, len]];
+    const cuts = [0];
+    for (let i = 1; i < n; i++) {
+      const ideal = len * i / n; let best = null;
+      for (let d = 0; d <= 120 && best == null; d += 3) for (const c of [ideal - d, ideal + d]) {
+        if (c - cuts[cuts.length - 1] > L || c < cuts[cuts.length - 1] + 24 || c > len - 24) continue;
+        if (ops.every(([x, w]) => c <= x - 6 || c >= x + w + 6)) { best = c; break; }
+      }
+      cuts.push(best == null ? ideal : best);
+    }
+    cuts.push(len);
+    return cuts.slice(1).map((b, i) => [cuts[i], b]);
+  };
+  const pieces = (len, ops) => splitRun(len, ops).map(([a, b]) => [a, b, ops.filter(([x, w]) => x >= a - 1 && x + w <= b + 1).map(([x, w, sill, h]) => [x - a, w, sill, h])]);
+  const openingsOf = (w, shift) => (w.openings || []).map((o) => [ft(o.at) - shift, ft(o.width), o.kind === 'window' ? ft(o.bottom) : 0, ft(o.height)]);
+  const stair = D.stair && D.stair.w > 0 ? D.stair : null;
+
+  // girders: one per bay of each girder line, set once the piers at both ends are capped and the beam has moved off
+  const ready = new Map(); (P.archive || []).forEach((r) => { const key = `${Math.round(r.x)}|${Math.round(r.z)}`; ready.set(key, Math.max(ready.get(key) || 0, rowReady[r.row] || 0)); });
+  const zs = GRID.RZ.slice().sort((a, b) => a - b), girders = [];
+  GRID.PX.forEach((x, i) => zs.slice(0, -1).forEach((za, j) => {
+    const zb = zs[j + 1], at = (z) => ready.get(`${Math.round(x)}|${Math.round(z)}`) || 0;
+    girders.push({ kind: 'girder', name: `Girder line ${i + 1}, bay ${j + 1}`, story: -1, shape: 'box', len: zb - za + 5.5, h: GIRDER_D, thick: GIRDER_W,
+      pos: new THREE.Vector3(x, GIRDER_BOT + GIRDER_D / 2, (za + zb) / 2), quat: qZ.clone(), top: GIRDER_BOT + GIRDER_D, ready: Math.max(at(za), at(zb)), za, zb, gi: 0, done: false });
+  }));
+  girders.sort((a, b) => a.ready - b.ready).forEach((g, n) => { g.gi = n; });
+  GIRDERS.n = girders.length;
+
+  // floor panels: 16 ft strips across the width, cut along the depth into panels of at most 32 ft
+  const strips = []; for (let x = 0; x < D.width - 1e-6; x += 16) strips.push([x, Math.min(D.width, x + 16)]);
+  const nz = Math.ceil(D.depth / 32 - 1e-9), segs = Array.from({ length: nz }, (_, j) => [D.depth * j / nz, D.depth * (j + 1) / nz]);
+  const floorPanel = (s, [x0, x1], [z0, z1], k, j) => {
+    const len = ft(z1 - z0), thick = ft(x1 - x0), cx = ft(x0 + x1) / 2, cz = ft(z0 + z1) / 2;
+    let hole = null;
+    if (s > 0 && stair) {
+      const ix0 = Math.max(x0, stair.x), ix1 = Math.min(x1, stair.x + stair.w), iz0 = Math.max(z0, stair.z), iz1 = Math.min(z1, stair.z + stair.d);
+      if (ix1 - ix0 > 0.5 && iz1 - iz0 > 0.5) hole = { x0: ft(iz0) - cz + len / 2, x1: ft(iz1) - cz + len / 2, z0: thick / 2 - (ft(ix1) - cx), z1: thick / 2 - (ft(ix0) - cx) };
+    }
+    const lv = D.levels[s] || { rooms: [] };
+    const rooms = (lv.rooms || []).filter((r) => { const mx = r.x + r.w / 2, mz = r.z + r.d / 2; return mx >= x0 && mx < x1 && mz >= z0 && mz < z1 && r.w >= 4 && r.d >= 4; })
+      .map((r) => [r.name, r.x, r.x + r.w, r.z, r.z + r.d]);
+    return add({ kind: 'floor', name: `${STORY[s]} floor panel ${k + 1}.${j + 1}, ${feet(x1 - x0)} × ${feet(z1 - z0)} ft`, story: s, shape: 'floor', len, h: FLOOR_T, thick, hole, zoff: 0,
+      pos: new THREE.Vector3(cx, yFloorTop(s) - FLOOR_T / 2, cz), quat: qZ.clone(), top: yFloorTop(s), rooms });
+  };
+  // ground floor, back to front: the girders under each band of panels, then the panels
+  segs.slice().reverse().forEach((zseg, jr) => {
+    const j = nz - 1 - jr;
+    girders.filter((g) => !g.done && g.za < ft(zseg[1]) - 1).sort((a, b) => a.ready - b.ready).forEach((g) => { g.done = true; add(g); });
+    strips.forEach((xs, k) => floorPanel(0, xs, zseg, k, j));
+  });
+  girders.filter((g) => !g.done).forEach((g) => { g.done = true; add(g); });
+
+  const SIDE = { front: 'front', back: 'back', left: 'left end', right: 'right end' };
+  for (let s = 0; s < STORIES; s++) {
+    if (s > 0) segs.forEach((zseg, j) => strips.forEach((xs, k) => floorPanel(s, xs, zseg, k, j)));
+    const lv = D.levels[s] || { walls: [] }, walls = lv.walls || [];
+    // exterior walls on the four sides; side walls run between the front and back walls
+    const ext = walls.filter((w) => w.exterior).map((w) => {
+      const x = w.axis === 'x';
+      const side = x ? (near(w.z, 0) ? 'front' : near(w.z, D.depth) ? 'back' : null) : (near(w.x, 0) ? 'left' : near(w.x, D.width) ? 'right' : null);
+      return side ? { w, side } : null;
+    }).filter(Boolean).sort((a, b) => ['front', 'right', 'back', 'left'].indexOf(a.side) - ['front', 'right', 'back', 'left'].indexOf(b.side));
+    ext.forEach(({ w, side }) => {
+      const x = w.axis === 'x', a0 = ft(x ? w.x : w.z), a1 = a0 + ft(w.length);
+      const lo = x ? 0 : EXT_T, hi = x ? HW : HD - EXT_T, start = Math.max(a0, lo), end = Math.min(a1, hi);
+      if (end - start < 12) return;
+      const parts = pieces(end - start, openingsOf(w, start - a0)), out = side === 'front' || side === 'right' ? 0 : 2;
+      parts.forEach(([a, b, ops], i) => {
+        const name = `${STORY[s]} ${SIDE[side]} wall${parts.length > 1 ? ` ${i + 1} of ${parts.length}` : ''}`;
+        if (x) wall('ext', name, s, 'x', start + a, side === 'front' ? 0 : HD - EXT_T, b - a, EXT_T, ops, { out });
+        else wall('ext', name, s, 'z', side === 'left' ? EXT_T : HW, start + a, b - a, EXT_T, ops, { out });
+      });
+    });
+    // interior walls, trimmed to the inside faces of the exterior walls
+    walls.filter((w) => !w.exterior).forEach((w) => {
+      const x = w.axis === 'x', line = ft(x ? w.z : w.x), a0 = ft(x ? w.x : w.z), a1 = a0 + ft(w.length);
+      const lo = EXT_T, hi = (x ? HW : HD) - EXT_T, start = Math.max(a0, lo), end = Math.min(a1, hi);
+      if (end - start < 12 || line < EXT_T || line > (x ? HD : HW) - EXT_T) return;
+      const ops = openingsOf(w, start - a0).map(([p, wd, , h]) => [p, wd, 0, h]);
+      pieces(end - start, ops).forEach(([a, b, o2]) => {
+        if (x) wall('int', `${STORY[s]} partition`, s, 'x', start + a, line - INT_T / 2, b - a, INT_T, o2);
+        else wall('int', `${STORY[s]} partition`, s, 'z', line + INT_T / 2, start + a, b - a, INT_T, o2);
+      });
+    });
+  }
+
+  // gable infill: wherever the roof rises above a top-floor exterior wall
+  const yTop = yWallTop(TOP_S), roof = D.roof || {};
+  (roof.profiles || []).forEach((pr) => {
+    const x = pr.axis === 'x', side = x ? (near(pr.z, 0) ? 'front' : near(pr.z, D.depth) ? 'back' : null) : (near(pr.x, 0) ? 'left' : near(pr.x, D.width) ? 'right' : null);
+    if (!side || !Array.isArray(pr.points)) return;
+    const pts = pr.points.map(([a, h]) => [ft(a), ft(h)]), lo = x ? 0 : EXT_T, hi = x ? HW : HD - EXT_T;
+    const hAt = (a) => { for (let i = 1; i < pts.length; i++) if (a <= pts[i][0] + 1e-6) { const [a0, h0] = pts[i - 1], [a1, h1] = pts[i]; return a1 - a0 < 1e-6 ? Math.max(h0, h1) : h0 + (h1 - h0) * (a - a0) / (a1 - a0); } return pts[pts.length - 1][1]; };
+    // each stretch where the roof is above the wall becomes its own gable, cut into panels of at most 32 ft
+    const runs = []; let cur = null;
+    for (let i = 0; i < pts.length; i++) {
+      const [a, h] = pts[i];
+      if (h > 2 && !cur) cur = [i > 0 ? pts[i - 1][0] : a];
+      if (cur && (h <= 2 || i === pts.length - 1)) { cur.push(a); runs.push(cur); cur = null; }
+    }
+    runs.forEach(([ra, rb], ri) => {
+      const a0 = Math.max(ra, lo), b0 = Math.min(rb, hi); if (b0 - a0 < 24) return;
+      const n = Math.ceil((b0 - a0) / L - 1e-9);
+      for (let i = 0; i < n; i++) {
+        const a = a0 + (b0 - a0) * i / n, b = a0 + (b0 - a0) * (i + 1) / n;
+        const prof = [[0, hAt(a)], ...pts.filter(([p]) => p > a + 0.5 && p < b - 0.5).map(([p, h]) => [p - a, h]), [b - a, hAt(b)]].map(([p, h]) => [p, Math.max(0, h)]);
+        const hmax = Math.max(...prof.map((q) => q[1])); if (hmax < 6) continue;
+        const len = b - a, out = side === 'front' || side === 'right' ? 0 : 2;
+        const pos = x ? new THREE.Vector3(a + len / 2, yTop + hmax / 2, side === 'front' ? EXT_T / 2 : HD - EXT_T / 2) : new THREE.Vector3((side === 'left' ? EXT_T : HW) - EXT_T / 2, yTop + hmax / 2, a + len / 2);
+        add({ kind: 'gable', name: `${SIDE[side][0].toUpperCase() + SIDE[side].slice(1)} gable${runs.length > 1 || n > 1 ? ` ${ri + 1}${n > 1 ? `.${i + 1}` : ''}` : ''}`, story: STORIES, shape: 'gable',
+          len, h: hmax, thick: EXT_T, openings: [], profile: prof, pos, quat: x ? qId.clone() : qZ.clone(), top: yTop + hmax, out });
+      }
+    });
+  });
+
+  // ridge, hip and valley beams carry the roof panels
+  const yBase = yFloorTop(TOP_S), P3 = ([x, y, z]) => new THREE.Vector3(ft(x), yBase + ft(y), ft(z)), X = new THREE.Vector3(1, 0, 0);
+  ['ridge', 'hip', 'valley'].forEach((kind) => (roof.edges || []).filter((e) => e.kind === kind).forEach((e, i) => {
+    const a = P3(e.a), b = P3(e.b), dir = b.clone().sub(a), len = dir.length(); if (len < 24) return;
+    const h = kind === 'ridge' ? 14 : 11.875, mid = a.clone().add(b).multiplyScalar(0.5); mid.y -= h / 2;
+    add({ kind: kind === 'ridge' ? 'ridge' : 'beam', name: `${kind[0].toUpperCase() + kind.slice(1)} beam ${i + 1}`, story: STORIES, shape: 'beam', len, h, thick: 5.25,
+      pos: mid, quat: new THREE.Quaternion().setFromUnitVectors(X, dir.normalize()), top: Math.max(a.y, b.y) });
+  }));
+
+  // roof panels: every roof plane cut into panels the line can build, at most 32 ft along the eave and 22 ft up the slope
+  let rtop = yTop;
+  (roof.facets || []).forEach((raw, fi) => {
+    let pts = raw.map(P3); if (pts.length > 3 && pts[0].distanceTo(pts[pts.length - 1]) < 0.5) pts = pts.slice(0, -1);
+    if (pts.length < 3) return;
+    const n = new THREE.Vector3(); pts.forEach((p, i) => { const q = pts[(i + 1) % pts.length]; n.x += (p.y - q.y) * (p.z + q.z); n.y += (p.z - q.z) * (p.x + q.x); n.z += (p.x - q.x) * (p.y + q.y); });
+    if (n.lengthSq() < 1e-9) return; n.normalize(); if (n.y < 0) n.negate();
+    let u = new THREE.Vector3(n.z, 0, -n.x); if (u.lengthSq() < 1e-6) u.set(1, 0, 0); u.normalize();
+    const v = new THREE.Vector3().crossVectors(n, u).normalize(); if (v.y < -1e-6) { u.negate(); v.negate(); }
+    const w = new THREE.Vector3().crossVectors(u, n), q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(u, n, w));
+    const o = pts[0], poly = pts.map((p) => { const d = p.clone().sub(o); return [d.dot(u), d.dot(v)]; });
+    const ax = poly.map((p) => p[0]), bx = poly.map((p) => p[1]), amin = Math.min(...ax), amax = Math.max(...ax), bmin = Math.min(...bx), bmax = Math.max(...bx);
+    const nu = Math.ceil((amax - amin) / L - 1e-9), nv = Math.ceil((bmax - bmin) / ROOF_SLOPE - 1e-9);
+    for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) {
+      const cell = clipRect(poly, amin + (amax - amin) * i / nu, amin + (amax - amin) * (i + 1) / nu, bmin + (bmax - bmin) * j / nv, bmin + (bmax - bmin) * (j + 1) / nv);
+      if (cell.length < 3 || polyArea(cell) < 4 * 144) continue;
+      const ca = cell.map((c) => c[0]), cb = cell.map((c) => c[1]), a0 = Math.min(...ca), a1 = Math.max(...ca), b0 = Math.min(...cb), b1 = Math.max(...cb);
+      const ac = (a0 + a1) / 2, bc = (b0 + b1) / 2, local = cell.map(([a, b]) => [a - ac, -(b - bc)]);
+      const pos = o.clone().addScaledVector(u, ac).addScaledVector(v, bc).addScaledVector(n, ROOF_T / 2);
+      const top = Math.max(...cell.map(([a, b]) => o.y + u.y * a + v.y * b)) + ROOF_T; rtop = Math.max(rtop, top);
+      add({ kind: 'roof', name: `Roof panel ${fi + 1}.${j * nu + i + 1}`, story: STORIES, shape: 'roof', len: a1 - a0, h: ROOF_T, thick: b1 - b0, poly: local, pos, quat: q.clone(), top });
+    }
+  });
+  RIDGE_Y = rtop;
+  ELEMS = E;
+  return E;
+}
 // line and crane schedule: the line builds in install order and starts the next panel once the crane
 // has lifted the last one off the deck; the crane sets in order, girders only after their pier row is done
 function schedule(rowReadyMin) {
@@ -412,7 +655,7 @@ function schedule(rowReadyMin) {
   ELEMS.forEach((e) => {
     if (e.fab > 0) { e.f0 = prevFab ? prevFab.s0 + PICK : 0; e.f1 = e.f0 + e.fab; }
     else { e.f0 = e.f1 = 0; }
-    let ready = e.kind === 'girder' ? rowReadyMin[e.row] : 0;
+    let ready = e.ready != null ? e.ready : e.kind === 'girder' ? rowReadyMin[e.row] : 0;
     e.s0 = Math.max(e.f1, prevSet, ready); e.s1 = e.s0 + e.set; prevSet = e.s1;
     if (e.fab > 0) prevFab = e;
   });
@@ -421,17 +664,18 @@ function schedule(rowReadyMin) {
 // plan the whole job: run the Pier Beam ahead in fixed steps to find when each row is done
 const PLAN = { pierEnd: 0, rowReady: [], total: 0, seamOk: true };
 function planJob(stories) {
+  if (DESIGN) designGrid(); else SETUPS = GRID.RZ.map((z) => ({ z, cx: BEAM_CX, xs: GRID.PX.slice() }));
   initPier();
   let n = 0;
   while (P.phase !== 'done' && n++ < 2e6) stepPier();
   PLAN.pierEnd = P.time / 60;
   // a girder can go on once its row is done and the beam has moved off it
-  PLAN.rowReady = GRID.RZ.map((z, r) => (P.rowDone[r] + (r < GRID.RZ.length - 1 ? MOVE_S : CLEAR_S)) / 60);
-  buildElems(stories);
+  PLAN.rowReady = SETUPS.map((st, r) => (P.rowDone[r] + (r < SETUPS.length - 1 ? MOVE_S : CLEAR_S)) / 60);
+  buildElems(stories, PLAN.rowReady);
   PLAN.total = schedule(PLAN.rowReady);
-  PLAN.seamOk = GRID.RZ.some((z) => Math.abs(z - 192) < 8);
+  PLAN.seamOk = !!DESIGN || GRID.RZ.some((z) => Math.abs(z - 192) < 8);
   PLAN.piers = P.archive.length;
-  PLAN.need = piersNeeded(stories, P.depthIn); PLAN.kips = pierKips(P.depthIn); PLAN.load = HOUSE_KIPS[stories];
+  PLAN.need = DESIGN ? DG.need : piersNeeded(stories, P.depthIn); PLAN.kips = pierKips(P.depthIn); PLAN.load = DESIGN ? DG.load : HOUSE_KIPS[stories];
   PLAN.avgT = P.archive.reduce((a, r) => a + r.torque, 0) / Math.max(1, P.archive.length);
   initPier();
   return PLAN;
@@ -807,13 +1051,13 @@ function aoDecal(x, z, w, d, op) {
 const hemi = new THREE.HemisphereLight(0xdfe9f3, 0x5f5a52, 0.2);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff1de, 1.25);
-sun.position.set(-260, 1300, 1000);
-sun.target.position.set(420, -40, 220);
+sun.position.set(-260 + SX / 2, 1300, 1000 + (HD - L) / 2);
+sun.target.position.set(420 + SX / 2, -40, 220 + (HD - L) / 2);
 scene.add(sun); scene.add(sun.target);
 sun.castShadow = true;
 sun.shadow.mapSize.set(4096, 4096);
 const sc = sun.shadow.camera;
-sc.left = -900; sc.right = 900; sc.top = 900; sc.bottom = -900; sc.far = 4200; sc.near = 200; sc.far = 3000;
+{ const ext = 900 + Math.max(SX, HD - L) * 0.75; sc.left = -ext; sc.right = ext; sc.top = ext; sc.bottom = -ext; } sc.far = 4200; sc.near = 200; sc.far = 3000;
 sc.updateProjectionMatrix();
 sun.shadow.bias = -0.00025;
 sun.shadow.normalBias = 0.6;
@@ -870,7 +1114,7 @@ function buildEnv(dark) {
 
 /* ---------- Ground: solid soil around a pit under the house so the piers can be seen underground ---------- */
 
-const WX0 = -14, WX1 = L + 14, CUT_Z = -8, FAR_Z = 470, BIG = 1400, CRUST = 6;
+const WX0 = -14, WX1 = HW + 14, CUT_Z = -8, FAR_Z = HD + 86, BIG = 1400 + Math.max(SX, HD - L), CRUST = 6;
 function faceUV(mesh, face, su, sv) { const uv = mesh.geometry.attributes.uv; for (let i = face * 4; i < face * 4 + 4; i++) uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv); uv.needsUpdate = true; }
 function soilBlock(x0, x1, y0, y1, z0, z1, mats) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), mats);
@@ -891,7 +1135,7 @@ const outerGround = new THREE.Mesh(new THREE.PlaneGeometry(40000, 40000), M.gras
 outerGround.rotation.x = -PI / 2; outerGround.position.y = -0.6; outerGround.receiveShadow = true; scene.add(outerGround);
 scaleUV(outerGround, 40000 / 72, 40000 / 72);
 const pad = new THREE.Mesh(new THREE.PlaneGeometry(780, 1000), M.gravel);
-pad.rotation.x = -PI / 2; pad.position.set(820, 0.35, 200); pad.receiveShadow = true; scene.add(pad);
+pad.rotation.x = -PI / 2; pad.position.set(820 + SX, 0.35, 200); pad.receiveShadow = true; scene.add(pad);
 scaleUV(pad, 780 / 60, 1000 / 60);
 function setCutaway(on) { frontFill.visible = !on; }
 
@@ -1088,7 +1332,7 @@ const chains = HOLES.map((hd, i) => {
   return { a, base, b: base.clone(), n, im, binder, handle, anchor, sag: -1, off: V() };
 });
 function placeAnchors(beamZ) {
-  chains.forEach((c) => { c.b.set(BEAM_CX + c.base.x, 0, beamZ + c.base.z); c.anchor.position.copy(c.b); c.sag = -1; });
+  chains.forEach((c) => { c.b.set(SET().cx + c.base.x, 0, beamZ + c.base.z); c.anchor.position.copy(c.b); c.sag = -1; });
 }
 const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _p = new THREE.Vector3(), _t = new THREE.Vector3();
 const _X = new THREE.Vector3(1, 0, 0), _sc = new THREE.Vector3(1.45, 1, 1);
@@ -1114,7 +1358,7 @@ function layChain(c, slack, off) {
 }
 
 /* ---------- Rotating laser level: the elevation reference for every cut ---------- */
-const laser = new THREE.Group(); laser.position.set(-230, 0, 470); scene.add(laser);
+const laser = new THREE.Group(); laser.position.set(-230, 0, HD + 86); scene.add(laser);
 [0, 2.1, 4.2].forEach((a) => link(V(Math.cos(a) * 16, 0, Math.sin(a) * 16), V(0, LASER_Y - 6, 0), 1, 1, M.yellowDeep, laser, unitCyl));
 rbox(7, 3, 7, M.yellowDeep, 0, LASER_Y - 5, 0, laser, 0.6);
 rbox(6, 6, 6, M.red, 0, LASER_Y - 1, 0, laser, 1.2);
@@ -1198,7 +1442,7 @@ const caps = new Map();
 function capFor(key) { if (!caps.has(key)) caps.set(key, buildCap()); return caps.get(key); }
 function placeHeads() {
   const slots = headSlots();
-  stations.forEach((st, k) => { st.st.position.x = slots[k] - BEAM_CX; });
+  stations.forEach((st, k) => { st.st.position.x = slots[k] - SET().cx; });
 }
 function clearPierVisuals() {
   clearPiers();
@@ -1215,12 +1459,20 @@ function splitLids(geo) {
   rest.forEach((g) => geo.addGroup(g.start, g.count, g.materialIndex));
   return geo;
 }
+// a gable's outline: the wall line along the bottom and the roof line (the design's profile, or a centered peak) on top
+function gableOutline(e) {
+  if (!e.profile) return [[0, 0], [e.len, 0], [e.len / 2, e.h]];
+  const top = e.profile.slice().reverse(), out = [[0, 0], [e.len, 0]];
+  top.forEach((q) => { const last = out[out.length - 1]; if (Math.hypot(q[0] - last[0], q[1] - last[1]) > 0.05) out.push(q); });
+  if (Math.hypot(out[out.length - 1][0], out[out.length - 1][1]) < 0.05) out.pop();
+  return out;
+}
 function rectHole(x, y, w, h) { const p = new THREE.Path(); p.moveTo(x, y); p.lineTo(x, y + h); p.lineTo(x + w, y + h); p.lineTo(x + w, y); p.closePath(); return p; }
 // faces in [bottom lid, sides, top lid] order
 const EXT_MATS = { bare: [M.osb, M.lvl, M.osb] };
 function wallGeo(e) {
   const sh = new THREE.Shape();
-  if (e.shape === 'gable') { sh.moveTo(0, 0); sh.lineTo(e.len, 0); sh.lineTo(e.len / 2, e.h); sh.closePath(); }
+  if (e.shape === 'gable') { gableOutline(e).forEach(([x, y], i) => (i ? sh.lineTo(x, y) : sh.moveTo(x, y))); sh.closePath(); }
   else { sh.moveTo(0, 0); sh.lineTo(e.len, 0); sh.lineTo(e.len, e.h); sh.lineTo(0, e.h); sh.closePath(); }
   // door holes stop 1.5 in. up so the bottom plate stays whole until the wall is set, as on a real panel
   e.openings.forEach(([x, w, sill, h]) => { const b = Math.max(sill, 1.5); sh.holes.push(rectHole(x, b, w, h - (b - sill))); });
@@ -1265,8 +1517,8 @@ function furringRuns(e) {
   const runs = [];
   for (let y = 8; y < e.h - 6; y += 24) {
     let x0 = 0, x1 = e.len;
-    if (e.shape === 'gable') { const half = (e.len / 2) * (1 - (y + 2) / e.h); x0 = e.len / 2 - half + 4; x1 = e.len / 2 + half - 4; if (x1 - x0 < 12) continue; }
     let segs = [[x0, x1]];
+    if (e.shape === 'gable') segs = polySpans(gableOutline(e), y + 2, 1).map(([a, b]) => [a + 4, b - 4]).filter(([a, b]) => b - a >= 12);
     e.openings.forEach(([ox, w, sill, h]) => {
       if (y + 1.75 < sill || y - 1.75 > sill + h) return;
       segs = segs.flatMap(([a, b]) => (ox >= b || ox + w <= a) ? [[a, b]] : [[a, ox], [ox + w, b]].filter(([p, q]) => q - p > 6));
@@ -1303,6 +1555,14 @@ function buildLayers(e, root) {
     const runs = furringRuns(e).map(([a, b, y]) => [b - a, 3.5, 0.75, (a + b) / 2 - e.len / 2, y - e.h / 2, sgn * (T + 0.45 + 0.375)]);
     if (runs.length) lay.furring.add(mergedBoxes(runs, M.furring));
     lay.skin = layerGroup(root); const sk = thin(0.5, M.siding); sk.position.z = sgn * (T + 1.2 + 0.25); lay.skin.add(sk);
+  } else if (e.kind === 'roof' && e.poly) {
+    const H = e.h / 2, mesh = (geo, mat, y) => { const m = new THREE.Mesh(geo, mat); m.position.y = y; m.castShadow = true; m.receiveShadow = true; return m; };
+    lay.sheath = layerGroup(root); lay.sheath.add(mesh(polyGeo(e.poly, 0.6), M.osb, H + 0.3));
+    lay.furring = layerGroup(root);
+    const runs = [];
+    for (let z = -e.thick / 2 + 6; z < e.thick / 2 - 4; z += 24) polySpans(e.poly, z, 1).forEach(([a, b]) => { if (b - a > 8) runs.push([b - a - 2, 0.75, 3.5, (a + b) / 2, H + 0.6 + 0.375, z]); });
+    if (runs.length) lay.furring.add(mergedBoxes(runs, M.furring));
+    lay.skin = layerGroup(root); lay.skin.add(mesh(polyGeo(e.poly, 0.5), M.roofMetal, H + 1.35 + 0.25));
   } else if (e.kind === 'roof') {
     const H = e.h / 2;
     lay.sheath = layerGroup(root); const sh = inchBox(e.len, 0.6, e.thick, M.osb); sh.position.y = H + 0.3; lay.sheath.add(sh);
@@ -1344,7 +1604,7 @@ function buildHouseObjects() {
     } else if (e.shape === 'floor') {
       mesh = new THREE.Mesh(flatGeo(e.len, e.thick, e.h, e.hole ? { x0: e.hole.x0, x1: e.hole.x1, z0: e.hole.z0 - e.zoff, z1: e.hole.z1 - e.zoff } : null), [M.stud, M.lvl, M.lvl]);
     } else if (e.shape === 'roof') {
-      mesh = new THREE.Mesh(flatGeo(e.len, e.thick, e.h, null), [M.stud, M.lvl, M.lvl]);
+      mesh = new THREE.Mesh(e.poly ? polyGeo(e.poly, e.h) : flatGeo(e.len, e.thick, e.h, null), [M.stud, M.lvl, M.lvl]);
     } else {
       mesh = inchBox(e.len, e.h, e.thick, M.lvl);
       if (e.shape === 'beampost') { const p = inchBox(5.5, e.postH, 5.5, M.lvl); p.position.set(e.postX - e.pos.x, -e.h / 2 - e.postH / 2, 0); root.add(p); }
@@ -1354,15 +1614,16 @@ function buildHouseObjects() {
     const lay = buildLayers(e, root);
     const labels = [];
     (e.rooms || []).forEach(([name, x0, x1, z0, z1]) => {
-      const lb = roomLabel(name, (x1 - x0) * 12, (z1 - z0) * 12);
-      lb.position.set(((x0 + x1) / 2) * 12 - L / 2, e.h / 2 + 1.2, ((z0 + z1) / 2) * 12 - e.pos.z);
+      const lb = roomLabel(name, Math.min((x1 - x0) * 12, e.quat.equals(qId) ? 1e9 : e.thick), (z1 - z0) * 12), inv = e.quat.clone().invert();
+      lb.position.copy(new THREE.Vector3(((x0 + x1) / 2) * 12 - e.pos.x, 0, ((z0 + z1) / 2) * 12 - e.pos.z).applyQuaternion(inv)); lb.position.y = e.h / 2 + 1.2;
+      lb.quaternion.copy(inv).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -PI / 2));
       root.add(lb); labels.push(lb);
     });
     return { root, mesh, lay, labels, wins: finishParts.slice(w0) };
   });
 }
 /* ---------- Lumber stack spot (girders and beams); the framing truck itself is built in 04f ---------- */
-const DECK_Y = 50, PLAT = new THREE.Vector3(834, DECK_Y, 192);
+const DECK_Y = 50, PLAT = new THREE.Vector3(834 + SX, DECK_Y, 192);
 
 /* ---------- Boom truck crane ---------- */
 const CR = new THREE.Vector3(600, 112, 150);
@@ -1387,6 +1648,7 @@ rbox(10, 14, 6, M.yellow, 0, 6, 0, hook, 1.5);
 const hk = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.9, 8, 16, PI * 1.5), M.steel); hk.position.y = -3; hk.rotation.z = PI / 2; hook.add(hk);
 const hoistLine = new THREE.Mesh(unitCyl, M.cable); scene.add(hoistLine);
 const slings = [0, 1, 2, 3].map(() => { const m = new THREE.Mesh(unitCyl, M.sling); m.visible = false; scene.add(m); return m; });
+crane.position.x = SX; CR.x += SX;     // the crane sets up beside the house
 const _v = new THREE.Vector3(), _tip = new THREE.Vector3(), _a = new THREE.Vector3(), _b = new THREE.Vector3();
 function poseCrane(hp) {
   const dx = hp.x - CR.x, dz = hp.z - CR.z, d = Math.max(40, Math.hypot(dx, dz));
@@ -1396,7 +1658,8 @@ function poseCrane(hp) {
   slew.rotation.y = -Math.atan2(dz, dx);
   luff.rotation.z = Math.atan2(tipY - CR.y, d);
   const ext = Math.max(0, Lb - BASE_L);
-  tele.forEach((m, k) => { m.position.x = BASE_L + ext * (k + 1) / 3 - SEC_L / 2; });
+  const reach = Math.max(1, ext / (3 * SEC_L * 0.92));     // big houses: the boom's sections run out further
+  tele.forEach((m, k) => { m.scale.x = reach; m.position.x = BASE_L + ext * (k + 1) / 3 - SEC_L * reach / 2; });
   sheave.position.x = Lb;
   _tip.set(CR.x + dx / d * d, tipY, CR.z + dz / d * d);
   // lift ram from the turret to a third of the way up the base section
@@ -1408,9 +1671,9 @@ function poseCrane(hp) {
 
 
 /* ---------- Site crew ---------- */
-person(scene, 700, 0, -120, -0.6);
+person(scene, 700 + SX, 0, -120, -0.6);
 const setter = person(scene, 0, 0, 0, 0);
-aoDecal(600, 205, 130, 470, 0.6);
+aoDecal(600 + SX, 205, 130, 470, 0.6);
 
 /* ======================================================================
    The framing truck: the real panel-line simulation's own code, run in a
@@ -1418,7 +1681,7 @@ aoDecal(600, 205, 130, 470, 0.6);
    adds to "scene" lands in the truck group FX.
    ====================================================================== */
 const OUT_M = M, OUT_L = L;
-const FX = new THREE.Group(); FX.rotation.y = -PI / 2; FX.position.set(1020, 0, -72); scene.add(FX);
+const FX = new THREE.Group(); FX.rotation.y = -PI / 2; FX.position.set(1020 + SX, 0, -72); scene.add(FX);
 const Factory = (() => {
   const scene = FX;
   const setStatus = () => {}, announce = () => {};
@@ -1468,7 +1731,7 @@ const H_BY = { 8: 96, 16: 192, 24: 264 };
 const PZ0_BY = { 8: -48, 16: -48, 24: -150 };
 // member depth and sheathing change with the panel type: 2x6 walls, 11-7/8 in. I-joist floors and roofs
 const KIND_BY = { 8: 'wall', 16: 'floor', 24: 'roof' };
-const DEPTH_BY = { 8: 5.5, 16: 11.875, 24: 11.875 };
+const DEPTH_BY = { 8: 5.5, 16: DESIGN ? 16 : 11.875, 24: DESIGN ? 16 : 11.875 };
 const SHEATH_BY = { 8: 0.4375, 16: 0.71875, 24: 0.625 };
 let STUD_D = 5.5, SHEATH_T = 0.4375, PANEL_T = STUD_D + SHEATH_T;
 const tipZ = () => P_IN + PANEL_T;    // catch-arm hinge pins in a slotted bracket set to the panel depth
@@ -1487,7 +1750,7 @@ const ZIG = 0.1875;                   // nails zig-zag 3/16 in. either side of a
 /* ---------- Wall layouts (what the digital blueprint says) ---------- */
 let OC = 24;                          // stud spacing, 24 or 16 in. on center
 // the panel on the table: its length, kind and openings come from the job-site element being built
-let PL = TL, PKIND = 'wall', GABLE = false, OPS_CUR = [], H_OVERRIDE = 0;
+let PL = TL, PKIND = 'wall', GABLE = false, OPS_CUR = [], H_OVERRIDE = 0, POLY = null, GPROF = null;
 function studX(oc) { const a = [0.75]; for (let x = oc; x <= PL - oc; x += oc) a.push(x); a.push(PL - 0.75); return a; }
 const OPENINGS = {
   96: [
@@ -1500,7 +1763,14 @@ const OPENINGS = {
 function buildLayout(H, oc) {
   if (PKIND === 'floor' || PKIND === 'roof') {
     // floor and roof panels: straight I-joists between two rim boards, no openings
-    const label = H === 192 ? 'I-joist' : 'I-joist rafter';
+    const label = PKIND === 'floor' ? 'I-joist' : 'I-joist rafter';
+    if (POLY) {
+      // a shaped roof panel: rim boards along every edge, joists cut to the outline
+      const pm = [];
+      POLY.forEach(([xa, ha], i) => { const [xb, hb] = POLY[(i + 1) % POLY.length]; if (Math.hypot(xb - xa, hb - ha) > 3) pm.push({ type: 'rake', label: 'Rim board', xa, ha, xb, hb, x0: Math.min(xa, xb), x1: Math.max(xa, xb), h0: Math.min(ha, hb), h1: Math.max(ha, hb) }); });
+      for (let c = oc; c < PL - 2; c += oc) polySpans(POLY, c, 0).forEach(([a, b]) => { if (b - a > 8) pm.push({ type: 'joist', label, x0: c - 1.25, x1: c + 1.25, h0: a + 1.25, h1: b - 1.25 }); });
+      return pm;
+    }
     const m = [
       { type: 'rim', label: 'Rim board', x0: 0, x1: PL, h0: 0, h1: 1.25 },
       { type: 'rim', label: 'Rim board', x0: 0, x1: PL, h0: H - 1.25, h1: H },
@@ -1551,7 +1821,7 @@ function buildLayout(H, oc) {
   }
   if (GABLE) {
     // gable: cut every upright to the rake line, drop pieces above it, and add the two rake plates
-    const rake = (x) => H * (1 - Math.abs(x - PL / 2) / (PL / 2)) - 2.5;
+    const rake = (x) => (GPROF ? profAt(GPROF, x) : H * (1 - Math.abs(x - PL / 2) / (PL / 2))) - 2.5;
     for (let i = m.length - 1; i >= 0; i--) {
       const e = m[i]; if (e.type === 'plate') continue;
       const lim = Math.min(rake(e.x0), rake(e.x1));
@@ -1559,8 +1829,11 @@ function buildLayout(H, oc) {
       if (e.h1 > lim) e.h1 = lim;
       if (e.h1 - e.h0 < 3) m.splice(i, 1);
     }
-    m.push({ type: 'rake', label: 'Rake plate', xa: 0, ha: 0, xb: PL / 2, hb: H, x0: 0, x1: PL / 2, h0: 0, h1: H });
-    m.push({ type: 'rake', label: 'Rake plate', xa: PL / 2, ha: H, xb: PL, hb: 0, x0: PL / 2, x1: PL, h0: 0, h1: H });
+    if (GPROF) GPROF.forEach(([xa, ha], i) => { const nx = GPROF[i + 1]; if (nx && (ha > 0.5 || nx[1] > 0.5) && nx[0] - xa > 1) m.push({ type: 'rake', label: 'Rake plate', xa, ha, xb: nx[0], hb: nx[1], x0: xa, x1: nx[0], h0: Math.min(ha, nx[1]), h1: Math.max(ha, nx[1]) }); });
+    else {
+      m.push({ type: 'rake', label: 'Rake plate', xa: 0, ha: 0, xb: PL / 2, hb: H, x0: 0, x1: PL / 2, h0: 0, h1: H });
+      m.push({ type: 'rake', label: 'Rake plate', xa: PL / 2, ha: H, xb: PL, hb: 0, x0: PL / 2, x1: PL, h0: 0, h1: H });
+    }
   }
   // mirror so the top plate sits on the operator side: the bottom plate then leads out the
   // opening and the panel stands up on it during the flip
@@ -1568,6 +1841,7 @@ function buildLayout(H, oc) {
   return m;
 }
 const isVertical = (e) => e.type !== 'rake' && e.h1 - e.h0 > e.x1 - e.x0;
+const profAt = (pr, x) => { for (let i = 1; i < pr.length; i++) if (x <= pr[i][0] + 1e-6) { const [a, h0] = pr[i - 1], [b, h1] = pr[i]; return b - a < 1e-6 ? Math.max(h0, h1) : h0 + (h1 - h0) * (x - a) / (b - a); } return pr[pr.length - 1][1]; };
 /* Sheathing layout: walls get 4x8 sheets standing up; floors and roofs get 4x8 sheets laid
    across the joists with every other row offset 4 ft (tongue-and-groove long edges). */
 function sheetLayout(H) {
@@ -2498,13 +2772,18 @@ function buildPanel(width) {
   if (panel) { scene.remove(panel); panel.traverse((o) => { if (o.geometry && o.geometry !== nailGeo) o.geometry.dispose(); }); }
   WIDTH = width; H = H_OVERRIDE || H_BY[width]; PZ0 = PZ0_BY[width];
   STUD_D = DEPTH_BY[width]; SHEATH_T = SHEATH_BY[width]; PANEL_T = STUD_D + SHEATH_T;
-  LAYOUT = buildLayout(H, OC); NAILS = buildNails(LAYOUT, H); SCHED = NAILS.length ? buildSchedule(NAILS, H) : null;
+  LAYOUT = buildLayout(H, DESIGN && (PKIND === 'floor' || PKIND === 'roof') ? 16 : OC); NAILS = buildNails(LAYOUT, H); SCHED = NAILS.length ? buildSchedule(NAILS, H) : null;
   const preset = (e) => e.type === 'plate' || e.type === 'rim';
   LOAD_ORDER = LAYOUT.map((e, j) => j).filter((j) => !preset(LAYOUT[j]))
     .sort((a, b) => (LAYOUT[a].x0 - LAYOUT[b].x0) || (LAYOUT[a].h0 - LAYOUT[b].h0));
   const g = new THREE.Group(); scene.add(g);
   memberMeshes = LAYOUT.map((e) => { const m = memberMesh(e, g); m.visible = preset(e); return m; });
-  sheets = sheetLayout(H).sheets.map((q) => {
+  // shaped roof panels: each sheet trimmed to the outline
+  const shaped = (poly, thick, y) => { const sh = new THREE.Shape(); poly.forEach(([x, h], i) => (i ? sh.lineTo(x, h) : sh.moveTo(x, h))); sh.closePath();
+    const geo = new THREE.ExtrudeGeometry(sh, { depth: thick, bevelEnabled: false, curveSegments: 1 }); geo.rotateX(PI / 2); geo.translate(0, y, 0); return geo; };
+  sheets = POLY ? sheetLayout(H).sheets.map((q) => clipRect(POLY, q.x0, q.x1, q.h0, q.h1)).filter((c) => c.length >= 3 && polyArea(c) > 6).map((c) => {
+    const m = new THREE.Mesh(shaped(c, SHEATH_T, STUD_D + SHEATH_T), M.sheath); m.castShadow = true; m.receiveShadow = true; g.add(m); m.visible = false; m.userData.y = 0; return m;
+  }) : sheetLayout(H).sheets.map((q) => {
     const x0 = q.x0 + (q.x0 > 0 ? 0.0625 : 0), x1 = q.x1 - (q.x1 < PL ? 0.0625 : 0);
     const h0 = q.h0 + (q.h0 > 0 ? 0.0625 : 0), h1 = q.h1 - (q.h1 < H ? 0.0625 : 0);
     const sh = box(x1 - x0, SHEATH_T, h1 - h0, x1 - x0 > h1 - h0 ? M.sheathW : M.sheath, (x0 + x1) / 2, STUD_D + SHEATH_T / 2, (h0 + h1) / 2, g);
@@ -2513,7 +2792,9 @@ function buildPanel(width) {
   });
   if (GABLE) {
     // one triangular sheet over the rake, with the gable window cut out (in the mirrored layout)
-    const sh = new THREE.Shape(); sh.moveTo(0, H); sh.lineTo(PL, H); sh.lineTo(PL / 2, 0); sh.closePath();
+    const sh = new THREE.Shape(); sh.moveTo(0, H); sh.lineTo(PL, H);
+    if (GPROF) GPROF.slice().reverse().forEach(([x, h]) => sh.lineTo(x, H - h)); else sh.lineTo(PL / 2, 0);
+    sh.closePath();
     OPS_CUR.forEach((o) => { const p = new THREE.Path(), a = H - o.head, b = H - o.sill; p.moveTo(o.x0, a); p.lineTo(o.x1, a); p.lineTo(o.x1, b); p.lineTo(o.x0, b); p.closePath(); sh.holes.push(p); });
     const geo = new THREE.ExtrudeGeometry(sh, { depth: SHEATH_T, bevelEnabled: false }); geo.rotateX(PI / 2); geo.translate(0, STUD_D + SHEATH_T, 0);
     const m = new THREE.Mesh(geo, M.sheath); m.castShadow = true; m.receiveShadow = true; g.add(m);
@@ -2817,9 +3098,13 @@ function buildExtras(e, mirror) {
     extras.skin = g2; extras.n = Math.max(1, Math.ceil(e.len / 36));
   } else if (e.kind === 'roof') {
     const list = [];
-    for (let z = 6; z < H - 4; z += 24) list.push([PL, 0.75, 3.5, PL / 2, yF, z]);
+    for (let z = 6; z < H - 4; z += 24) { if (POLY) polySpans(POLY, z, 1).forEach(([a, b]) => { if (b - a > 8) list.push([b - a - 2, 0.75, 3.5, (a + b) / 2, yF, z]); }); else list.push([PL, 0.75, 3.5, PL / 2, yF, z]); }
     for (let i = 0; i < list.length; i += 2) { const m = mergedBoxes(list.slice(i, i + 2), OUT_M.furring); m.visible = false; panel.add(m); extras.rows.push(m); }
-    const sk = inchBox(PL, 0.5, H, OUT_M.roofMetal); sk.position.set(PL / 2, yS + 0.1, H / 2);
+    let sk;
+    if (POLY) { const sh = new THREE.Shape(); POLY.forEach(([x, h], i) => (i ? sh.lineTo(x, h) : sh.moveTo(x, h))); sh.closePath();
+      const geo = new THREE.ExtrudeGeometry(sh, { depth: 0.5, bevelEnabled: false, curveSegments: 1 }); geo.rotateX(PI / 2); geo.translate(0, yS + 0.35, 0);
+      sk = new THREE.Mesh(geo, OUT_M.roofMetal); sk.castShadow = true; sk.receiveShadow = true; }
+    else { sk = inchBox(PL, 0.5, H, OUT_M.roofMetal); sk.position.set(PL / 2, yS + 0.1, H / 2); }
     const g2 = new THREE.Group(); g2.add(sk); g2.visible = false; panel.add(g2);
     extras.skin = g2; extras.n = Math.max(1, Math.ceil(PL / 18));
   }
@@ -2836,8 +3121,11 @@ function begin(e, keepRig) {
   if (!keepRig) clearRig();
   const w = widthFor(e), mirror = e.out === 0;
   PKIND = e.kind === 'floor' ? 'floor' : e.kind === 'roof' ? 'roof' : e.kind === 'int' ? 'int' : 'wall';
-  GABLE = e.kind === 'gable'; H_OVERRIDE = GABLE ? e.h : 0;
-  PL = isFlat(e) ? TL : e.len;
+  GABLE = e.kind === 'gable'; H_OVERRIDE = GABLE ? e.h : isFlat(e) && DESIGN ? e.thick : 0;
+  PL = isFlat(e) && !DESIGN ? TL : e.len;
+  // shaped panels in the line's own frame: x along the table, h across it (flat panels are not mirrored)
+  POLY = isFlat(e) && e.poly ? e.poly.map(([x, z]) => [x + e.len / 2, z + e.thick / 2]) : null;
+  GPROF = GABLE && e.profile ? (mirror ? e.profile.map(([x, h]) => [e.len - x, h]).reverse() : e.profile.map((q) => q.slice())) : null;
   OPS_CUR = (e.openings || []).map(([x, wd, sill, h]) => ({ kind: sill === 0 ? 'Door' : 'Window', x0: mirror ? e.len - x - wd : x, x1: mirror ? e.len - x : x + wd, sill, head: sill + h, hdr: 11.25, hdrName: '2-ply 2×12 header' }));
   buildPanel(w);
   panel.visible = true;
@@ -2880,7 +3168,7 @@ function begin(e, keepRig) {
 }
 // where the job-site crane picks each panel up: standing on the strongback, or flat on the deck and arms
 function pick(e) {
-  const w = widthFor(e), Hh = e.kind === 'gable' ? e.h : H_BY[w], pt = DEPTH_BY[w] + SHEATH_BY[w], pl = isFlat(e) ? TL : e.len;
+  const w = widthFor(e), Hh = e.kind === 'gable' ? e.h : isFlat(e) && DESIGN ? e.thick : H_BY[w], pt = DEPTH_BY[w] + SHEATH_BY[w], pl = isFlat(e) && !DESIGN ? TL : e.len;
   const p = isFlat(e) ? new THREE.Vector3(XT0 + pl / 2, T + pt / 2, P_IN + Hh / 2) : new THREE.Vector3(XT0 + pl / 2, T + Hh / 2, P_IN + pt / 2);
   const q = !isFlat(e) && e.out === 0 ? new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), PI) : new THREE.Quaternion();
   FX.updateMatrixWorld(true);
@@ -2918,7 +3206,7 @@ return { pick, sync, update, reset: hardReset, signRedraws };
 /* ======================================================================
    Playback: one site clock (minutes from 7:00 AM) drives everything
    ====================================================================== */
-const SITE = { t: 0, running: false, started: false, speed: 60, stories: 3 };
+const SITE = { t: 0, running: false, started: false, speed: 60, stories: DESIGN ? clamp(DESIGN.stories, 1, 3) : 3 };
 const _off = new THREE.Vector3(), _rodA = new THREE.Vector3(), _rodB = new THREE.Vector3(), _axis = new THREE.Vector3();
 let wallClock = 0;
 function poseHead(h, k) {
@@ -2946,7 +3234,7 @@ function poseHead(h, k) {
   st.rxLed.material.color.copy(C(h.state === 'armDown' || h.state === 'cut' ? '#2fdc62' : '#ff3b30'));
   st.rxLed.material.opacity = h.state === 'armDown' || h.state === 'cut' ? 1 : 0.25;
   if (h.state === 'park' || h.state === 'wait') return;
-  const pv = pierFor(P.row, k), z = GRID.RZ[P.row], px = GRID.PX[k];
+  const pv = pierFor(P.row, k), z = SET().z, px = SET().xs[k];
   // offcut: appears at the cut, then is lifted up and carried off to the front
   const key = P.row + ':' + k;
   if (h.state === 'remove' && !offcuts.has(key)) offcuts.set(key, buildOffcut(h.lens, h.cutCl));
@@ -3011,15 +3299,15 @@ function poseArchive() {
 }
 let anchorRow = -1;
 function posePier() {
-  if (anchorRow !== P.row) { anchorRow = P.row; placeAnchors(GRID.RZ[P.row] - PZ); }
-  _off.set(BEAM_CX, P.lift, rigZ());
+  if (anchorRow !== P.row) { anchorRow = P.row; placeAnchors(SET().z - PZ); placeHeads(); }
+  _off.set(rigX(), P.lift, rigZ());
   rig.position.copy(_off);
-  crew.position.set(BEAM_CX, 0, rigZ());
+  crew.position.set(rigX(), 0, rigZ());
   if (P.phase === 'drive' || P.phase === 'anchor') heads.forEach(poseHead);
   else heads.forEach((h, k) => { const st = stations[k]; st.doorPivot.rotation.y = P.gate * 1.55; st.lamp.material.emissiveIntensity = 0; });
   poseArchive();
   const done = P.archive.length + (P.phase === 'drive' ? heads.filter((h) => h.state === 'done').length : 0);
-  const total = GRID.PX.length * GRID.RZ.length;
+  const total = TOTAL_PIERS();
   leadPipes.forEach((m, i) => { m.visible = i < Math.min(4, total - P.archive.length - (P.phase === 'drive' ? heads.filter((h) => h.state !== 'wait' && h.state !== 'park').length : 0)); });
   const extUsed = P.archive.reduce((a, p) => a + p.lens.length - 1, 0) + (P.phase === 'drive' ? heads.reduce((a, h) => a + Math.max(0, h.sections - 1) + ((h.state === 'extend' || h.state === 'bolt') ? 1 : 0), 0) : 0);
   rackPipes.forEach((m, i) => { m.visible = i < Math.min(rackPipes.length, total * 2 + 2 - extUsed); });
@@ -3031,7 +3319,7 @@ function posePier() {
 }
 
 /* ---------- Panels: deck, layers, lift, swing, set ---------- */
-const PARK = new THREE.Vector3(900, 300, 192);
+const PARK = new THREE.Vector3(900 + SX, 300, 192);
 const qFlatOut0 = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 0, 1), new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, -1, 0)));
 const qFlatOut2 = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 0, 1), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0)));
 const qStackPost = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), PI / 2);
@@ -3048,7 +3336,7 @@ function prepElems() {
     } else {
       const post = e.shape === 'beampost' || e.shape === 'ridge';
       e.qDeck = post ? qStackPost.clone() : qId.clone();
-      e.pDeck = new THREE.Vector3(820, (post ? e.thick : e.h) / 2 + 4.5, -150 - stackN * 16); stackN++;
+      e.pDeck = new THREE.Vector3(820 + SX, (post ? e.thick : e.h) / 2 + 4.5, -150 - stackN * 16); stackN++;
     }
     e.hx = e.len / 2; e.hy = e.h / 2; e.hz = e.thick / 2;
     e.weight = e.kind === 'int' ? Math.max(300, Math.round(e.len * e.h / 144 * 6 / 50) * 50) : WEIGHT[e.kind];
@@ -3129,7 +3417,7 @@ function poseHouse() {
   setter.visible = !!setE && setQ > 0.62;
   if (setE) {
     const st = setE.story, y = setE.kind === 'floor' ? (st > 0 ? yFloorTop(st - 1) : 0) : st < 0 ? 0 : yFloorTop(Math.min(st, TOP_S));
-    setter.position.set(clamp(setE.pos.x + 40, 30, L - 30), y, clamp(setE.pos.z + (setE.pos.z < L / 2 ? 40 : -40), 30, L - 30));
+    setter.position.set(clamp(setE.pos.x + 40, 30, HW - 30), y, clamp(setE.pos.z + (setE.pos.z < HD / 2 ? 40 : -40), 30, HD - 30));
     setter.rotation.y = Math.atan2(setE.pos.x - setter.position.x, setE.pos.z - setter.position.z);
   }
   lineInfo = fabE ? { e: fabE, si: fab.si, sp: fab.sp } : null;
@@ -3137,12 +3425,13 @@ function poseHouse() {
 }
 
 /* ---------- Camera ---------- */
+const VK = Math.pow(Math.max(1, Math.max(HW, HD) / L), 0.85);
 const VIEWS = {
-  site: () => ({ t: [470, 120, 170], r: 2500, th: -2.0, ph: 1.1 }),
-  pier: () => ({ t: [BEAM_CX, 40, rigZ() + PZ], r: 760, th: -1.95, ph: 1.08 }),
-  line: () => ({ t: [930, 90, 192], r: 900, th: -2.6, ph: 1.05 }),
-  house: () => ({ t: [192, 200, 192], r: 1500, th: -2.2, ph: 1.15 }),
-  plan: () => ({ t: [470, 0, 200], r: 2900, th: -PI / 2, ph: 0.04 }),
+  site: () => ({ t: [470 + SX / 2, 120, 170 + (HD - L) / 2], r: 2500 * VK, th: -2.0, ph: 1.1 }),
+  pier: () => ({ t: [rigX(), 40, rigZ() + PZ], r: 760, th: -1.95, ph: 1.08 }),
+  line: () => ({ t: [930 + SX, 90, 192], r: 900, th: -2.6, ph: 1.05 }),
+  house: () => ({ t: [HW / 2, 70 + 45 * STORIES, HD / 2], r: 1500 * VK, th: -2.2, ph: 1.15 }),
+  plan: () => ({ t: [470 + SX / 2, 0, 200 + (HD - L) / 2], r: 2900 * VK, th: -PI / 2, ph: 0.04 }),
 };
 const cam = { target: new THREE.Vector3(), r: 2500, th: -2.0, ph: 1.1, under: false };
 const want = { target: new THREE.Vector3(), r: 2500, th: -2.0, ph: 1.1 };
@@ -3159,7 +3448,7 @@ function setView(name, instant) {
   document.querySelectorAll('[data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === name)));
 }
 function updateCamera(dt) {
-  if (curView === 'pier') want.target.set(BEAM_CX, 40, rigZ() + PZ);
+  if (curView === 'pier') want.target.set(rigX(), 40, rigZ() + PZ);
   const k = reduceMotion ? 1 : 1 - Math.exp(-dt * 5);
   cam.target.lerp(want.target, k);
   cam.r += (want.r - cam.r) * k; cam.th += (want.th - cam.th) * k; cam.ph += (want.ph - cam.ph) * k;
@@ -3223,13 +3512,13 @@ function nowLine(done, total) {
   if (t >= PLAN.total) return `Done: ${total}/${total} piers, ${N}/${N} panels set.`;
   const parts = [];
   if (P.phase !== 'done') {
-    const r = `row ${P.row + 1}/${GRID.RZ.length}`;
-    parts.push(P.phase === 'anchor' ? `Anchoring ${r}, piers ${done}/${total}` : P.phase === 'drive' ? `Driving piers ${done}/${total} on ${r}` : P.phase === 'move' ? `Moving to row ${P.row + 2}, piers ${done}/${total}` : `Pier Beam clearing, piers ${done}/${total}`);
+    const word = SETUPS.length > GRID.RZ.length ? 'setup' : 'row', r = `${word} ${P.row + 1}/${SETUPS.length}`;
+    parts.push(P.phase === 'anchor' ? `Anchoring ${r}, piers ${done}/${total}` : P.phase === 'drive' ? `Driving piers ${done}/${total} on ${r}` : P.phase === 'move' ? `Moving to ${word} ${P.row + 2}, piers ${done}/${total}` : `Pier Beam clearing, piers ${done}/${total}`);
   }
   if (craneInfo) {
     const e = craneInfo.e;
     if (e.fab > 0) parts.push(`craning ${KIND_WORD[e.kind]} ${fabs.indexOf(e) + 1}/${N}`);
-    else if (e.kind === 'girder') parts.push(`craning girder ${e.row + 1}/${GRID.RZ.length}`);
+    else if (e.kind === 'girder') parts.push(`craning girder ${e.gi + 1}/${GIRDERS.n}`);
     else parts.push(`craning ${KIND_WORD[e.kind]}`);
   }
   if (lineInfo) {
@@ -3244,7 +3533,7 @@ function nowLine(done, total) {
 }
 let lastKey = '';
 function updateHud(force) {
-  const total = GRID.PX.length * GRID.RZ.length;
+  const total = TOTAL_PIERS();
   const done = P.archive.length + (P.phase === 'drive' ? heads.filter((h) => h.state === 'done').length : 0);
   txt('#clock', fmtClockMin(SITE.t)); txt('#elapsed', fmtHM(SITE.t)); bar('#totBar', SITE.t / PLAN.total);
   txt('#piers', `${done} of ${total}`);
@@ -3260,9 +3549,9 @@ function updateHud(force) {
     btn.start.disabled = SITE.t >= PLAN.total;
     btn.start.classList.toggle('go', !SITE.running && SITE.t < PLAN.total);
     btn.next.disabled = !SITE.started || SITE.t >= PLAN.total; btn.end.disabled = !SITE.started || SITE.t >= PLAN.total;
-    document.querySelectorAll('[data-stories]').forEach((b) => { b.disabled = SITE.started; });
+    document.querySelectorAll('[data-stories]').forEach((b) => { b.disabled = SITE.started || !!DESIGN; });
     $('#depth').disabled = SITE.started;
-    $('#spacing').disabled = SITE.started; $('#btnSpacing').disabled = SITE.started;
+    $('#spacing').disabled = SITE.started || !!DESIGN; $('#btnSpacing').disabled = SITE.started || !!DESIGN;
     ['#tWall', '#tFloor', '#tRoof', '#tInt'].forEach((id) => { $(id).disabled = SITE.started; });
   }
 }
@@ -3281,7 +3570,7 @@ function narrate() {
   const evs = P.events.splice(0, P.events.length);
   if (craneInfo && craneInfo.e.idx !== lastSetIdx) {
     lastSetIdx = craneInfo.e.idx; const e = craneInfo.e;
-    const tip = e.kind === 'girder' ? ' Pier row done and the beam has moved off, so its girder goes on the caps.'
+    const tip = e.kind === 'girder' ? (DESIGN ? ' The piers at both ends are capped and the beam has moved off, so this girder bay goes on.' : ' Pier row done and the beam has moved off, so its girder goes on the caps.')
       : e.kind === 'floor' && e.story === 0 ? ' Floor panels land on the girders.'
       : e.kind === 'roof' ? ' Furring strips and metal roofing were added on the line.'
       : e.kind === 'ext' ? ' Sheathing, furring strips and metal siding were done on the line.' : '';
@@ -3322,9 +3611,11 @@ function plan(msg) {
   const w = $('#warn'), notes = [];
   if (!PLAN.seamOk) notes.push(`No pier row sits under the 16 ft floor panel seam at this spacing; your engineer would add a beam or pier line there.`);
   const cap = PLAN.piers * PLAN.kips;
+  if (DESIGN && DESIGN.foundation && DESIGN.foundation.type && DESIGN.foundation.type !== 'Helical piers') notes.push(`Your design is set to a ${DESIGN.foundation.type.toLowerCase()} foundation; this shows our helical pier process for the same house.`);
   if (cap < PLAN.load) notes.push(`${PLAN.piers} piers at ${fmtFtIn(P.depthIn)} hold about ${Math.round(cap)} kips, short of the house's roughly ${PLAN.load} kips. Drive deeper or add piers (${PLAN.need} needed).`);
   w.hidden = !notes.length; w.textContent = notes.join(' ');
   const sp = $('#spacing'); if (sp && GRID.auto) sp.value = Math.abs(GRID.spacingFt - Math.round(GRID.spacingFt)) < 0.01 ? String(Math.round(GRID.spacingFt)) : fmtFtIn(GRID.spacingFt * 12).replace(' ', '');
+  if (!msg && DESIGN) msg = `${DESIGN.label}: about ${PLAN.load} kips. At ${fmtFtIn(P.depthIn)} each pier holds about ${PLAN.kips.toFixed(1)} kips, so it needs ${PLAN.need}: ${DG.lines} girder lines × ${DG.rows} rows = ${PLAN.piers} piers${SETUPS.length > DG.rows ? ` in ${SETUPS.length} Pier Beam setups` : ''}. Foundation about ${fmtHM(PLAN.pierEnd)}, shell closed in about ${fmtClockMin(PLAN.total)}.`;
   setStatus(msg || `${SITE.stories === 1 ? 'One story' : SITE.stories === 2 ? 'Two stories' : 'Three stories'} (about ${PLAN.load} kips). At ${fmtFtIn(P.depthIn)} each pier holds about ${PLAN.kips.toFixed(1)} kips, so it needs ${PLAN.need}: ${GRID.PX.length} per row × ${GRID.RZ.length} rows = ${PLAN.piers} piers. Foundation about ${fmtHM(PLAN.pierEnd)}, shell closed in about ${fmtClockMin(PLAN.total)}.`);
   updateHud(true);
 }
@@ -3385,7 +3676,7 @@ btn.next.addEventListener('click', () => {
 btn.end.addEventListener('click', () => { SITE.t = PLAN.total; SITE.running = false; updateHud(true); });
 btn.reset.addEventListener('click', () => plan('Reset. Press Start to run the job again.'));
 document.querySelectorAll('[data-stories]').forEach((b) => b.addEventListener('click', () => {
-  if (SITE.started) return;
+  if (SITE.started || DESIGN) return;
   SITE.stories = Number(b.dataset.stories);
   document.querySelectorAll('[data-stories]').forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
   if (GRID.auto) autoGrid(SITE.stories, P.depthIn);
@@ -3397,7 +3688,7 @@ function applyDepth() {
   if (!isFinite(v) || v < 10 || v > 34) { el.value = String(P.depthIn / 12); setStatus('Pier depth must be between 10 and 34 ft: the 7 ft lead plus extensions, within the soil the rig is modeled for.'); return; }
   if (Math.abs(v * 12 - P.depthIn) < 0.01 && GRID.auto) return;
   P.depthIn = v * 12;
-  autoGrid(SITE.stories, P.depthIn);
+  if (!DESIGN) autoGrid(SITE.stories, P.depthIn);
   plan();
   announce(`Pier depth ${v} ft: ${PLAN.piers} piers.`);
 }
@@ -3436,7 +3727,8 @@ function resize() {
 window.addEventListener('resize', resize);
 if (window.ResizeObserver) new ResizeObserver(resize).observe(stage);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { signRedraws.forEach((f) => f()); Factory.signRedraws.forEach((f) => f()); });
-window.__jobSite = { SITE, P, PLAN, GRID, get ELEMS() { return ELEMS; }, get heads() { return heads; }, syncPier, plan };
+window.__jobSite = { SITE, P, PLAN, GRID, SETUPS: () => SETUPS, get ELEMS() { return ELEMS; }, get heads() { return heads; }, syncPier, plan,
+  aim: (x, y, z, r, th, ph) => { want.target.set(x, y, z); want.r = r; if (th != null) want.th = th; if (ph != null) want.ph = ph; curView = 'free'; } };
 
 /* ---------- Main loop ---------- */
 let last = performance.now(), hudT = 0;
@@ -3462,7 +3754,21 @@ function frame(now) {
 }
 resize();
 setCutaway(false);
-autoGrid(SITE.stories, P.depthIn);
+// the intro and controls describe the house being built: the visitor's design, or the example house
+(function introduce() {
+  const sub = $('.sub'), swap = document.createElement('a');
+  swap.className = 'swap';
+  if (DESIGN) {
+    $('#ttl').textContent = `Your ${DESIGN.style || 'home'}: piers to framed shell`;
+    sub.textContent = `Built from your design: ${DESIGN.label}. The Pier Beam drives its piers while the trailer line builds every floor, wall and roof panel, and the crane sets each one as it comes off the line.`;
+    document.querySelectorAll('[data-stories]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.stories) === SITE.stories)));
+    $('#depth').value = String(P.depthIn / 12);
+    swap.href = '?example=1'; swap.textContent = 'Watch the example house instead';
+  } else if (STORED_DESIGN) { swap.href = './'; swap.textContent = `Build my design instead: ${STORED_DESIGN.label}`; }
+  else return;
+  sub.after(swap);
+})();
+if (!DESIGN) autoGrid(SITE.stories, P.depthIn);
 plan();
 setView('site', true);
 requestAnimationFrame(frame);
