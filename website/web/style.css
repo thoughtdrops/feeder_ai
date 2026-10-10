@@ -164,3 +164,7 @@ input[type=checkbox]{accent-color:var(--green)}
 .price-input input:focus{box-shadow:none}
 .price-input:focus-within{border-color:var(--green);box-shadow:0 0 0 4px var(--ring)}
 .price-input{border-radius:10px;transition:border-color .15s,box-shadow .15s}
+/* "See our process" strip above the footer */
+.process-strip{border-top:1px solid var(--line)}
+.process-strip h2{letter-spacing:-.03em}
+.process-strip .button{min-width:200px}

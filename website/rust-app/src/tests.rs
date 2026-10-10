@@ -403,11 +403,26 @@ fn balconies_have_an_actual_upper_door_supports_and_itemized_materials(){
  c.stories=1;c.active_floor=0;let single=model::build(&c);assert!(single["balcony"].is_null());assert!(!single["items"].as_array().unwrap().iter().any(|i|s(i,"id").starts_with("balcony-")));
 }
 #[test]fn crawlspace_takeoff_has_no_slab_leftovers_or_doubled_single_assemblies(){
- let mut c=Config::default();c.waste=10.;let m=model::build(&c);let items=m["items"].as_array().unwrap();
+ let mut c=Config::default();c.waste=10.;c.foundation=piers::CONCRETE.into();let m=model::build(&c);let items=m["items"].as_array().unwrap();
  let row=|id:&str|items.iter().find(|i|s(i,"id")==id);
  // The crawlspace floor has no slab, and its own sill gasket replaces the slab-era line.
  for id in ["slab","slabjoints","sillgasket"]{assert!(row(id).is_none(),"{id} should not be ordered for a crawlspace floor");}
  assert!(near(n(row("crawl-sillseal").unwrap(),"rawNet"),n(&m,"perimeter")/50.));
  // Ordering waste must not round one access hatch or one moisture system up to two.
  for id in ["crawl-access","crawl-moisture"]{let i=row(id).unwrap();assert_eq!(n(i,"qty"),1.);assert_eq!(n(i,"wastePercent"),0.);}
+}
+#[test]fn helical_pier_foundation_is_the_default_and_replaces_concrete_lines(){
+ let c=Config::default();assert_eq!(c.foundation,piers::HELICAL);let m=model::build(&c);let items=m["items"].as_array().unwrap();
+ let row=|id:&str|items.iter().find(|i|s(i,"id")==id);
+ for id in ["footings","footingrebar","rebarsupports","anchors","anchorwashers","crawl-wall","crawl-rebar","crawl-damp","crawl-girder","crawl-piers","crawl-sill","crawl-sillseal","crawl-access"]{assert!(row(id).is_none(),"{id} belongs to the concrete foundation");}
+ // 26 x 46 ft, two stories: 1,196 sq ft x 185/1,024 = 216.1 kips; 24 ft piers hold 0.95 x 5,000 ft-lb x 9 / 2 = 21.4 kips, so 11 are needed.
+ let f=&m["foundation"];assert_eq!(n(f,"piersNeeded"),11.);assert_eq!(n(f,"girderLines"),3.);assert_eq!(n(f,"piersPerLine"),4.);assert_eq!(n(f,"piers"),12.);assert!(near(n(f,"kipsPerPier"),21.38));
+ assert!(n(f,"piers")*n(f,"kipsPerPier")>=n(f,"houseKips"));
+ // 24 ft depth + 1 ft reveal - 7 ft lead = 18 ft: two 10 ft extensions, each joint bolted.
+ assert_eq!(n(row("pier-leads").unwrap(),"qty"),12.);assert_eq!(n(row("pier-ext10").unwrap(),"qty"),24.);assert_eq!(n(row("pier-ext5").unwrap(),"qty"),0.);assert_eq!(n(row("pier-couplers").unwrap(),"qty"),24.);assert_eq!(n(row("pier-caps").unwrap(),"qty"),12.);
+ assert!(near(n(row("pier-girders").unwrap(),"rawNet"),3.*46.));
+ // A shallower, weaker pier needs more of them: 14 ft gives 0.95 x 2,100 x 9 / 2 = 9 kips, so 25 piers carry 216 kips.
+ let mut shallow=c.clone();shallow.pier_depth=14.;let f=piers::summary(&shallow);assert_eq!(n(&f,"piersNeeded"),25.);assert!(n(&f,"piers")>=25.);
+ let mut concrete=c.clone();concrete.foundation=piers::CONCRETE.into();let m=model::build(&concrete);assert!(m["items"].as_array().unwrap().iter().any(|i|s(i,"id")=="crawl-wall"));assert!(!m["items"].as_array().unwrap().iter().any(|i|s(i,"id").starts_with("pier-")));
+ let mut bad=c.clone();bad.foundation="Slab".into();assert!(validate(&bad).is_err());bad=c.clone();bad.pier_depth=40.;assert!(validate(&bad).is_err());
 }

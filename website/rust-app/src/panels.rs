@@ -78,6 +78,7 @@ pub fn apply(c:&Config,mut m:Value)->Value{
  add!("crawl-nails","Fasteners","Subfloor ring-shank nails · 2,000 pack",footprint*2.5/2000.,"packs",62.,"Estimated 2.5 fasteners/sq ft; final edge and field schedule pending.",true);
  add!("crawl-bottomfixings","Fasteners","Bottom board / foam retention screw and washer kits",footprint/32.,"kits",9.,"One kit per 4 × 8 bottom panel; attachment detail pending.",true);
  add!("crawl-bearing","Floor framing","Crawlspace joist bearing / connector sets",joists.len()*2,"sets",18.,"Two per modeled joist; supplier connection and panel assembly details pending.",true);
+ if c.foundation==piers::CONCRETE{
  add!("crawl-sill","Foundation","Treated foundation sill · 2×6",perimeter,"linear ft",1.5,"Separate foundation sill beneath factory SPF wall/floor panels.",false);
  add!("crawl-sillseal","Foundation","Sill gasket · 50 ft roll",perimeter/50.,"rolls",13.,"Perimeter foundation joint.",true);
  add!("crawl-wall","Foundation","8 in crawlspace concrete stem wall · 3 ft estimating height",perimeter*(8./12.)*3./27.,"cu yd",180.,"Editable concept volume; soil, frost, reinforcing, crawl height and access require site design.",false);
@@ -87,6 +88,7 @@ pub fn apply(c:&Config,mut m:Value)->Value{
  add!("crawl-girder","Foundation","Crawlspace panel-joint engineered girder allowance",girder_lf,"linear ft",32.,"Proposed girder under each 16-ft panel joint; sizing, reactions and foundations pending.",false);
  add!("crawl-piers","Foundation","Crawlspace girder pier / pad material allowance",girder_lines*((c.depth/8.).ceil()+1.),"sets",145.,"Proposed supports up to 8 ft apart; no load capacity assigned.",true);
  t.add("crawl-access","Foundation","Crawlspace access hatch / weather seals",1.,"set",160.,"One access assembly; ordering waste does not apply. Access size and location require local construction detailing.","Panel assembly estimate",false,true);
+ }else{piers::add_items(&mut t,c);}
  t.add("crawl-moisture","Foundation","Crawlspace moisture / ventilation system allowance",1.,"set",650.,"One system allowance; ordering waste does not apply. Placeholder for an approved vented or conditioned crawlspace strategy; ground moisture control is not supplied by ZIP wall sheathing.","Panel assembly estimate",false,true);
  if !surfaces::tile(&c.floor).is_some(){add!("vinylunderlay","Interior","Vinyl underlayment · 1/4 in 4 × 8 panel",floor_area/32.,"sheets",24.,"All usable finished floors; staircase void deducted.",true);}
  let levels=rows(&m);let mut sound=0.;let mut furring=0.;let mut screen=0.;let mut joints=0.;let mut sleeve_count=0;
@@ -131,9 +133,10 @@ pub fn apply(c:&Config,mut m:Value)->Value{
  let tile_floor=if floor_tile.is_some(){floor_area}else{0.};let tile_area=tile_floor+tiled_walls;
  if let Some(tile)=floor_tile{add!("tile-floor","Interior",&format!("Tile floor · {}",s(tile,"name")),tile_floor,"sq ft",n(tile,"price"),"All usable house floors, staircase void excluded; measured area plus selected ordering waste.",false);add!("tile-underlay","Interior","Tile floor backer / decoupling installation system",tile_floor,"sq ft",1.5,"Product-rated underlay over AdvanTech; verify joist/subfloor deflection for the chosen tile.",false);}
  if tile_area>0.{add!("tile-thinset","Interior","Tile mortar · 50 lb bags",tile_area/50.,"bags",26.,"50 sq ft/bag estimating coverage; trowel size and selected product determine actual coverage.",true);add!("tile-grout","Interior","Tile grout · 25 lb bags",tile_area/200.,"bags",32.,"200 sq ft/bag estimating coverage; tile size/joint depth determine final quantity.",true);add!("tile-edge","Interior","Tile edge / transition trim",tile_floor.sqrt()*4.+tiled_walls/c.wall_height,"linear ft",3.5,"Floor perimeter-equivalent plus selected wall-run termination allowance; detailed room transitions pending.",false);}
- m["tileFloorArea"]=json!(tile_floor);m["tileWallArea"]=json!(round(tiled_walls));m["customWallArea"]=json!(round(custom_walls));
+ m["foundation"]=piers::summary(c);m["tileFloorArea"]=json!(tile_floor);m["tileWallArea"]=json!(round(tiled_walls));m["customWallArea"]=json!(round(custom_walls));
+ let concrete_only=["footings","footingrebar","rebarsupports","anchors","anchorwashers"];
  let removed=["slab","mesh","base","slabedge","slabjoints","sillgasket","soundinsulation","floorsound","floorinsulation","floor-batts","interior-batts","rainscreen","atticinsulation","baffles","underlay","compound","drywalltape","paint","primer","subfloorscrews","garage-compound","garage-drywalltape","garage-primer","garage-paint","ceilingjoists","ceilingsupport","ceilinghangers"];
- m["items"].as_array_mut().unwrap().retain(|i|!removed.contains(&s(i,"id"))&&!(floor_tile.is_some()&&["vinyl","adhesive","floorleveler"].contains(&s(i,"id"))));
+ m["items"].as_array_mut().unwrap().retain(|i|!removed.contains(&s(i,"id"))&&!(c.foundation!=piers::CONCRETE&&concrete_only.contains(&s(i,"id")))&&!(floor_tile.is_some()&&["vinyl","adhesive","floorleveler"].contains(&s(i,"id"))));
  for i in m["items"].as_array_mut().unwrap(){match s(i,"id"){
   "roofmetal"=>{i["name"]=json!("29-gauge ribbed metal roofing");i["basis"]=json!("Actual roof planes including overhangs; material gauge, coatings and fastening require the selected roofing product.");},
   "siding" if c.siding=="Corrugated metal"=>i["name"]=json!("29-gauge ribbed metal siding"),
