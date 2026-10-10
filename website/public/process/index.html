@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Our Process · Universal Frame</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' blob:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<link rel="icon" type="image/png" href="../brand/universal-frames-icon.png">
+<style>
+@font-face{font-family:"Barlow";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/barlow-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Barlow";font-style:normal;font-weight:500;font-display:swap;src:url(fonts/barlow-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"Barlow";font-style:normal;font-weight:600;font-display:swap;src:url(fonts/barlow-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Barlow Condensed";font-style:normal;font-weight:500;font-display:swap;src:url(fonts/barlow-condensed-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"Barlow Condensed";font-style:normal;font-weight:600;font-display:swap;src:url(fonts/barlow-condensed-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Barlow Condensed";font-style:normal;font-weight:700;font-display:swap;src:url(fonts/barlow-condensed-latin-700-normal.woff2) format("woff2")}
+.back{margin:0 0 10px;text-decoration:none}
+</style>
+<style>
+:root{
+  --font-body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --font-head:"Barlow Condensed","Arial Narrow","Roboto Condensed",system-ui,sans-serif;
+  --paper:#e8ecef;--panel:rgba(245,247,248,.94);--edge:rgba(35,39,43,.16);
+  --ink:#23272b;--ink-soft:#56616b;--accent:#206443;--accent-wash:rgba(32,100,67,.11);--on-accent:#edf3e8;
+  --warn:#b7791f;--sky-top:#86b2dc;--sky-low:#e3ecf3;
+  --shadow:0 1px 2px rgba(20,24,28,.10),0 8px 22px rgba(20,24,28,.10);
+  color-scheme:light;box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#131920;--panel:rgba(26,33,41,.93);--edge:rgba(225,232,238,.14);
+    --ink:#e4e9ee;--ink-soft:#a0abb5;--accent:#8ecf9f;--accent-wash:rgba(142,207,159,.15);--on-accent:#14271a;
+    --warn:#e0b25a;--sky-top:#0b1422;--sky-low:#2a3749;
+    --shadow:0 1px 2px rgba(0,0,0,.45),0 10px 26px rgba(0,0,0,.4);color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#131920;--panel:rgba(26,33,41,.93);--edge:rgba(225,232,238,.14);
+  --ink:#e4e9ee;--ink-soft:#a0abb5;--accent:#8ecf9f;--accent-wash:rgba(142,207,159,.15);--on-accent:#14271a;
+  --warn:#e0b25a;--sky-top:#0b1422;--sky-low:#2a3749;
+  --shadow:0 1px 2px rgba(0,0,0,.45),0 10px 26px rgba(0,0,0,.4);color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px);background:var(--paper)}
+body{height:100%;margin:0;background:var(--paper);color:var(--ink);font:400 15px/1.42 var(--font-body);overflow:hidden;-webkit-font-smoothing:antialiased}
+#app{position:relative;width:100%;height:100%;overflow:hidden}
+#stage{position:absolute;inset:0}
+#stage canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab;outline:none}
+#stage canvas:active{cursor:grabbing}
+#stage::after{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,rgba(0,0,0,0) 58%,rgba(10,14,20,.22) 100%)}
+.hud{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;gap:10px;padding:14px;pointer-events:none}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.card{pointer-events:auto;background:var(--panel);border:1px solid var(--edge);border-radius:10px;box-shadow:var(--shadow);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.intro{max-width:410px;padding:13px 15px 12px}
+h1{margin:0;font:700 27px/1.02 var(--font-head);letter-spacing:.003em}
+.sub{margin:5px 0 0;color:var(--ink-soft);font-size:14px;max-width:48ch}
+.status{margin:10px 0 0;padding:8px 10px;border-left:3px solid var(--accent);border-radius:0 6px 6px 0;background:var(--accent-wash);font-size:14px;line-height:1.38;min-height:3.1em}
+.hint{margin:8px 0 0;color:var(--ink-soft);font-size:12.5px}
+.power{padding:11px 15px;min-width:250px}
+.power h2{margin:0 0 6px;font:600 13px/1.2 var(--font-body);color:var(--ink-soft)}
+.soc{display:flex;align-items:baseline;gap:8px}
+.soc strong{font:600 30px/1 var(--font-head);font-variant-numeric:tabular-nums}
+.soc span{color:var(--ink-soft);font-size:13px}
+.bar{height:8px;border-radius:5px;background:rgba(127,140,150,.25);overflow:hidden;margin:7px 0 9px}
+.bar i{display:block;height:100%;width:100%;background:var(--accent);border-radius:5px;transition:width .2s}
+.kv{display:grid;grid-template-columns:auto auto;gap:2px 16px;font-size:13px}
+.kv span{color:var(--ink-soft)}.kv b{font:600 15px/1.3 var(--font-head);font-variant-numeric:tabular-nums;text-align:right}
+.dock{padding:10px 12px 12px;display:flex;flex-direction:column;gap:10px}
+.heads{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.head{border:1px solid var(--edge);border-radius:8px;padding:7px 9px 6px;background:rgba(127,140,150,.06)}
+.head header{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.head header b{font:700 15px/1.2 var(--font-head)}
+.head header span{font-size:12px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.head header span.on{color:var(--accent);font-weight:600}
+.head header span.wait{color:var(--warn);font-weight:600}
+.head dl{display:grid;grid-template-columns:repeat(3,auto);gap:0 10px;margin:4px 0 2px}
+.head dt{font-size:11px;color:var(--ink-soft)}.head dd{margin:0;font:600 15px/1.25 var(--font-head);font-variant-numeric:tabular-nums}
+.head canvas{display:block;width:100%;height:34px}
+.controls{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 18px}
+.steps,.aux{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.btn{appearance:none;-webkit-appearance:none;display:inline-flex;align-items:center;gap:8px;padding:8px 13px;border:1px solid var(--edge);border-radius:8px;background:transparent;color:var(--ink);font:600 16px/1.1 var(--font-head);letter-spacing:.01em;white-space:nowrap;cursor:pointer}
+.btn .n{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;border:1.5px solid currentColor;font-size:12.5px;line-height:1}
+.btn.go{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn:not(:disabled):not(.go):hover{background:var(--accent-wash)}
+.btn.go:not(:disabled):hover{filter:brightness(1.07)}
+.seg-label{font-size:13px;color:var(--ink-soft);margin-right:2px}
+.grp{display:inline-flex;align-items:center;gap:6px}
+.seg{display:inline-flex;border:1px solid var(--edge);border-radius:8px;overflow:hidden}
+.seg button{appearance:none;-webkit-appearance:none;border:0;border-right:1px solid var(--edge);background:transparent;color:var(--ink-soft);padding:7px 10px;font:600 15px/1.1 var(--font-head);cursor:pointer}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.seg button:disabled{opacity:.4;cursor:not-allowed}
+.check{display:inline-flex;align-items:center;gap:7px;font-size:14px;color:var(--ink-soft);cursor:pointer;user-select:none;white-space:nowrap}
+.check input{width:16px;height:16px;accent-color:var(--accent);margin:0}
+.btn:focus-visible,.seg button:focus-visible,.check input:focus-visible{outline:2.5px solid var(--accent);outline-offset:2px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+@media (max-width:900px){
+  .hud{padding:8px;gap:8px}
+  .top{flex-direction:column;align-items:stretch;gap:8px}
+  .intro{max-width:none;padding:10px 12px}
+  h1{font-size:21px}
+  .sub,.hint{display:none}
+  .status{margin-top:7px;font-size:13px;min-height:0}
+  .power{padding:8px 12px;min-width:0}
+  .power h2{display:none}
+  .soc strong{font-size:22px}
+  .kv{grid-template-columns:repeat(4,auto)}
+  .heads{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .head canvas{height:24px}
+  .controls{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+  .steps,.aux{flex-wrap:nowrap}
+  .controls>*{flex:0 0 auto}
+}
+@media (max-height:640px) and (min-width:901px){.sub,.hint{display:none}.head canvas{height:22px}}
+</style>
+<style>
+.now{display:flex;flex-direction:column;gap:6px}
+.now-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.now-row b{font:700 17px/1.2 var(--font-head)}
+.now-row span{font-size:13px;color:var(--ink-soft)}
+.track{position:relative;height:10px;border-radius:6px;background:rgba(127,140,150,.22);overflow:hidden}
+.track i{position:absolute;inset:0 auto 0 0;width:0;background:var(--accent);border-radius:6px}
+.track.thin{height:6px}
+.track.thin i{background:var(--warn)}
+.links{display:flex;gap:8px;flex-wrap:wrap}
+a.btn{text-decoration:none}
+@media (max-width:900px){.now-row span{font-size:12px}}
+.rows{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.lane{border:1px solid var(--edge);border-radius:8px;padding:7px 10px 8px;background:rgba(127,140,150,.06);display:flex;flex-direction:column;gap:4px;min-width:0}
+.lane header{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.lane header b{font:700 15px/1.2 var(--font-head);white-space:nowrap}
+.lane header span{font-size:12px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lane p{margin:0;font-size:13px;line-height:1.3;min-height:2.6em}
+.setup{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.setup input{width:76px;padding:7px 8px;border:1px solid var(--edge);border-radius:8px;background:transparent;color:var(--ink);font:600 15px/1.1 var(--font-head)}
+.setup input:focus-visible{outline:2.5px solid var(--accent);outline-offset:2px}
+.warn{margin:8px 0 0;padding:7px 10px;border-left:3px solid var(--warn);border-radius:0 6px 6px 0;background:rgba(183,121,31,.12);font-size:13px}
+.warn[hidden]{display:none}
+.soc{flex-wrap:wrap}
+.now-line{flex:1 1 150px;min-width:0;text-align:right;font-size:13px;line-height:1.3;color:var(--ink)!important;font-weight:600}
+.times{display:inline-flex;align-items:center;gap:6px;flex-wrap:nowrap}
+.times label{display:inline-flex;align-items:center;gap:4px;font-size:13px;color:var(--ink-soft)}
+.setup .times input{width:48px;padding:6px 6px}
+@media (max-width:900px){.now-line{text-align:left;flex-basis:100%}}
+@media (max-width:900px){.rows{grid-template-columns:1fr}.lane p{min-height:0}}
+</style>
+</head>
+<body>
+<main id="app">
+  <div id="stage"></div>
+  <div class="hud">
+    <div class="top">
+      <section class="card intro" aria-labelledby="ttl">
+        <a class="btn back" href="../">&larr; Back home</a>
+        <h1 id="ttl">Job site: piers to framed house</h1>
+        <p class="sub">The Pier Beam drives the foundation while the trailer line starts building panels. The crane sets girders as soon as each pier row is done, then every panel as it comes off the line.</p>
+        <p id="status" class="status">Choose the house size and pier spacing, then press Start.</p>
+        <p id="warn" class="warn" hidden></p>
+        <p class="hint">Drag to orbit. Right-drag or two fingers to pan. Scroll or pinch to zoom.</p>
+      </section>
+      <section class="card power" aria-label="Schedule">
+        <h2>Site clock, start 7:00 AM</h2>
+        <div class="soc"><strong id="clock">7:00 AM</strong><span id="elapsed">0 h 00 m</span><span id="now" class="now-line" aria-live="off">Ready to start.</span></div>
+        <div class="bar" aria-hidden="true"><i id="totBar" style="width:0%"></i></div>
+        <div class="kv">
+          <span>Piers done</span><b id="piers">0 of 9</b>
+          <span>Panels built</span><b id="built">0 of 0</b>
+          <span>Panels set</span><b id="set">0 of 0</b>
+          <span>Shell done</span><b id="doneAt">–</b>
+        </div>
+      </section>
+    </div>
+    <section class="card dock" aria-label="Job status and controls">
+      <div class="controls">
+        <div class="steps" role="group" aria-label="Playback">
+          <button class="btn go" id="btnStart" type="button">Start</button>
+          <button class="btn" id="btnNext" type="button" disabled>Skip ahead</button>
+          <button class="btn" id="btnEnd" type="button" disabled>Finish</button>
+          <button class="btn" id="btnReset" type="button">Reset</button>
+        </div>
+        <div class="setup" role="group" aria-label="Job setup">
+          <span class="grp"><span class="seg-label" id="stLbl">House</span>
+          <span class="seg" role="group" aria-labelledby="stLbl">
+            <button type="button" data-stories="1" aria-pressed="false">1 story</button><button type="button" data-stories="2" aria-pressed="false">2</button><button type="button" data-stories="3" aria-pressed="true">3</button>
+          </span></span>
+          <label class="grp" for="spacing"><span class="seg-label">Pier spacing</span>
+          <input id="spacing" type="text" inputmode="decimal" value="16" aria-describedby="spHelp" autocomplete="off"></label>
+          <button class="btn" id="btnSpacing" type="button">Apply</button>
+          <span id="spHelp" class="sr-only">Feet, for example 16, 12 or 10'8". Smallest is 10'8" with four heads.</span>
+          <span class="times" role="group" aria-labelledby="tmLbl"><span class="seg-label" id="tmLbl">Line min</span>
+            <label>Wall <input id="tWall" type="number" inputmode="decimal" min="1" max="240" step="0.5" value="13"></label>
+            <label>Floor <input id="tFloor" type="number" inputmode="decimal" min="1" max="240" step="0.5" value="20"></label>
+            <label>Roof <input id="tRoof" type="number" inputmode="decimal" min="1" max="240" step="0.5" value="20"></label>
+            <label>Interior <input id="tInt" type="number" inputmode="decimal" min="1" max="240" step="0.5" value="6"></label>
+          </span>
+          <label class="grp" for="depth"><span class="seg-label">Pier depth ft</span>
+          <input id="depth" type="number" inputmode="decimal" min="10" max="34" step="0.5" value="24" aria-describedby="dpHelp"></label>
+          <span id="dpHelp" class="sr-only">Every pier is driven to this depth. Shallower piers carry less, so the job adds piers to hold the house.</span>
+        </div>
+        <div class="aux">
+          <div class="seg" role="group" aria-label="Playback speed">
+            <button type="button" data-speed="60" aria-pressed="true">60×</button><button type="button" data-speed="240" aria-pressed="false">240×</button><button type="button" data-speed="960" aria-pressed="false">960×</button>
+          </div>
+          <div class="seg" role="group" aria-label="Camera view">
+            <button type="button" data-view="site" aria-pressed="true">Site</button><button type="button" data-view="pier" aria-pressed="false">Pier Beam</button><button type="button" data-view="line" aria-pressed="false">Panel line</button><button type="button" data-view="house" aria-pressed="false">House</button><button type="button" data-view="plan" aria-pressed="false">Plan</button>
+          </div>
+          <label class="check"><input type="checkbox" id="labels" checked>Room names</label>
+          <label class="check"><input type="checkbox" id="windows">Windows</label>
+          <label class="check"><input type="checkbox" id="xray">See-through</label>
+        </div>
+      </div>
+    </section>
+  </div>
+  <div id="live" class="sr-only" aria-live="polite"></div>
+</main>
+<script src="three.min.js"></script>
+<script src="process.js"></script>
+</body>
+</html>
