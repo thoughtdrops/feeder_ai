@@ -1,0 +1,49 @@
+Wood Floor texture by Dimitrios Savva / Poly Haven.
+Source: https://polyhaven.com/a/wood_floor
+License: CC0 — https://polyhaven.com/license
+Maps resized to 1024 px for the interactive viewer.
+
+Venice Sunset HDRI by Greg Zaal / Poly Haven (CC0).
+Source: https://polyhaven.com/a/venice_sunset
+Distributed via Three.js example assets. Used for lighting/reflections only.
+
+Grass 004 by ambientCG (CC0):
+https://ambientcg.com/view?id=Grass004
+License: https://docs.ambientcg.com/license/
+Diffuse, OpenGL normal and roughness maps, 2048 px. Physical tile width: 1.4 meters.
+JPEG maps optimized at quality 95 for delivery.
+
+Universal Frames icon: original commissioned AI-generated raised wall-frame artwork.
+
+White Plaster 02 by Rob Tuytel / Poly Haven (CC0):
+https://polyhaven.com/a/white_plaster_02
+Diffuse, OpenGL normal and roughness maps, resized to 2048 px.
+
+Brick Wall 09 by Matterfield / Rob Tuytel / Poly Haven (CC0):
+https://polyhaven.com/a/brick_wall_09
+Diffuse, OpenGL normal and roughness maps, resized to 2048 px.
+
+Rock Wall 08 by Amal Kumar / Poly Haven (CC0):
+https://polyhaven.com/a/rock_wall_08
+Diffuse, OpenGL normal and roughness maps, resized to 2048 px.
+
+Wallpaper collection: ten original commissioned AI-generated printed textures.
+Used with mirrored wrapping for continuous texture boundaries; lossless WebP delivery.
+
+Real furniture models from Poly Haven (CC0):
+Leather sofa: https://polyhaven.com/a/sofa_02
+Gothic wooden bed frame: https://polyhaven.com/a/GothicBed_01
+Dining chair: https://polyhaven.com/a/dining_chair_02
+Oak coffee table: https://polyhaven.com/a/modern_coffee_table_01
+Oak lounge chair: https://polyhaven.com/a/modern_arm_chair_01
+Embedded PBR maps; beds have locally modeled mattress and linens.
+
+Universal Frames v9 trim finishes: trim-finishes-atlas.png. Original AI-generated flat material samples, created with OpenAI image generation for this Site. 5 columns x 2 rows: charcoal brushed aluminium, satin taupe lacquer, quarter-sawn honey oak, ivory painted maple, antiqued champagne gilt, dark walnut, brushed warm brass, French washed beech, seafoam painted wood, distressed cedar. Runtime crops the chosen cell and derives subtle normal/roughness variation; no outside texture license is required for this generated asset.
+
+Bright wallpaper collection: Ivory botanical, Sunlit damask and Sky blue toile.
+Original AI-generated material samples commissioned for Universal Frames; 1024px WebP plus bounded 512px mobile variants. Mirrored wrapping used for seamless boundaries.
+
+Additional finish collection: 30 original wallpaper prints and 24 vinyl
+patterns authored for this studio; see scripts/create-finish-assets.py.
+The wood-grain vinyl variants derive from the existing credited CC0 oak
+photographic texture. All patterns are stored locally, with mobile copies.

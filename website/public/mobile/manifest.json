@@ -1,0 +1,1614 @@
+{
+  "maxTextureEdge": 512,
+  "assets": [
+    {
+      "path": "models/GothicBed_01.glb",
+      "sourceSha256": "6f7583ad69a51cd00abe1692e171107c950b6f662576b4443cef1e55dd93f8f7",
+      "mobileSha256": "75c0e2e88d21c2816837bad87abd8f04809c732ae158514d728a1cad7af0cc7c",
+      "images": [
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        },
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        },
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "models/dining_chair_02.glb",
+      "sourceSha256": "812c81e3f70c24f65d016ff6bbf284ed6c9a02a7d812cb10cfa7abdf8dab6cfe",
+      "mobileSha256": "244271494e32bd18a781717f26e1900790b2a12d565062e6abdfd90a9556d836",
+      "images": [
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        },
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        },
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "models/modern_arm_chair_01.glb",
+      "sourceSha256": "48d734dc771d461a8b0b15227ba79d2b97a95d6d86b9e9a14c5d6bb02010555f",
+      "mobileSha256": "d3c128cc766efebfada5a6b5125fef99f1fe3b100dc464555f2e9a429e04942a",
+      "images": [
+        {
+          "original": [
+            1024,
+            1024
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        },
+        {
+          "original": [
+            1024,
+            1024
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        },
+        {
+          "original": [
+            1024,
+            1024
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        },
+        {
+          "original": [
+            1024,
+            1024
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        },
+        {
+          "original": [
+            1024,
+            1024
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        },
+        {
+          "original": [
+            1024,
+            1024
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "models/modern_coffee_table_01.glb",
+      "sourceSha256": "967f1b6a0179f681a8f3985784e9d76764e6cd189ed3ca78601d3621ec9c82fa",
+      "mobileSha256": "99ad2c3608cdd9181dccb44b4173c91bced69fbf612eecc32766d597551bfac6",
+      "images": [
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        },
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        },
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "models/sofa_02.glb",
+      "sourceSha256": "259d5fb630a548fbc2c83c4fb96be5002da90780441c0725aea13b0c118324b2",
+      "mobileSha256": "defad4dfae2b94bc33e8a4e870732e762f062073c7a5e518bd9fed53136eff97",
+      "images": [
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        },
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        },
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/brick-diff.jpg",
+      "sourceSha256": "936a7d0eb6585a73f6cf4dc609bbb27ac2cf8e7ada0944ce6c1221c0b01ef1bc",
+      "mobileSha256": "8d8c44c468681d68ccf80345e7ec880a5633c0af981ba07da3731032d8f189ca",
+      "images": [
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/brick-nor_gl.jpg",
+      "sourceSha256": "26458aa77ea7e8f9475d5c8c598560e8ed42ac0b3c068010e4a80061e2d15b8e",
+      "mobileSha256": "a28bc0a20fe11806d03f54aff4babc3e8e3f8cbc307bb1788c4180adac648501",
+      "images": [
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/brick-rough.jpg",
+      "sourceSha256": "412ffa94d826a5546c01a3eaad6cdae558e002f40e0b28aded890395c199a652",
+      "mobileSha256": "23e84c2d1d1cebba944ab42f43dd8bed13cad5d72f586ce8aa8f19235bc695d9",
+      "images": [
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/grass-diff.jpg",
+      "sourceSha256": "c7882529b221b1a3269c7fa2b086cf4c4ceaaecd6301f6542910087efa36cf10",
+      "mobileSha256": "57b89a879f1dd40ff114429ca3d59308c9f5fe000758beddb12d3d09c0392cfc",
+      "images": [
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/grass-nor_gl.jpg",
+      "sourceSha256": "b22f7cc975232b0724c4fa8b08d8e65e135db72389fdffb851fe7f8ecce62a07",
+      "mobileSha256": "b55bda87cb6b6cf931f123902b34a81c2d3d2fe938472714ed4667855b61db60",
+      "images": [
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/grass-rough.jpg",
+      "sourceSha256": "e0c8f63298b15d35c316d653fbb902cc652ce92673477b911e289660880dc146",
+      "mobileSha256": "89ef331028fc807dd0563c2fd5e517f280ea7b4edda4586a9bb1002e4fd8e539",
+      "images": [
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/oak-diff.jpg",
+      "sourceSha256": "3c95f896a36a1205f44a6c8144f9585b5c21d5cd44a87378ce2c92bd4b119946",
+      "mobileSha256": "3e0642ba51028796299fdceeb99f7b59fe79c714c9453167ac68a95139ee56fe",
+      "images": [
+        {
+          "original": [
+            1024,
+            1024
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/oak-nor_gl.jpg",
+      "sourceSha256": "1b00fa8507da89840c80deac80e3bbb6bc658ac7f18555a4cac89537885a3def",
+      "mobileSha256": "378227c5965740499063870d35ffda2195208f97e3d10367d0b71e73cce742e3",
+      "images": [
+        {
+          "original": [
+            1024,
+            1024
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/oak-rough.jpg",
+      "sourceSha256": "402c735f8eb4b900ccc1426916476ebd4c69c7ab4257450c5538de3760d9d570",
+      "mobileSha256": "b0c8d2bd488fc4fa32ef39a940670ee432c80deea4df4367bda20d992e4f61cf",
+      "images": [
+        {
+          "original": [
+            1024,
+            1024
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/plaster-diff.jpg",
+      "sourceSha256": "010e38a49c4ce9fc8426146435f02651168d1ae9022a3e3075283e230638a144",
+      "mobileSha256": "319c4e66c2ccb67fec340a1b653a6fb8a1f6db99970886014d4ddd4bf5a15545",
+      "images": [
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/plaster-nor_gl.jpg",
+      "sourceSha256": "6591d4e76f3f29e05fa4728215eb23ef0a8992247cf9a3910cd77d06e47bc6d8",
+      "mobileSha256": "20499d4d419f600e99b93bc7d5aeb0dad8661b4225040e86c781c4a468bb8ceb",
+      "images": [
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/plaster-rough.jpg",
+      "sourceSha256": "035e0b4228be016d22d22e67e953c466181c979a7ea15fc809809384d6058b2f",
+      "mobileSha256": "23ac737b3f19d451b0e79221f739def93dcc3ace79bba4a4d1044b98b0bf946a",
+      "images": [
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/stone-diff.jpg",
+      "sourceSha256": "b50005ccca850b925f77dbe65d873e881222399d00a2c1e0e883c7b2ceeae73d",
+      "mobileSha256": "3c3f511e2cadf204e4896fbaf736df02a15a9c9ae7a382a4980cb475247b4bd4",
+      "images": [
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/stone-nor_gl.jpg",
+      "sourceSha256": "f86c59d942c0c2cf4539d432939070b7d4a801ec43df0e1b25492ec0ea9af777",
+      "mobileSha256": "b9ee7e2d28be6d572ce372a15493072c344de8c3c4c63236861c6643a8658c23",
+      "images": [
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/stone-rough.jpg",
+      "sourceSha256": "19ed92ef390f045833e0a149d56459bdf088f4921f9637e7bc55aecf445443a0",
+      "mobileSha256": "1678ff9b6a44d9ee9fb2feb8232d17010812ee0dd01559a0a8504b2c40f63f3f",
+      "images": [
+        {
+          "original": [
+            2048,
+            2048
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/01-plank.webp",
+      "sourceSha256": "91865511c78ca00c0b7ec407cf90418b891681e99d05a84f821138cabe6a316f",
+      "mobileSha256": "41e4d9b4baf2ee9ec457a91e0f1ae7811ccb27c0053b92dca949d2ff35ca6ba7",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/02-plank.webp",
+      "sourceSha256": "56e902097d94bb44c85af57fc62988b546931507295011487c1d8e0b4bb7b19b",
+      "mobileSha256": "7018a0ab34b55b6e0d8d913825b0a33d4102d6d228622dbc5c58e3c143193c66",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/03-plank.webp",
+      "sourceSha256": "745d9ed518a7fd0b2bf175c3f1e46596fc92e073ce29333c0398e14430715852",
+      "mobileSha256": "c93be5519c85581e076f41dcc4dbacee66c06f1199a625d22a2816a91a8462d3",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/04-plank.webp",
+      "sourceSha256": "1ec82a0a003169ff9574ea88fe49864aba16774ebe4881db22fb60ddad1a59c5",
+      "mobileSha256": "e9a9fbeaf9349300826f53fecf15f0534545ef14c64d45fffcc3efe6e2634dac",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/05-plank.webp",
+      "sourceSha256": "408941beb989d35104f96fd447ca51d625f0224809b9f3c040d3c98cc7db396b",
+      "mobileSha256": "f37543ba6a47d72b868e531135d1e081a9c8bb6a5d91d1e552eb7025b51ed97f",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/06-plank.webp",
+      "sourceSha256": "120dd1d01bce98e77ffcd2686da22949722a193c4f1a196645b425aa44c3c13f",
+      "mobileSha256": "cd09dd4da0660bce21b0633538cef06377aa52ddfdced014151e2e72c133c86a",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/07-plank.webp",
+      "sourceSha256": "47f76295ac1c443d2603125dab3bbdb4a73fd86f58ad5f849ba48ed668cf7a8d",
+      "mobileSha256": "24144fd456ea1ba0c577039dca30020b13e219ec653af7d34074ef1dc4f0e7a3",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/08-plank.webp",
+      "sourceSha256": "deeb28b2e1ba1e9fe03ef8c79eaabfc191e55dc700236091dc645dafdd193eac",
+      "mobileSha256": "b15bcd134d97bdc81e3b96162f6ba880006a5509a2204c5ce1e99528f146f9c6",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/09-herringbone.webp",
+      "sourceSha256": "ca405a11809a22995220c869bc0c3118c66a2a1251b45af94fed9d2e9b5c630c",
+      "mobileSha256": "46339cf14f239c282cceb5ee537b21712ca0697d61a277d544d145f6db2ca711",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/10-herringbone.webp",
+      "sourceSha256": "e897848d1baaac1cdbd59384315739da6ccea233c2ed24eb1f10647584a0277c",
+      "mobileSha256": "555a96c8d66d56e35d34b6d6481e5396853b8ea672a330cd6564a4ad611dde1c",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/11-herringbone.webp",
+      "sourceSha256": "d3fb6a475be83e32abde5e4bfa07c717a90b75601e0b82bbf08c3787455b637a",
+      "mobileSha256": "30ca01d09e3dc42e65afe1ee1062cda8b23073c2e9951b6e4959b317a54adb80",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/12-herringbone.webp",
+      "sourceSha256": "c2df54994557f5b238a1957d2936195fe32c080750a2d57de9c9974afeffe3ce",
+      "mobileSha256": "0b7be5fe96a2f27e4492bbd89602456f929f2eecbbf437a8ace005d6b9bb884a",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/13-herringbone.webp",
+      "sourceSha256": "7e735bdd1a801f331fbca9c93bc6c3699dd95c4780755004a274774cb33c3a02",
+      "mobileSha256": "2622687fab2e51e218ce3c274386454b5f7829326439cdf5f1401129b74f2270",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/14-herringbone.webp",
+      "sourceSha256": "27e323a4ceeff6bf300b3c3f1f49deae3e7c73d99dfb1931c09058ad35b9a75d",
+      "mobileSha256": "36afc23bb9a6ece0d3bd53c35d64b8b55dc8204eacadc8e0a7306a55e558e1e7",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/15-parquet.webp",
+      "sourceSha256": "667509699817d2cc28374f47285c5ad3e2d5235672c7485b132099cf029df1fe",
+      "mobileSha256": "67f3036dec010df9370d12528174f4511d0d2514153d040c1d8311b426a40d09",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/16-parquet.webp",
+      "sourceSha256": "016f4f20a5f3c44891876de775c009a7f0fe198e79ed3815022ef603e60a1809",
+      "mobileSha256": "6807ffb7df6fb69bdf52d51c3d00d6a3d348ad039382c52dfc71abf69d189570",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/17-parquet.webp",
+      "sourceSha256": "de8593039adc57ed38bc2af00be0171d38170f0c9b83ccc7e30fe22b38915f35",
+      "mobileSha256": "18f3aadd3b78b1fa3cee99336a2978cc8b788f57c73527eeda3f27e9317220af",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/18-versailles.webp",
+      "sourceSha256": "4f723c6c3b47d09475a617b2358aa5219d75244947bc8031b6239282b6b7b5df",
+      "mobileSha256": "a2245ab5e7164e7cc25985d8fd6c1a9798b369beb2c4a186a97f298bfcc94c0a",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/19-terrazzo.webp",
+      "sourceSha256": "cfde289f502dfe3f5b8553bb1422a0386ba942ea0323f67ffea6dff4a1059681",
+      "mobileSha256": "36087af142a40637d85597fe1255a59c17830dcf8b62e58a4c5900e17ce0f25a",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/20-terrazzo.webp",
+      "sourceSha256": "3a1213e931408af919130dff98b0b35d08c1f2d37273f2d20b91db5c58cde021",
+      "mobileSha256": "1ce5c248e1ed052519d95e426ef42da9b1912625040e769a49a906fe8602d506",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/21-terrazzo.webp",
+      "sourceSha256": "e70acd1e3cfc459ec92845861596edeac682d8638e58e31fee247cda28b6a814",
+      "mobileSha256": "c408ba406e11fec34f2c7bceaa01d1083cb615e0aeb5baff08c049f9fb06d6f0",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/22-checker.webp",
+      "sourceSha256": "e8e005bdb871e82536c90afb5145e0bee66336fe96e391b1efd81aaaa2244cde",
+      "mobileSha256": "4c258f1d15c5614cb47d356383d08fb6c7a7205c860145ee8eba112d6790756c",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/23-stone.webp",
+      "sourceSha256": "ea63d7dacfd4d614ce76b18a9c54173700e8291f864eebd304a15ce05cd03246",
+      "mobileSha256": "83196f097f147d9778bffc94f935813019c895a035c9de8cc3232952baa8c76e",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/vinyl/24-stone.webp",
+      "sourceSha256": "4e59c6f0f2cd901ee5a89649affd846c356fa925de7afcf90bde1dff263dcd4f",
+      "mobileSha256": "b4445e4f9e7c395cd02bcb100fbfa5959581fb4a76124a1df29d72445a60ef4a",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/01-midnight-damask.webp",
+      "sourceSha256": "5a12e8437d47fc5ac916f62172c64a13926cbca1a225b8f3c19c4d50dcbceffd",
+      "mobileSha256": "774dded041c523ff270a847872a50dae566c47c51595b0eebd297aa9d59db79e",
+      "images": [
+        {
+          "original": [
+            1254,
+            1254
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/02-botanical-silk.webp",
+      "sourceSha256": "53638e97150c1c8280852fb882540e94169539da49b24180c690939dddcadf53",
+      "mobileSha256": "4d104f2572b641d600af38176361da1b2102df01759370c1fc97c2de5f5990ae",
+      "images": [
+        {
+          "original": [
+            1254,
+            1254
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/03-copper-deco.webp",
+      "sourceSha256": "f60cb20993984f886a3e38f1d2b8578635573ef51af3b7876c0a8c05f3c3f0bd",
+      "mobileSha256": "f014a3667fa3a6bfec6bf5f3ee14710c3d8a7856987030c0fe8a111eb6ab224d",
+      "images": [
+        {
+          "original": [
+            1254,
+            1254
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/04-peacock-chinoiserie.webp",
+      "sourceSha256": "8946efda176187df8bc69f5bbf82f8ccc08c916b160ab191ff5433f0de9f6a76",
+      "mobileSha256": "2c4b8aa035f2abe36f66a9167a33a78872c44dc828d60983c40770f80af5c3a2",
+      "images": [
+        {
+          "original": [
+            1254,
+            1254
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/05-heritage-floral.webp",
+      "sourceSha256": "d18d880b3918943427444a4c0eaf00df4b315c069a3f6400b2a8e77904ce79c8",
+      "mobileSha256": "f40a493b334cad797f608f127e75c8b9cf84ceef36dee82a71a7b03dd32cf827",
+      "images": [
+        {
+          "original": [
+            1254,
+            1254
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/06-linen-toile.webp",
+      "sourceSha256": "0a506b1cc2845a38250e592cc92cd77280fdb248d4ee6abbed400cb34b80388f",
+      "mobileSha256": "c932375ffaedc634a832676ca1554519ed619179269fe926bc40c50b6094e4b8",
+      "images": [
+        {
+          "original": [
+            1254,
+            1254
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/07-teal-lattice.webp",
+      "sourceSha256": "fe2e5183200414b4ae5141a74c6f1f632afba64a390cf04b6f9c0e3dd0b7127c",
+      "mobileSha256": "06e51fc7324e162a225f4815a93b791713a01939e5d7b85783993ffbf0afbe1c",
+      "images": [
+        {
+          "original": [
+            1254,
+            1254
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/08-marble-filigree.webp",
+      "sourceSha256": "7b30c100aa5f939ea8c3d8d9be5a356017f4fd928bec2fef877f123487e4aace",
+      "mobileSha256": "f82ca728a3164005ef18b445b1400c86f3ed4b904ea2ab99a7ff942c44d61c63",
+      "images": [
+        {
+          "original": [
+            1254,
+            1254
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/09-plum-baroque.webp",
+      "sourceSha256": "d75ccd69bc8c9e60b423c0bca6276b80e6d64b1516862d8bf269d6ffd30e125d",
+      "mobileSha256": "af1d3e111830787552562a4914a8753d813ec102a70bfdf15f964c9bd48ef84d",
+      "images": [
+        {
+          "original": [
+            1254,
+            1254
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/10-blue-medallion.webp",
+      "sourceSha256": "f4b5bbbde2976308b5e4c2928f0d1a0669097a39197b823565b8a1929c9f6489",
+      "mobileSha256": "f7d6e8cbbd5d1a5905090288fae154f22a9616c8be7b02f362934434d4978467",
+      "images": [
+        {
+          "original": [
+            1254,
+            1254
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/11-ivory-botanical.webp",
+      "sourceSha256": "81188d3247d5ee0efd54ea25c65b6f25f39dce6dfda232101ebdbd494af5f7b0",
+      "mobileSha256": "f9971336c20b1a70351b964c127c4f79e7f1a2cbad00792779a462f935de68bf",
+      "images": [
+        {
+          "original": [
+            1024,
+            1024
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/12-sunlit-damask.webp",
+      "sourceSha256": "444a461c64288558f61dfa170af27b9d9afda2a582ab9cbf4b1ea972d4e96902",
+      "mobileSha256": "f5f0414357b6b4ed4fa670634656e7fb397beb211decd51cd91f7df0aa4fa87e",
+      "images": [
+        {
+          "original": [
+            1024,
+            1024
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/13-sky-blue-toile.webp",
+      "sourceSha256": "9c43ba390a67f95f3f05ee4fa82b319b86aed3da605697746ae8fe12c2f8975a",
+      "mobileSha256": "711fbb14a74e9cac8d99ffeed952ebe7b719460b205930456e131eef19edcb8f",
+      "images": [
+        {
+          "original": [
+            1024,
+            1024
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/14-stripe.webp",
+      "sourceSha256": "7af8d0bc8dc3126bcfaaa9e686213702d4d620e6f8f8899625320917524b2b7a",
+      "mobileSha256": "98ea7205e374262b1b9148367439ff1f3b191549661b3661deba3fa85eddea40",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/15-trellis.webp",
+      "sourceSha256": "844dc0296a8b7ae4ec7e5632b887c748ff0f9befaca6c228369f7cdba0f71ae2",
+      "mobileSha256": "afba572587dae872f9f34138eaa54d3f3de32dc547c52545cc160d13e337ad9e",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/16-jacobean.webp",
+      "sourceSha256": "da66443bddec6d20d872d0542966a706499c5ad13c508467e851604a5c37cc49",
+      "mobileSha256": "20160093d1a29c0949231e2b1b63dcc9e996e33514c053f12260ace1b4d4adb7",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/17-acanthus.webp",
+      "sourceSha256": "d0e71f22ddd4e579886c6bd00594b47ad8fddc988a83d8313118b90293d8226c",
+      "mobileSha256": "59040bcafb6bc4a1bab4146dfbaeccd913543fe319e99013dcbd35678fc0f60b",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/18-scallop.webp",
+      "sourceSha256": "56d52dacd8216b4191d56ec30470d0b2929948edc7a2e7a15c0b5e94d182c087",
+      "mobileSha256": "e24d02c5b727736aba57c8cc84019b8577f08c29237c47a649392babd47567df",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/19-diamonds.webp",
+      "sourceSha256": "2ba16bcf08a356939754eaad8c713736f85fcb917369cce4a099ab7afb7d0741",
+      "mobileSha256": "bd8333a045c884a0935087caa914a79a745994698a79d20343e3c5408459ecaf",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/20-medallion.webp",
+      "sourceSha256": "53202b388fcc642a98750b8b52cd91cc226497a9f556ddce9d95c5e6516e4505",
+      "mobileSha256": "c9be627cf1103c2516c7d197b9f3c5d0a93e067dc3195153880a09ed0b17ec89",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/21-fern.webp",
+      "sourceSha256": "3cd64233eca028cf1d3c7aa0f69551f722fd21451a56e0da24aa916ba1c6a679",
+      "mobileSha256": "f16e6523696f060f9db7458afd10674651ce689703f59dcd677a365b10ab72e8",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/22-fan.webp",
+      "sourceSha256": "6d21c01556b83a545f6c6b6984587aa12ff6730bcf586c48222ed4cee67b802d",
+      "mobileSha256": "d8b26a1b76d27f6722f5f48d5c94735c58db16de9e6e79423ab80463fbe928cd",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/23-rosette.webp",
+      "sourceSha256": "f40347d88c2401e674b1fd81317e12cf8526f7dece2f9361db6da20576164db2",
+      "mobileSha256": "6281220bb1dd38e9a64f2c20fa3342d96a02f69f3aab91d206a7c5b78db175c7",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/24-wisteria.webp",
+      "sourceSha256": "5c6d43aafaa0de50a9be124e95d1e5a55d21de312bf181b368f7b50a0558c7d5",
+      "mobileSha256": "4fc33140358c9dff31c9e956e16eafd0905f3c0b6ca151683b78891ad5e918c0",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/25-willow.webp",
+      "sourceSha256": "0a08483398c0488c4342c0b9de253fa9670e28a74a7680db08cba195eaa7d014",
+      "mobileSha256": "c5b8e330d571330bae64d23fb1772e9c0194f6e6e797f057a0e025c1fcc627c3",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/26-paisley.webp",
+      "sourceSha256": "7195226c43e3cd84b4edb17e18414c5a3b7c28151328d688d6da8c6bf20c9ab4",
+      "mobileSha256": "38320b5357c41f4ea4c9f2b08a292c8c56d4ab9ac64766876fefd58fa8ff9639",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/27-dahlia.webp",
+      "sourceSha256": "22045d7e62b02a98eafdd33554313346af3ae4fb44b559af83363bb742d9b494",
+      "mobileSha256": "9789301ce2395af0319d9a5403e2757d51fbd3e999031a1d27494576f4f2841f",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/28-arches.webp",
+      "sourceSha256": "bd10aec4baa1cd410106d73f5477b5247508ffd8b662b2866ae9c4c920e1e4db",
+      "mobileSha256": "e57ac221734e92913603afcea8b7dded59ac5cf672f75ed1a7e708f4960f9cb2",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/29-fleur.webp",
+      "sourceSha256": "229d651e2eaf898e6ffdea990afeea563a694eeb27b78d2b6814b845af93c4ea",
+      "mobileSha256": "dee54c5c4da551794674cd6266f15702bab04acc0a00a664dce428b60b59f2e4",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/30-citrus.webp",
+      "sourceSha256": "1d3af255314d029357a2207fedfebf99ab1019f7b3405e29f86e46a52daebff8",
+      "mobileSha256": "29753771a78461ea121885de7add92a3c4eeeeb7d6773ac26876a94e34f05cdf",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/31-arabesque.webp",
+      "sourceSha256": "4c48b82a93240c0880e9ce2ddcff010b851becead6c5604fa9bbeff27665d638",
+      "mobileSha256": "983a24d70cc0597445ec82155e2e4ef9ed138e01cf4dd9a22b233d078eb8f44e",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/32-bouquet.webp",
+      "sourceSha256": "0be005b3e7b4647d45396a9bc054db31a3a39d9a231f1f0a6db25dd9c9ec779c",
+      "mobileSha256": "f256fb88f22717e4473c7140ba90ad2a6a335d9fc0118a4565340b44133690d9",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/33-sunburst.webp",
+      "sourceSha256": "e1373bcf4b67529f09e63c37cb9225b7bd3dfd70515eb64021aae1ef3d1c5482",
+      "mobileSha256": "ee0b4b7ee2aa6f20a8e5bfde3e23553827a5926458d819fcd9845e97405460ba",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/34-gingham.webp",
+      "sourceSha256": "72126f8d9fa8c9b892ab8d6bc9dc30fb7d099816fe39dba592a38e6289c1ce64",
+      "mobileSha256": "90c96e970c38ae13302865350558043acf2a7d69442a0a7b096967d991a7754f",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/35-ogee.webp",
+      "sourceSha256": "88c67d5d6430dc2fbb40d77c58151b0f536c5e59ef6851d04ba8be8c7af8cdfd",
+      "mobileSha256": "069437a228c1841bfeaa0f350a97b3cf7067720b7d42a3a3bbbadbc33876c40c",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/36-chevron.webp",
+      "sourceSha256": "3d3961a69ce5d20e6f24b49908aa41c72b4085dc3d3cea7184e4a387d73baac1",
+      "mobileSha256": "efd5073752e0be924b937adfac07a466ba5421ca336db8a4f825e6f01b20bde5",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/37-quatrefoil.webp",
+      "sourceSha256": "fdc3b0117845f4d53332448252e1df64280f0791d7685d56c5a179e63232d546",
+      "mobileSha256": "5d15e05720b1ee28511fb81fc0769a9df1051cb52b547ec99d012b7729b88404",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/38-feather.webp",
+      "sourceSha256": "8375d4fee21fe03b143f97d5262e8602a462c873b27961da5672e241de777317",
+      "mobileSha256": "1cb6a904a1f246037ef88263679e48e44d5422145ab94811c3d1fc446925b5ba",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/39-blockprint.webp",
+      "sourceSha256": "26ee3d85fbf8212d865f57ac94709537e537618ac09605b7d7607014c401036a",
+      "mobileSha256": "0c34acddc918e19ffacf8440011236232924b8a498920576c2e9b61d2ebbad6e",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/40-magnolia.webp",
+      "sourceSha256": "2d6535a450b4aac34bfb1d929f1d7bdbdaff5f77a7a4a8ffe0b4dfe45702e3f5",
+      "mobileSha256": "89646e5394aa6df6f841841dabb9e30755a960fc5cc10fd1c8d89e1face40bde",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/41-greek.webp",
+      "sourceSha256": "0dc71404972cd725f536152d7bbe0c00dc4bd9da52a6b63961aca3ecd3a6c002",
+      "mobileSha256": "ad859c94cf1625937799ad1b705e2c1b6d6e8976527a80235961ceb3e343a1b7",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/42-bamboo.webp",
+      "sourceSha256": "5deef7aa17b6533ac85cb9de0ab768dff6124865d5d33b3eb9236b98756b16a9",
+      "mobileSha256": "c950a9be21746569c2f987d1f39c7b62892f4815af7d6d8a3679b562910a3ff6",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "path": "materials/wallpaper/43-blossom.webp",
+      "sourceSha256": "c0abb59201622cd38fe291aa1a4834b8d4c8b74d3b048389706a0163e6907d2b",
+      "mobileSha256": "8d729d243d0ddbddcac8dd8fcf34bf0457b04b630336fc0f96c5841c38410af6",
+      "images": [
+        {
+          "original": [
+            768,
+            768
+          ],
+          "mobile": [
+            512,
+            512
+          ]
+        }
+      ]
+    }
+  ]
+}

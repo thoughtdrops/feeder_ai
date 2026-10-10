@@ -1,0 +1,14 @@
+[
+ {"name":"Carrara marble tile","pattern":"marble","size":2,"color":"#eeeae2","grout":"#c8c6c0","price":6.5,"roughness":0.25},
+ {"name":"Ivory travertine tile","pattern":"stone","size":2,"color":"#d4c4a9","grout":"#b9ac94","price":4.75,"roughness":0.65},
+ {"name":"Heritage checkerboard tile","pattern":"checker","size":1,"color":"#ebe6d7","grout":"#b2afa5","price":4.5,"roughness":0.4},
+ {"name":"Terracotta tile","pattern":"terracotta","size":1,"color":"#b16d49","grout":"#d1bda5","price":4,"roughness":0.8},
+ {"name":"Sage encaustic tile","pattern":"encaustic","size":1,"color":"#618678","grout":"#c7c1b4","price":5.75,"roughness":0.55},
+ {"name":"Blue Moroccan tile","pattern":"moroccan","size":1,"color":"#315e86","grout":"#d8d7cc","price":6,"roughness":0.35},
+ {"name":"Warm white subway tile","pattern":"subway","size":1,"color":"#e2ded1","grout":"#afa99b","price":3.25,"roughness":0.22},
+ {"name":"Teal glazed subway tile","pattern":"subway","size":1,"color":"#367f79","grout":"#b8b0a0","price":5,"roughness":0.18},
+ {"name":"Charcoal hexagon tile","pattern":"hexagon","size":1,"color":"#4c5153","grout":"#bcb8ad","price":5.5,"roughness":0.6},
+ {"name":"Oak porcelain plank tile","pattern":"plank","size":2,"color":"#b19770","grout":"#887558","price":4.25,"roughness":0.6},
+ {"name":"Blush herringbone tile","pattern":"herringbone","size":1,"color":"#bd9385","grout":"#dfd8ce","price":5.25,"roughness":0.25},
+ {"name":"Limestone tile","pattern":"stone","size":2,"color":"#c3bbaa","grout":"#a7a393","price":4.5,"roughness":0.72}
+]

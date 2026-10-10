@@ -1,0 +1,13 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import ts from 'typescript';
+import {JSDOM} from 'jsdom';
+const folder=path.resolve('work/theme-check');fs.mkdirSync(folder,{recursive:true});
+fs.writeFileSync(folder+'/theme.mjs',ts.transpileModule(fs.readFileSync('web/theme.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText);
+const {bindTheme}=await import(folder+'/theme.mjs');
+const dom=new JSDOM('<button data-theme-toggle><span aria-hidden="true">◐</span><span class="theme-label">Dark mode</span></button>',{url:'https://universal-frame.test'}),doc=dom.window.document,root=doc.documentElement;
+dom.window.localStorage.setItem('uf-theme','dark');const theme=bindTheme(root,doc);assert.equal(root.dataset.theme,'dark');assert.equal(doc.querySelector('button').getAttribute('aria-pressed'),'true');assert.equal(doc.querySelector('.theme-label').textContent,'Light mode');
+doc.querySelector('span').dispatchEvent(new dom.window.MouseEvent('click',{bubbles:true}));assert.equal(root.dataset.theme,'light');assert.equal(dom.window.localStorage.getItem('uf-theme'),'light');theme.dispose();
+const blocked={getItem(){throw Error('Storage disabled')},setItem(){throw Error('Storage disabled')}};const fallback=bindTheme(root,doc,blocked);doc.querySelector('button').click();assert.equal(root.dataset.theme,'dark');fallback.dispose();
+console.log('PASS: saved themes, accessible toggle labels, nested icon taps, and toggling when browser storage is blocked.');

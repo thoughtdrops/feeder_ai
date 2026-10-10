@@ -1,0 +1,39 @@
+{
+  "logo": {
+    "file": "universal-frames-yellow-frame-logo.png",
+    "method": "Built-in imagegen, one request to recreate missing asset after workspace reset",
+    "transparent_background": true,
+    "generated_original": "/workspace/scratch/febd7ba86507/generated_images/exec-5c4974fe-255e-4c07-a436-78358893e0aa.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA"
+  },
+  "grass": {
+    "name": "Grass 004",
+    "provider": "ambientCG",
+    "source_page": "https://ambientcg.com/view?id=Grass004",
+    "license": "CC0 1.0 Universal",
+    "license_url": "https://docs.ambientcg.com/license/",
+    "credit": "Grass 004 \u2014 ambientCG (CC0 1.0).",
+    "attribution_required": false,
+    "source_technique": "Existing procedural PBR material, published 2021-03-28; not imagegen.",
+    "resolution": [
+      2048,
+      2048
+    ],
+    "physical_size_m": [
+      1.4,
+      1.4
+    ],
+    "download_url": "https://ambientcg.com/get?file=Grass004_2K-JPG.zip",
+    "resolved_download_url": "https://acg-download.struffelproductions.com/file/ambientCG-Web/download/Grass004_8f7ZrdgN/Grass004_2K-JPG.zip",
+    "maps": {
+      "diffuse": "grass004/Grass004_2K-JPG_Color.jpg",
+      "normal_opengl": "grass004/Grass004_2K-JPG_NormalGL.jpg",
+      "roughness": "grass004/Grass004_2K-JPG_Roughness.jpg"
+    },
+    "notes": "Original source maps extracted unchanged from official ZIP."
+  }
+}

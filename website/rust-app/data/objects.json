@@ -1,0 +1,322 @@
+[
+  {
+    "kind": "loveseat",
+    "name": "Linen loveseat",
+    "group": "Living",
+    "width": 5,
+    "depth": 3,
+    "price": 890
+  },
+  {
+    "kind": "chaise",
+    "name": "Chaise longue",
+    "group": "Living",
+    "width": 2.7,
+    "depth": 5.5,
+    "price": 790
+  },
+  {
+    "kind": "ottoman",
+    "name": "Tufted ottoman",
+    "group": "Living",
+    "width": 2.5,
+    "depth": 2,
+    "price": 230
+  },
+  {
+    "kind": "recliner",
+    "name": "Leather recliner",
+    "group": "Living",
+    "width": 3,
+    "depth": 3.2,
+    "price": 690
+  },
+  {
+    "kind": "sectional",
+    "name": "Sectional sofa",
+    "group": "Living",
+    "width": 9,
+    "depth": 6,
+    "price": 2200
+  },
+  {
+    "kind": "accent-chair",
+    "name": "Velvet accent chair",
+    "group": "Living",
+    "width": 2.8,
+    "depth": 2.8,
+    "price": 380
+  },
+  {
+    "kind": "rocking-chair",
+    "name": "Oak rocking chair",
+    "group": "Living",
+    "width": 2.3,
+    "depth": 3,
+    "price": 320
+  },
+  {
+    "kind": "pouffe",
+    "name": "Knitted pouffe",
+    "group": "Living",
+    "width": 1.8,
+    "depth": 1.8,
+    "price": 85
+  },
+  {
+    "kind": "round-table",
+    "name": "Round dining table",
+    "group": "Dining",
+    "width": 4,
+    "depth": 4,
+    "price": 620
+  },
+  {
+    "kind": "breakfast-table",
+    "name": "Breakfast table",
+    "group": "Dining",
+    "width": 3,
+    "depth": 3,
+    "price": 240
+  },
+  {
+    "kind": "barstool",
+    "name": "Bar stool",
+    "group": "Dining",
+    "width": 1.5,
+    "depth": 1.5,
+    "price": 130
+  },
+  {
+    "kind": "sideboard",
+    "name": "Carved sideboard",
+    "group": "Dining",
+    "width": 5,
+    "depth": 1.7,
+    "price": 780
+  },
+  {
+    "kind": "china-cabinet",
+    "name": "Glazed china cabinet",
+    "group": "Dining",
+    "width": 3.5,
+    "depth": 1.5,
+    "price": 850
+  },
+  {
+    "kind": "wine-cabinet",
+    "name": "Wine cabinet",
+    "group": "Dining",
+    "width": 2.5,
+    "depth": 1.5,
+    "price": 380
+  },
+  {
+    "kind": "dresser",
+    "name": "Six-drawer dresser",
+    "group": "Bedroom",
+    "width": 5,
+    "depth": 1.7,
+    "price": 460
+  },
+  {
+    "kind": "chest",
+    "name": "Tall drawer chest",
+    "group": "Bedroom",
+    "width": 3,
+    "depth": 1.6,
+    "price": 380
+  },
+  {
+    "kind": "twin-bed",
+    "name": "Twin bed",
+    "group": "Bedroom",
+    "width": 3.25,
+    "depth": 6.7,
+    "price": 640
+  },
+  {
+    "kind": "king-bed",
+    "name": "King bed",
+    "group": "Bedroom",
+    "width": 6.5,
+    "depth": 7,
+    "price": 1800
+  },
+  {
+    "kind": "crib",
+    "name": "Wood crib",
+    "group": "Bedroom",
+    "width": 2.8,
+    "depth": 4.5,
+    "price": 350
+  },
+  {
+    "kind": "dressing-table",
+    "name": "Dressing table with mirror",
+    "group": "Bedroom",
+    "width": 3.5,
+    "depth": 1.7,
+    "price": 490
+  },
+  {
+    "kind": "clothes-rack",
+    "name": "Clothes rail",
+    "group": "Bedroom",
+    "width": 3,
+    "depth": 1.5,
+    "price": 85
+  },
+  {
+    "kind": "blanket-ladder",
+    "name": "Blanket ladder",
+    "group": "Bedroom",
+    "width": 1.7,
+    "depth": 0.6,
+    "price": 65
+  },
+  {
+    "kind": "bathtub",
+    "name": "Freestanding bath",
+    "group": "Bath",
+    "width": 5.5,
+    "depth": 2.6,
+    "price": 1100
+  },
+  {
+    "kind": "double-vanity",
+    "name": "Double basin vanity",
+    "group": "Bath",
+    "width": 5,
+    "depth": 2,
+    "price": 1400
+  },
+  {
+    "kind": "linen-cabinet",
+    "name": "Linen cabinet",
+    "group": "Bath",
+    "width": 2,
+    "depth": 1.2,
+    "price": 260
+  },
+  {
+    "kind": "towel-stand",
+    "name": "Towel stand",
+    "group": "Bath",
+    "width": 1.5,
+    "depth": 1.1,
+    "price": 75
+  },
+  {
+    "kind": "hamper",
+    "name": "Woven laundry hamper",
+    "group": "Bath",
+    "width": 1.5,
+    "depth": 1.5,
+    "price": 45
+  },
+  {
+    "kind": "range",
+    "name": "Stainless range",
+    "group": "Kitchen",
+    "width": 2.5,
+    "depth": 2.5,
+    "price": 850
+  },
+  {
+    "kind": "dishwasher",
+    "name": "Dishwasher",
+    "group": "Kitchen",
+    "width": 2,
+    "depth": 2.5,
+    "price": 580
+  },
+  {
+    "kind": "pantry-cabinet",
+    "name": "Pantry cabinet",
+    "group": "Kitchen",
+    "width": 3,
+    "depth": 2,
+    "price": 480
+  },
+  {
+    "kind": "kitchen-trolley",
+    "name": "Butcher-block trolley",
+    "group": "Kitchen",
+    "width": 2.5,
+    "depth": 1.6,
+    "price": 210
+  },
+  {
+    "kind": "freezer",
+    "name": "Chest freezer",
+    "group": "Kitchen",
+    "width": 3,
+    "depth": 2,
+    "price": 420
+  },
+  {
+    "kind": "office-chair",
+    "name": "Office chair",
+    "group": "Study",
+    "width": 2.2,
+    "depth": 2.2,
+    "price": 230
+  },
+  {
+    "kind": "writing-desk",
+    "name": "Writing desk",
+    "group": "Study",
+    "width": 4.5,
+    "depth": 2,
+    "price": 450
+  },
+  {
+    "kind": "filing-cabinet",
+    "name": "Filing cabinet",
+    "group": "Study",
+    "width": 1.4,
+    "depth": 1.6,
+    "price": 150
+  },
+  {
+    "kind": "reading-shelf",
+    "name": "Open display shelf",
+    "group": "Study",
+    "width": 3,
+    "depth": 1,
+    "price": 220
+  },
+  {
+    "kind": "shoe-cabinet",
+    "name": "Shoe cabinet",
+    "group": "Entry",
+    "width": 3,
+    "depth": 1,
+    "price": 140
+  },
+  {
+    "kind": "coat-stand",
+    "name": "Coat stand",
+    "group": "Entry",
+    "width": 1.8,
+    "depth": 1.8,
+    "price": 90
+  },
+  {
+    "kind": "storage-bench",
+    "name": "Entry storage bench",
+    "group": "Entry",
+    "width": 4,
+    "depth": 1.6,
+    "price": 260
+  },
+  {
+    "kind": "pedestal",
+    "name": "Sculpture pedestal",
+    "group": "Decor",
+    "width": 1.3,
+    "depth": 1.3,
+    "price": 120
+  }
+]
