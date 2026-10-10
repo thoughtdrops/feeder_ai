@@ -33,3 +33,134 @@
 .loading-brand{display:flex;align-items:center;justify-content:center;gap:1rem;margin-bottom:1.3rem}.loading-brand .brand-wordmark{width:min(246px,58vw);height:64px;object-fit:cover;object-position:center}.load-error{min-height:65dvh;display:flex;flex-direction:column;align-items:center;justify-content:center}.walk-pad{position:absolute;bottom:calc(3.3rem + env(safe-area-inset-bottom,0px));left:.8rem;right:auto;width:140px;display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,44px);gap:4px;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none}.walk-pad button{background:var(--raised);color:var(--ink);border:1px solid var(--line);border-radius:12px;font-size:1.4rem;box-shadow:0 3px 14px #0002;touch-action:none;-webkit-touch-callout:none}.walk-pad button:first-child{grid-column:2}.walk-pad button:nth-child(2){grid-column:1;grid-row:2}.walk-pad span{grid-column:2;grid-row:2;display:grid;place-items:center;font-size:.55rem;font-weight:700;color:var(--muted)}.walk-pad button:nth-child(4){grid-column:3;grid-row:2}.walk-pad button:last-child{grid-column:2;grid-row:3}.walk-pad button.held{background:var(--green);color:var(--on-green)}.walk-pad button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 
 @media(max-width:560px){.room-select{left:auto;right:.65rem;top:6rem;bottom:auto;width:145px}}
+
+/* ==========================================================================
+   Universal Frame · precision studio theme
+   Graphite glass surfaces, electric emerald from the brand green, brand gold
+   highlights, a faint blueprint grid and technical monospace labels.
+   Layout rules above are unchanged; this layer only restyles them.
+   ========================================================================== */
+:root{
+ font-family:"Inter var",Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+ --mono:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Mono",Menlo,Consolas,monospace;
+ --page:#eef2f1;--surface:#ffffffe6;--raised:#f4f7f6;--input:#f9fbfa;--line:#d3ddd9;--line-strong:#b8c7c1;
+ --muted:#56645f;--ink:#0b1512;--green:#0b8a5a;--accent-2:#14b8a6;--gold:#e0a91f;--on-green:#ffffff;
+ --hover:#e6eeeb;--header:#ffffffcc;--floating:#ffffffe0;--stage:#dce8ee;
+ --accent-soft:#0b8a5a14;--accent-line:#0b8a5a59;--ring:#0b8a5a33;--glow:#0b8a5a40;--sheen:#ffffffb3;
+ --grid:#0b151208;--aura-1:#14b8a61f;--aura-2:#e0a91f14;
+ --warn:#fff7e3;--warn-line:#efcf7a;--warn-ink:#674a00;--danger:#b4261f;--danger-bg:#fdecea;--danger-line:#f0b4ad;
+ --shadow:0 1px 2px #0b15120d,0 18px 40px -22px #0b151240;
+ --radius:16px;
+ background:var(--page);
+}
+:root[data-theme=dark]{
+ color-scheme:dark;
+ --page:#05090a;--surface:#0c1312d9;--raised:#111a18;--input:#081010;--line:#1c2b28;--line-strong:#2a3f3a;
+ --muted:#8ea29b;--ink:#e6efeb;--green:#2fe09a;--accent-2:#22d3ee;--gold:#f2c94c;--on-green:#03140d;
+ --hover:#15221f;--header:#05090ab8;--floating:#0c1312e6;--stage:#0b1414;
+ --accent-soft:#2fe09a14;--accent-line:#2fe09a4d;--ring:#2fe09a40;--glow:#2fe09a40;--sheen:#ffffff0a;
+ --grid:#e6efeb07;--aura-1:#2fe09a1a;--aura-2:#22d3ee12;
+ --warn:#231d0c;--warn-line:#6a5420;--warn-ink:#f3d68b;--danger:#ff9a90;--danger-bg:#2c1210;--danger-line:#73302a;
+ --shadow:0 1px 0 #ffffff08 inset,0 24px 60px -28px #000000e6;
+}
+body{
+ background:
+  radial-gradient(1100px 520px at 88% -8%,var(--aura-1),transparent 62%),
+  radial-gradient(900px 480px at -8% 4%,var(--aura-2),transparent 60%),
+  linear-gradient(var(--grid) 1px,transparent 1px) 0 0/28px 28px,
+  linear-gradient(90deg,var(--grid) 1px,transparent 1px) 0 0/28px 28px,
+  var(--page);
+ background-attachment:fixed;
+ -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--green);color:var(--on-green)}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--green);outline-offset:2px;box-shadow:0 0 0 5px var(--ring)}
+
+/* Type: tight headings, technical monospace labels, aligned figures */
+h1,h2,h3{letter-spacing:-.03em}
+.kicker,.panel-heading .kicker,.scene-label .kicker,.report-modal .kicker{font-family:var(--mono);font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--green)}
+.studio-heading h1{font-weight:750;letter-spacing:-.045em;background:linear-gradient(100deg,var(--ink) 0%,var(--ink) 45%,var(--green) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.home-stats strong,.total-card strong,.project-cost-total strong,.category-calculated strong,.materials-table td,.quantity-summary b,.profile-grid b,.framing-member-count{font-variant-numeric:tabular-nums}
+.home-stats span,.materials-table th,.header-left,.total-card>span,.estimate-footer dt{font-family:var(--mono);letter-spacing:.12em;text-transform:uppercase}
+.home-stats span,.materials-table th{font-size:.625rem}
+
+/* Header: frosted glass bar */
+.header{background:var(--header);border-bottom:1px solid var(--line);-webkit-backdrop-filter:saturate(160%) blur(16px);backdrop-filter:saturate(160%) blur(16px)}
+@media (min-width:901px){.header{position:sticky;top:0;z-index:40}}
+.header-left{font-size:.625rem;color:var(--muted)}
+:root[data-theme=dark] .brand .brand-wordmark,:root[data-theme=dark] .loading-brand .brand-wordmark{filter:brightness(1.75) saturate(1.15) drop-shadow(0 0 14px #2fe09a2e)}
+
+/* Buttons */
+.button{border-radius:10px;transition:background .18s,border-color .18s,box-shadow .18s,transform .18s,filter .18s}
+.button.primary,.header-buttons .primary,.design-mode-buttons .primary,.load-error button{background:linear-gradient(135deg,var(--green),var(--accent-2));color:var(--on-green);border:1px solid transparent;box-shadow:0 8px 22px -10px var(--glow),inset 0 1px 0 #ffffff33}
+.button.primary:hover,.header-buttons .primary:hover,:root[data-theme=dark] .button.primary:hover,:root[data-theme=dark] .header-buttons .primary:hover{background:linear-gradient(135deg,var(--green),var(--accent-2));filter:brightness(1.07);transform:translateY(-1px);box-shadow:0 12px 28px -10px var(--glow),inset 0 1px 0 #ffffff40}
+.button.primary:active{transform:none}
+.button.secondary,.theme-toggle{background:transparent;color:var(--ink);border:1px solid var(--line-strong)}
+.button.secondary:hover,.theme-toggle:hover{background:var(--accent-soft);border-color:var(--accent-line)}
+.design-mode-buttons{background:var(--raised);border:1px solid var(--line);border-radius:12px}
+.design-mode-buttons .button{border-radius:9px;color:var(--muted)}
+.design-mode-buttons .button:hover{color:var(--ink)}
+input[type=checkbox]{accent-color:var(--green)}
+
+/* Panels: glass cards with a top sheen */
+.config-panel,.visual-panel,.estimate,.report-modal{background:linear-gradient(180deg,var(--sheen),transparent 140px),var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+.panel-heading{border-bottom:1px solid var(--line)}
+.config-tabs{border-bottom:1px solid var(--line)}
+.config-tabs button{transition:color .15s,border-color .15s}
+.config-tabs button:hover{color:var(--ink)}
+.config-tabs button.active{color:var(--green);border-color:var(--green);box-shadow:0 8px 16px -14px var(--green)}
+.control-body{scrollbar-color:var(--line-strong) transparent}
+.control-group>summary::before,.category-detail>summary:before{color:var(--green)}
+
+/* Fields */
+.field input,.field select,select,.price-input input,.project-cost-grid input,.category-budget input{background:var(--input);border:1px solid var(--line);border-radius:10px;transition:border-color .15s,box-shadow .15s}
+.field input:hover,.field select:hover,select:hover{border-color:var(--line-strong)}
+.field input:focus,.field select:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 4px var(--ring);outline:none}
+.notice,.mode-note,.circulation-info{background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:12px}
+
+/* Viewport toolbar */
+.view-toolbar{background:var(--raised);border-bottom:1px solid var(--line)}
+.view-tabs{background:var(--input);border:1px solid var(--line);border-radius:11px;padding:3px}
+.view-tabs button{border-radius:8px;transition:color .15s,background .15s}
+.view-tabs button:hover{color:var(--ink)}
+.view-tabs button.active{background:linear-gradient(135deg,var(--green),var(--accent-2));color:var(--on-green);box-shadow:0 6px 16px -8px var(--glow)}
+.view-actions .text:hover{background:var(--accent-soft)}
+.view-actions [data-floor]{border:1px solid var(--line-strong);border-radius:9px}
+.view-actions [data-floor].active,.view-actions .wall-tool.active{background:var(--accent-soft);border-color:var(--green);color:var(--green);font-weight:650;box-shadow:inset 0 0 0 1px var(--accent-line)}
+
+/* 3D stage overlays: floating glass HUD */
+.stage{background:var(--stage)}
+.scene-label,.scene-help,.direction-guide,.context-menu{background:var(--floating);border:1px solid var(--line);-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%);box-shadow:0 10px 30px -16px #0b151266}
+.scene-label{border-radius:12px;border-left:2px solid var(--green)}
+.scene-help{font-family:var(--mono);letter-spacing:.02em;border-radius:999px}
+.home-stats{background:var(--raised);border-top:1px solid var(--line)}
+.home-stats>div{border-right:1px solid var(--line)}
+.home-stats>div:last-child strong{color:var(--green);text-shadow:0 0 22px var(--glow)}
+.walk-pad button{background:var(--floating);color:var(--ink);border:1px solid var(--accent-line);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.walk-pad button.held{background:var(--green);color:var(--on-green)}
+
+/* Estimate and materials */
+.total-card strong{color:var(--green);font-weight:750;text-shadow:0 0 28px var(--glow)}
+.materials-table thead{background:var(--raised)}
+.materials-table tr:hover{background:var(--accent-soft)}
+.handoff-strip{border-bottom:1px solid var(--line)}
+
+/* Modals, toasts, menus */
+.modal-shade{background:#05090ab3;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.report-modal{box-shadow:0 40px 120px -30px #000000b3}
+.toast{background:var(--floating);color:var(--ink);border:1px solid var(--accent-line);border-left:3px solid var(--green);box-shadow:0 18px 40px -18px #0b151280;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.load-error button{color:var(--on-green)}
+.texture-upload{border:1px dashed var(--accent-line)}
+
+/* Floor plan: blueprint-tinted room fills that follow the theme */
+.floorplan .bedroom{fill:#c9c3e6}.floorplan .bath{fill:#b3dde2}.floorplan .hall{fill:#dfe3dc}.floorplan .kitchen{fill:#e8d8b4}.floorplan .room.stairs{fill:#e9cf7c}.floorplan .room.blank{fill:#d4e6dd}.floorplan .room.foyer{fill:#d8dcc6}
+:root[data-theme=dark] .floorplan .bedroom{fill:#2c2a4a}:root[data-theme=dark] .floorplan .bath{fill:#163b40}:root[data-theme=dark] .floorplan .hall{fill:#1a2421}:root[data-theme=dark] .floorplan .kitchen{fill:#3a3020}:root[data-theme=dark] .floorplan .room.stairs{fill:#4a3d14}:root[data-theme=dark] .floorplan .room.blank{fill:#122620}:root[data-theme=dark] .floorplan .room.foyer{fill:#262a1c}
+
+@media (prefers-reduced-motion:reduce){.button,.config-tabs button,.view-tabs button{transition:none}.button.primary:hover,.header-buttons .primary:hover{transform:none}}
+/* Segmented controls and prefixed inputs read as single units */
+.design-mode-buttons .button.secondary,.design-mode-buttons .button:not(.primary){border-color:transparent;background:transparent}
+.design-mode-buttons .button:not(.primary):hover{background:var(--accent-soft)}
+.price-input input,.category-budget .price-input input{border:0;background:transparent;box-shadow:none;border-radius:0}
+.price-input input:focus{box-shadow:none}
+.price-input:focus-within{border-color:var(--green);box-shadow:0 0 0 4px var(--ring)}
+.price-input{border-radius:10px;transition:border-color .15s,box-shadow .15s}
