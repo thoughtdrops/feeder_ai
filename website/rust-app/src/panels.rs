@@ -100,9 +100,12 @@ pub fn apply(c:&Config,mut m:Value)->Value{
  add!("crawl-piers","Foundation","Crawlspace girder pier / pad material allowance",girder_lines*((c.depth/8.).ceil()+1.),"sets",145.,"Proposed supports up to 8 ft apart; no load capacity assigned.",true);
  t.add("crawl-access","Foundation","Crawlspace access hatch / weather seals",1.,"set",160.,"One access assembly; ordering waste does not apply. Access size and location require local construction detailing.","Panel assembly estimate",false,true);
  }else{piers::add_items(&mut t,c);}
- t.add("crawl-moisture","Foundation","Crawlspace moisture / ventilation system allowance",1.,"set",650.,"One system allowance; ordering waste does not apply. Placeholder for an approved vented or conditioned crawlspace strategy; ground moisture control is not supplied by ZIP wall sheathing.","Panel assembly estimate",false,true);
+ if c.foundation==piers::CONCRETE{t.add("crawl-moisture","Foundation","Crawlspace moisture / ventilation system allowance",1.,"set",650.,"One system allowance; ordering waste does not apply. Placeholder for an approved vented or conditioned crawlspace strategy; ground moisture control is not supplied by ZIP wall sheathing.","Panel assembly estimate",false,true);}
  if !surfaces::tile(&c.floor).is_some(){add!("vinylunderlay","Interior","Vinyl underlayment · 1/4 in 4 × 8 panel",floor_area/32.,"sheets",24.,"All usable finished floors; staircase void deducted.",true);}
- let levels=rows(&m);let mut sound=0.;let mut furring=0.;let mut screen=0.;let mut joints=0.;let mut sleeve_count=0;
+ let levels=rows(&m);let mut sound=0.;let mut furring=0.;let mut screen=0.;let mut joints=0.;
+ // 4 × 16 ft panels laid flat: a seam every 4 ft of height (floor and ceiling edges are trimmed) plus a butt
+ // joint every 16 ft; ceilings are 4-ft strips with butt joints. Feet of reveal per square foot.
+ let wall_joints=(1./4.-1./c.wall_height).max(0.)+1./16.;let ceiling_joints=0.22;let mut sleeve_count=0;
  for level in &levels{
   let ws:Vec<Wall>=serde_json::from_value(level["walls"].clone()).unwrap();
   let rs:Vec<Room>=serde_json::from_value(level["rooms"].clone()).unwrap();
@@ -112,7 +115,7 @@ pub fn apply(c:&Config,mut m:Value)->Value{
     screen+=wall.length*2.;let runs=(c.wall_height/2.).ceil()+1.;furring+=wall.length*runs*(1.-2./48.);
    }
   }
-  joints+=n(level,"drywallWalls")*(1./4.+1./16.);
+  joints+=n(level,"drywallWalls")*wall_joints;
   sleeve_count+=rs.iter().filter(|r|r.kind=="bath"||r.kind=="kitchen").count();
  }
  add!("soundinsulation","Insulation","R-13 unfaced bedroom / bath partition sound batts",sound,"sq ft",0.75,"Union of bedroom/bath partition cavities, less framing and openings; shared walls are counted once. Optional.",false);
@@ -120,7 +123,7 @@ pub fn apply(c:&Config,mut m:Value)->Value{
  add!("rainscreen","Exterior finishes","Horizontal 1×4 furring · 24 in O.C.",furring,"linear ft",0.85,"Full wall rows, including top / bottom; 2 in interruptions at each 4-ft drainage module. Opening cutouts/offcuts retained as stock allowance.",false);
  add!("rainscreen-screen","Exterior finishes","Rainscreen insect screen · top and bottom",screen,"linear ft",0.9,"Two screen runs along every exterior wall, including garage-facing envelope before separation review.",false);
  add!("rainscreen-fasteners","Fasteners","Furring structural screw allowance",furring/2.,"each",0.35,"At nominal 24-in stud intersections; metal siding attachment must be product-approved.",true);
- add!("panel-reveals","Interior","Pre-painted drywall joint batten / reveal strips",joints+(n(&m,"drywallCeiling")/16.)+n(&m["garage"],"wallArea")*(1./4.+1./16.),"linear ft",1.2,"4 × 16 board-grid joints with shared edges counted once; cutting/joint layout allowance, trim counted separately.",false);
+ add!("panel-reveals","Interior","Pre-painted drywall joint batten / reveal strips",joints+n(&m,"drywallCeiling")*ceiling_joints+n(&m["garage"],"wallArea")*wall_joints,"linear ft",1.2,"Panel seams from the 4 × 16 layout: one every 4 ft of wall height plus 16-ft butt joints; ceiling strip seams. Trim counted separately.",false);
  add!("panel-sleeves","Plumbing","Coordinated wet-wall floor sleeve sets",sleeve_count*2,"sets",16.,"Drain and supply sleeve coordination per wet room; no drilling through I-joist flanges assumed.",true);
  add!("panel-holeplates","Fasteners","Wire / pipe hole protector plate allowance",sleeve_count*6,"each",1.1,"Coordinated penetrations only; drilling and nail-plate locations require installation drawings.",true);
  add!("panel-nailers","Floor framing","Upper-floor partition / track LSL nailers",(1..c.stories).map(|f|n(&m["levels"][f],"partitionLength")).sum::<f64>(),"linear ft",2.75,"Continuous attachment allowance under upper partitions; track point loads need engineering.",false);
@@ -131,8 +134,9 @@ pub fn apply(c:&Config,mut m:Value)->Value{
  else{add!("baffles","Insulation","Attic eave vent baffles · one per rafter bay",n(&m["roof"],"eaveLF")/(16./12.),"each",3.,"One baffle per 16 in rafter bay along every eave, keeping soffit intake clear of the ceiling insulation.",true);}
  add!("roof-rimscreen","Roof ventilation","Screened eave / ridge rim vent openings",n(&m["roof"],"eaveLF")+n(&m["roof"],"ridgeLF"),"linear ft",2.,"Screened rim ventilation, separate from selected vent product NFA and ridge cap.",false);
  add!("roof-purlins","Roof framing","1×4 roof purlins · 24 in O.C.",roof_area/2.+n(&m["roof"],"eaveLF")+n(&m["roof"],"ridgeLF"),"linear ft",0.85,"Roof surface/2-ft row pitch plus end rows; closer eave/ridge spacing remains supplier-dependent.",false);
- let ice_area=(n(&m["roof"],"eaveLF")*3.+n(&m["roof"],"valleyLF")*3.).min(roof_area);
- add!("roof-icewater","Roof","Grace Ice & Water Shield · 200 sq ft roll",ice_area/200.,"rolls",225.,"3-ft eave and valley estimating strips; overlaps retained. Actual ice-barrier reach inside heated wall and metal compatibility must be specified.",true);
+ // Ice barrier from the eave edge to 24 in inside the exterior wall (IRC R905.1.2), measured up the slope, and 3 ft along valleys.
+ let eave_strip=((n(&m["roof"],"overhangZ").max(n(&m["roof"],"overhangX"))+2.)*(1.+(c.pitch/12.).powi(2)).sqrt()).max(3.);let ice_area=(n(&m["roof"],"eaveLF")*eave_strip+n(&m["roof"],"valleyLF")*3.).min(roof_area);
+ add!("roof-icewater","Roof","Grace Ice & Water Shield · 200 sq ft roll",ice_area/200.,"rolls",225.,"Eave strips reaching 24 in inside the exterior wall (up the slope, over the overhang) and 3-ft valley strips; overlaps retained. Confirm local ice-barrier rules and metal compatibility.",true);
  add!("underlay","Roof","Metal-maker-required roof underlayment allowance",(roof_area-ice_area).max(0.),"sq ft",0.4,"Remaining roof area; omit or change unit rate only after the selected roofing manufacturer's written requirements.",false);
  let doors=levels.iter().flat_map(|l|l["walls"].as_array().unwrap()).filter(|w|w["exterior"]==true).flat_map(|w|w["openings"].as_array().unwrap()).filter(|o|s(o,"kind")=="door").count();
  add!("roof-snowguards","Roof","Snow-retention rail / door protection allowance",doors,"sets",125.,"One estimating set per exterior door; snow loads, rail placement and metal manufacturer attachment must be designed.",true);
@@ -147,7 +151,7 @@ pub fn apply(c:&Config,mut m:Value)->Value{
  if tile_area>0.{add!("tile-thinset","Interior","Tile mortar · 50 lb bags",tile_area/50.,"bags",26.,"50 sq ft/bag estimating coverage; trowel size and selected product determine actual coverage.",true);add!("tile-grout","Interior","Tile grout · 25 lb bags",tile_area/200.,"bags",32.,"200 sq ft/bag estimating coverage; tile size/joint depth determine final quantity.",true);add!("tile-edge","Interior","Tile edge / transition trim",tile_floor.sqrt()*4.+tiled_walls/c.wall_height,"linear ft",3.5,"Floor perimeter-equivalent plus selected wall-run termination allowance; detailed room transitions pending.",false);}
  m["foundation"]=piers::summary(c);m["tileFloorArea"]=json!(tile_floor);m["tileWallArea"]=json!(round(tiled_walls));m["customWallArea"]=json!(round(custom_walls));
  let concrete_only=["footings","footingrebar","rebarsupports","anchors","anchorwashers"];
- let removed=["slab","mesh","base","slabedge","slabjoints","sillgasket","soundinsulation","floorsound","floorinsulation","floor-batts","interior-batts","rainscreen","atticinsulation","baffles","underlay","compound","drywalltape","paint","primer","subfloorscrews","garage-compound","garage-drywalltape","garage-primer","garage-paint"];
+ let removed=["cornerbead","slab","mesh","base","slabedge","slabjoints","sillgasket","soundinsulation","floorsound","floorinsulation","floor-batts","interior-batts","rainscreen","atticinsulation","baffles","underlay","compound","drywalltape","paint","primer","subfloorscrews","garage-compound","garage-drywalltape","garage-primer","garage-paint"];
  // A cathedral roof has no attic: no ceiling joists, access hatch or attic box vents.
  let attic_only=["ceilingjoists","ceilingsupport","ceilinghangers","attichatch","roofvents"];
  m["items"].as_array_mut().unwrap().retain(|i|!removed.contains(&s(i,"id"))&&!(cathedral&&attic_only.contains(&s(i,"id")))&&!(c.foundation!=piers::CONCRETE&&concrete_only.contains(&s(i,"id")))&&!(floor_tile.is_some()&&["vinyl","adhesive","floorleveler"].contains(&s(i,"id"))));

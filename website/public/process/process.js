@@ -1686,6 +1686,8 @@ function attachStudio(model) {
   });
   scene.add(house); scene.add(grade);
   STUDIO.root = house; STUDIO.site = grade;
+  // The studio house carries its own glass, so the simulator's window toggle has nothing to add.
+  const win = $('#windows'); if (win && win.closest('label')) win.closest('label').style.display = 'none';
   assignStudio();
 }
 function assignStudio() {
@@ -1712,11 +1714,23 @@ function assignStudio() {
 }
 function revealStudio(t) {
   if (!STUDIO.root) return;
+  // See-through shows the framed simulator panels instead of the finished studio house.
+  const finished = !SHOW.xray;
   const at = (p) => (p.late ? STUDIO.lastSet : p.idx.reduce((m, i) => Math.max(m, ELEMS[i].s1), 0));
   const hide = ELEMS.map(() => -1);
-  STUDIO.parts.forEach((p) => { const r = at(p); p.m.visible = t >= r; if (!p.late) p.idx.forEach((i) => { hide[i] = Math.max(hide[i], r); }); });
-  // A simulator panel steps aside once every studio piece over it is showing.
-  ELEMS.forEach((e, i) => { if (hide[i] >= 0 && t >= hide[i]) { elemObj[i].root.visible = false; elemObj[i].wins.forEach((g) => { g.visible = false; }); } });
+  STUDIO.parts.forEach((p) => { const r = at(p); p.m.visible = finished && t >= r; if (!p.late) p.idx.forEach((i) => { hide[i] = Math.max(hide[i], r); }); });
+  // A simulator panel steps aside once every studio piece over it is showing; its room names stay.
+  ELEMS.forEach((e, i) => {
+    const o = elemObj[i]; if (!o) return;
+    const own = (c) => c === o.mesh || o.labels.includes(c) || o.wins.includes(c) || Object.values(o.lay).includes(c);
+    if (finished && hide[i] >= 0 && t >= hide[i]) {
+      o.root.children.forEach((c) => { if (!o.labels.includes(c)) c.visible = false; });
+      o.wins.forEach((g) => { g.visible = false; }); o.studioHidden = true;
+    } else if (o.studioHidden) {
+      // poseElement has already set the panel and its layers for this moment; bring back the rest.
+      o.root.children.forEach((c) => { if (!own(c)) c.visible = true; }); o.studioHidden = false;
+    }
+  });
 }
 /* ---------- Lumber stack spot (girders and beams); the framing truck itself is built in 04f ---------- */
 const DECK_Y = 50, PLAT = new THREE.Vector3(834 + SX, DECK_Y, 192);
@@ -3579,7 +3593,7 @@ canvas.addEventListener('pointermove', (e) => {
   } else if (ptrs.size === 2) {
     const [a, b] = Array.from(ptrs.values());
     const d = Math.hypot(a.x - b.x, a.y - b.y), m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-    if (pinch > 0 && d > 0) want.r = clamp(want.r * (pinch / d), 60, 7000);
+    if (pinch > 0 && d > 0) zoomAt(pinch / d, m.x, m.y);
     if (mid) pan(m.x - mid.x, m.y - mid.y);
     pinch = d; mid = m;
   }
@@ -3588,7 +3602,47 @@ const endPtr = (e) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) { pinch = 0
 canvas.addEventListener('pointerup', endPtr);
 canvas.addEventListener('pointercancel', endPtr);
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-canvas.addEventListener('wheel', (e) => { e.preventDefault(); want.r = clamp(want.r * Math.exp(e.deltaY * 0.0012), 60, 7000); }, { passive: false });
+// Where the pointer is on the work plane (the height the camera is looking at), for zooming and focusing.
+const _ray = new THREE.Raycaster(), _ndc = new THREE.Vector2(), _plane = new THREE.Plane(), _hit = new THREE.Vector3();
+function pointOnPlane(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  _ndc.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+  camera.updateMatrixWorld(); _ray.setFromCamera(_ndc, camera);
+  _plane.set(new THREE.Vector3(0, 1, 0), -cam.target.y);
+  if (!_ray.ray.intersectPlane(_plane, _hit)) return null;
+  return _hit.distanceTo(camera.position) > 12000 ? null : _hit.clone();
+}
+// Scroll zooms toward the spot under the pointer (not just the middle of the screen), so any part of the
+// site can be brought close; zooming out eases back the same way.
+function zoomAt(factor, clientX, clientY) {
+  const before = want.r, after = clamp(before * factor, 60, 7000), move = 1 - after / before;
+  const p = clientX == null ? null : pointOnPlane(clientX, clientY);
+  if (p && move > 0) { want.target.addScaledVector(p.sub(want.target), move); want.target.y = clamp(want.target.y, cam.under ? -400 : 0, 800); }
+  want.r = after;
+  if (curView === 'pier') curView = 'free';
+}
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const delta = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
+  // Trackpad two-finger scroll sideways pans; pinch (ctrl + wheel) and vertical scroll zoom.
+  if (!e.ctrlKey && Math.abs(e.deltaX) > Math.abs(e.deltaY)) { pan(-e.deltaX, 0); return; }
+  zoomAt(Math.exp(clamp(delta, -120, 120) * (e.ctrlKey ? 0.006 : 0.0012)), e.clientX, e.clientY);
+}, { passive: false });
+// Double-click (or double-tap) a spot to center the view on it.
+canvas.addEventListener('dblclick', (e) => {
+  const p = pointOnPlane(e.clientX, e.clientY); if (!p) return;
+  want.target.set(p.x, cam.target.y, p.z); want.r = clamp(want.r * 0.6, 60, 7000); if (curView === 'pier') curView = 'free';
+});
+// Keyboard: arrows / WASD pan, + and - zoom, so the view never depends on a mouse wheel.
+window.addEventListener('keydown', (e) => {
+  if (e.target && /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(e.target.tagName)) return;
+  const step = 40, k = e.key.toLowerCase();
+  if (k === 'arrowleft' || k === 'a') pan(step, 0); else if (k === 'arrowright' || k === 'd') pan(-step, 0);
+  else if (k === 'arrowup' || k === 'w') pan(0, step); else if (k === 'arrowdown' || k === 's') pan(0, -step);
+  else if (k === '+' || k === '=') zoomAt(0.85); else if (k === '-' || k === '_') zoomAt(1 / 0.85);
+  else return;
+  e.preventDefault();
+});
 
 /* ---------- Clock: keep the Pier Beam's fixed steps in line with the site clock ---------- */
 function syncPier() {
@@ -3629,15 +3683,15 @@ function nowLine(done, total) {
   return s.charAt(0).toUpperCase() + s.slice(1) + '.';
 }
 let lastKey = '';
-// Each piece the crane sets, with the site-clock time it landed and how long the lift took.
-let logCount = -1;
+// The piece the crane set last (clock time and lift minutes) and the next one; once every piece is set the
+// lines step aside so the finished house is in full view.
 function pieceLog() {
-  const t = SITE.t, done = ELEMS.filter((e) => t >= e.s1).sort((a, b) => a.s1 - b.s1), next = ELEMS.filter((e) => t < e.s1).sort((a, b) => a.s1 - b.s1)[0];
-  txt('#nextPiece', next ? `Next: ${next.name || KIND_WORD[next.kind]} at ${fmtClockMin(next.s1)}` : SITE.started ? 'All pieces set' : '');
-  if (done.length === logCount) return; logCount = done.length;
-  const list = document.getElementById('pieceLog'); if (!list) return;
-  list.replaceChildren(...done.slice(-40).reverse().map((e) => { const li = document.createElement('li'), a = document.createElement('b'), b = document.createElement('span'), c = document.createElement('span');
-    a.textContent = fmtClockMin(e.s1); b.textContent = e.name || KIND_WORD[e.kind] || e.kind; c.textContent = `${Math.max(1, Math.round(e.set))} min`; li.append(a, b, c); return li; }));
+  const t = SITE.t, info = document.getElementById('pieceInfo'); if (!info) return;
+  const finished = SITE.started && t >= PLAN.total; info.hidden = finished; if (finished) return;
+  let last = null, next = null;
+  for (const e of ELEMS) { if (t >= e.s1) { if (!last || e.s1 > last.s1) last = e; } else if (!next || e.s1 < next.s1) next = e; }
+  txt('#lastPiece', last ? `Set ${fmtClockMin(last.s1)}: ${last.name || KIND_WORD[last.kind] || last.kind} · ${Math.max(1, Math.round(last.set))} min lift` : '');
+  txt('#nextPiece', next ? `Next ${fmtClockMin(next.s1)}: ${next.name || KIND_WORD[next.kind] || next.kind}` : '');
 }
 function updateHud(force) {
   const total = TOTAL_PIERS();
@@ -3853,7 +3907,7 @@ function frame(now) {
   if (SITE.started) narrate(); else P.events.length = 0;
   if (SITE.started && SITE.t >= PLAN.total && lastSetIdx !== 9999) {
     lastSetIdx = 9999;
-    const m = `Shell closed in at ${fmtClockMin(PLAN.total)}: ${PLAN.piers} piers, ${PANELS()} panels and ${ELEMS.length - PANELS()} beams in ${fmtHM(PLAN.total)}. Turn on Windows or See-through to look inside.`;
+    const m = `Shell closed in at ${fmtClockMin(PLAN.total)}: ${PLAN.piers} piers, ${PANELS()} panels and ${ELEMS.length - PANELS()} beams in ${fmtHM(PLAN.total)}. ${STUDIO.root ? 'Turn on See-through to look at the framing inside.' : 'Turn on Windows or See-through to look inside.'}`;
     setStatus(m); announce(m);
   }
   updateCamera(dt);
@@ -3868,6 +3922,9 @@ setCutaway(false);
   const sub = $('.sub'), swap = document.createElement('a');
   swap.className = 'swap';
   if (DESIGN) {
+    // Building the visitor's design: the live clock card says what is happening, so the intro card steps
+    // aside and only Back home (and any warning) stays on screen.
+    document.body.classList.add('build-mode');
     $('#ttl').textContent = `Your ${DESIGN.style || 'home'}: piers to framed shell`;
     sub.textContent = `Built from your design: ${DESIGN.label}. The Pier Beam drives its piers while the trailer line builds every floor, wall and roof panel, and the crane sets each one as it comes off the line.`;
     document.querySelectorAll('[data-stories]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.stories) === SITE.stories)));

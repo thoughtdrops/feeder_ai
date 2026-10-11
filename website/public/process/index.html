@@ -18,10 +18,9 @@
 @media (max-width:900px){.swap{display:none}}
 .log-head{display:flex;justify-content:space-between;gap:8px;margin-top:10px;font-size:12px;color:var(--ink-soft)}
 .log-head span:last-child{color:var(--ink);font-weight:600;text-align:right}
-.piece-log{list-style:none;margin:6px 0 0;padding:0;max-height:132px;overflow:auto;font-size:12px;line-height:1.35;border-top:1px solid #ffffff1f}
-.piece-log li{display:grid;grid-template-columns:auto 1fr auto;gap:8px;padding:4px 0;border-bottom:1px solid #ffffff12}
-.piece-log b{font-variant-numeric:tabular-nums;color:var(--ink)}
-.piece-log li span:last-child{color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.piece-info{margin-top:6px;border-top:1px solid #ffffff1f;padding-top:5px}
+.piece-info[hidden]{display:none}
+.piece-line{margin:2px 0 0;font-size:12px;line-height:1.35;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </style>
 <style>
 :root{
@@ -60,6 +59,10 @@ body{height:100%;margin:0;background:var(--paper);color:var(--ink);font:400 15px
 .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
 .card{pointer-events:auto;background:var(--panel);border:1px solid var(--edge);border-radius:10px;box-shadow:var(--shadow);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .intro{max-width:410px;padding:13px 15px 12px}
+.build-mode .intro{background:none;border:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;padding:0;max-width:none}
+.build-mode .intro>*:not(.back):not(.warn){display:none}
+.build-mode .intro .back{margin:0;background:var(--panel);box-shadow:var(--shadow);border:1px solid var(--edge)}
+.build-mode .intro .warn{margin-top:8px;max-width:360px;background:var(--panel);padding:8px 10px;border-radius:8px}
 h1{margin:0;font:700 27px/1.02 var(--font-head);letter-spacing:.003em}
 .sub{margin:5px 0 0;color:var(--ink-soft);font-size:14px;max-width:48ch}
 .status{margin:10px 0 0;padding:8px 10px;border-left:3px solid var(--accent);border-radius:0 6px 6px 0;background:var(--accent-wash);font-size:14px;line-height:1.38;min-height:3.1em}
@@ -165,7 +168,7 @@ a.btn{text-decoration:none}
         <p class="sub">The Pier Beam drives the foundation while the trailer line starts building panels. The crane sets girders as soon as each pier row is done, then every panel as it comes off the line.</p>
         <p id="status" class="status">Choose the house size and pier spacing, then press Start.</p>
         <p id="warn" class="warn" hidden></p>
-        <p class="hint">Drag to orbit. Right-drag or two fingers to pan. Scroll or pinch to zoom.</p>
+        <p class="hint">Drag to orbit. Right-drag or two fingers to pan. Scroll or pinch to zoom toward the pointer; double-click to center. Arrow keys pan, + / − zoom.</p>
       </section>
       <section class="card power" aria-label="Schedule">
         <h2>Site clock, start 7:00 AM</h2>
@@ -177,8 +180,7 @@ a.btn{text-decoration:none}
           <span>Panels set</span><b id="set">0 of 0</b>
           <span>Shell done</span><b id="doneAt">–</b>
         </div>
-        <div class="log-head"><span>Piece log · time each piece is set</span><span id="nextPiece"></span></div>
-        <ol id="pieceLog" class="piece-log"></ol>
+        <div id="pieceInfo" class="piece-info"><p id="lastPiece" class="piece-line"></p><p id="nextPiece" class="piece-line"></p></div>
       </section>
     </div>
     <section class="card dock" aria-label="Job status and controls">

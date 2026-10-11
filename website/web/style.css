@@ -136,6 +136,7 @@ input[type=checkbox]{accent-color:var(--green)}
 .home-stats{background:var(--raised);border-top:1px solid var(--line)}
 .home-stats>div{border-right:1px solid var(--line)}
 .home-stats>div:last-child strong{color:var(--green);text-shadow:0 0 22px var(--glow)}
+.home-stats .stat-plus{display:block;margin-top:.4rem;padding-top:.35rem;border-top:1px dashed var(--line);font-size:.95rem;font-weight:650;color:var(--ink);font-variant-numeric:tabular-nums}
 .walk-pad button{background:var(--floating);color:var(--ink);border:1px solid var(--accent-line);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .walk-pad button.held{background:var(--green);color:var(--on-green)}
 
@@ -182,3 +183,11 @@ input[type=checkbox]{accent-color:var(--green)}
 @keyframes splash-in{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
 @keyframes splash-bar{from{transform:translateX(-110%)}to{transform:translateX(260%)}}
 @media (prefers-reduced-motion:reduce){.splash img,.splash-bar span{animation:none}}
+/* Framing options fold to a small button so the framing stays in view. */
+details.framing-tools{z-index:3}
+details.framing-tools:not([open]){width:auto;max-height:none;padding:0;overflow:visible}
+details.framing-tools>summary{cursor:pointer;list-style:none;font-weight:650;font-size:.75rem;color:var(--ink);padding:.45rem .7rem;border-radius:9px;user-select:none}
+details.framing-tools>summary::-webkit-details-marker{display:none}
+details.framing-tools>summary::after{content:" ▴";color:var(--muted)}
+details.framing-tools[open]>summary{padding:0 0 .5rem}
+details.framing-tools[open]>summary::after{content:" ▾"}
