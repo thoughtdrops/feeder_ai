@@ -202,9 +202,9 @@ details.framing-tools[open]>summary::after{content:" ▾"}
  /* Phones: the view toolbar scrolls away and only the 3D view follows, so the controls keep most of the
     screen; scroll-padding keeps any field the page scrolls to below the viewer, never under it. */
  .visual-panel:not(.expanded){position:sticky;top:calc(-1 * var(--viewbar-h,0px));z-index:5;box-shadow:0 10px 24px #0003}
- .visual-panel:not(.expanded) .stage{height:32dvh;min-height:210px;max-height:none}
+ .visual-panel:not(.expanded) .stage{height:42dvh;min-height:250px;max-height:none}
  .visual-panel:not(.expanded) .home-stats{display:none}
- html{scroll-padding-top:calc(max(32dvh,210px) + 16px)}
+ html{scroll-padding-top:calc(max(42dvh,250px) + 16px)}
 }
 /* Overlay panels inside the 3D view take their own clicks (the overlay layer itself lets drags reach the model). */
 #scene-ui details,#scene-ui summary,#scene-ui .framing-tools{pointer-events:auto}
@@ -272,3 +272,15 @@ details.framing-tools[open]>summary::after{content:" ▾"}
 .welcome .account-muted{color:#b9cbbf}
 .welcome-skip{background:none;border:0;color:#e8d6a0;text-decoration:underline;text-underline-offset:3px;font:inherit;font-size:.9rem;cursor:pointer;min-height:44px;padding:.4rem .8rem}
 .welcome-skip:focus-visible{outline:2px solid #f2d27a;outline-offset:2px;border-radius:6px}
+/* The 3D view keeps only the design number; how-to tips live behind the "?" button at its bottom left. */
+#scene-ui .scene-label{padding:.35rem .6rem;max-width:none;border-radius:8px}
+#scene-ui .scene-label .kicker{font-size:.6875rem;letter-spacing:.12em}
+.scene-help-toggle{position:absolute;left:.6rem;bottom:.6rem;z-index:6;width:36px;height:36px;min-height:36px;padding:0;border-radius:50%;display:grid;place-items:center;background:var(--floating);border:1px solid var(--line);color:var(--ink);font-family:inherit;font-weight:700;font-size:1rem;line-height:1;cursor:pointer;pointer-events:auto;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 6px 18px -10px #0b151288}
+.scene-help-toggle::before{content:"";position:absolute;inset:-4px}
+.scene-help-toggle[aria-expanded=true]{background:var(--green);color:#fff;border-color:var(--green)}
+.scene-help-toggle:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.scene-help-panel{position:absolute;left:.6rem;bottom:3.2rem;z-index:6;width:min(270px,calc(100% - 1.2rem));max-height:calc(100% - 4rem);overflow:auto;padding:.7rem .85rem;background:var(--floating);border:1px solid var(--line);border-radius:10px;color:var(--ink);font-size:.75rem;line-height:1.5;pointer-events:auto;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 10px 30px -16px #0b151299}
+.scene-help-panel strong{display:block;margin-bottom:.3rem;font-size:.8125rem}
+.scene-help-panel ul{margin:0;padding-left:1.1rem}
+.wall-draw-guide{top:3.4rem}
+#scene-ui .framing-tools{bottom:.6rem}
