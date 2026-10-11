@@ -99,3 +99,44 @@ pub fn generate(current: &Config, mode: &str, seed: u32, keep_size: bool) -> Res
     c.layout=heritage::plan_name(&c.home_style);
     if practical(&c,&model::build(&c)){Ok(c)}else{Err("These dimensions do not fit the selected source-based room program and fixtures. Increase the footprint or reduce bedrooms, or use Blank slate to create your own layout.".into())}
 }
+
+/// "Generate another home": a complete, visibly different design on every click — style, size,
+/// stories, bedrooms, roof covering, dormers, garage, ceiling, exterior palette and interior.
+/// Candidates are screened with the same validation and room-program checks as hand edits, and the
+/// first one that passes is returned, so the button never just shows an error.
+pub fn surprise(current:&Config, seed:u32, keep_size:bool) -> Result<Config,String> {
+    let mode=if ["Affordable","Premium"].contains(&current.design_mode.as_str()){current.design_mode.clone()}else{"Custom".to_string()};
+    let pool:&[&str]=match mode.as_str(){"Affordable"=>&["Ranch","Colonial","Cape Cod","Modern farmhouse","Scandinavian","Contemporary","Craftsman"],"Premium"=>&["Victorian","Georgian","French country","Tudor","Craftsman","Coastal","English cottage"],_=>&["Contemporary","Georgian","Victorian","Modern farmhouse","Craftsman","Tudor","Cape Cod","Colonial","French country","Scandinavian","Mid-century","Ranch","English cottage","Coastal","Industrial"]};
+    let palettes=[("#ece7dc","#2f3438","#ffffff"),("#5b6e5d","#2e3132","#efe9dc"),("#2f3e4e","#3a3b3c","#f2efe6"),("#a34e3c","#343434","#efe6d6"),("#d8c7a3","#4a4038","#f6f2ea"),("#7d8f9b","#2b2f33","#f1efe9"),("#f3efe6","#4f4a45","#2f3b33"),("#8a9a7b","#3a3f3a","#f4f0e6")];
+    let schemes:Vec<String>=catalog()["interiorSchemes"].as_array().unwrap().iter().map(|v|s(v,"name").to_string()).collect();
+    let trims:Vec<String>=catalog()["options"]["trimPackage"].as_array().unwrap().iter().filter_map(|v|v.as_str().map(str::to_string)).collect();
+    let papers=["Peacock chinoiserie","Plum baroque","Blue medallion","Marble filigree","Teal lattice","Botanical silk","Heritage floral","Linen toile"];
+    let mut last=String::new();
+    for attempt in 0..40u32 {
+        let mut r=Random(seed.wrapping_add(attempt.wrapping_mul(7919)));
+        let mut c=current.clone();c.design_mode=mode.clone();c.seed=seed;c.active_floor=0;c.catalog_plan=true;c.trim_overrides.clear();architecture::reset_edits(&mut c);
+        let style=loop{let pick=pool[r.pick(pool.len())];if pick!=current.home_style||attempt>20{break pick}};c.home_style=style.into();
+        let home=lookup("homeStyles",style);c.siding=s(&home,"cladding").into();c.trim_package=s(&home,"trim").into();
+        for(key,src)in[("siding","siding"),("roof","roof"),("trim","exteriorTrim")]{c.colors.insert(key.into(),s(&home,src).into());}
+        finishes::architecture_defaults(&mut c);
+        let single=["Ranch","Mid-century","Contemporary","Cape Cod","Craftsman","Industrial"].contains(&style);
+        c.stories=if keep_size{current.stories}else if single{[1,1,2][r.pick(3)]}else{[2,2,3,1][r.pick(4)]};
+        c.bedrooms=match mode.as_str(){"Affordable"=>2+r.pick(3),"Premium"=>3+r.pick(3),_=>2+r.pick(4)};
+        let(w,d)=(c.width,c.depth);architecture::apply(&mut c,!keep_size);
+        if keep_size{c.width=w.max(if c.stories>=2{24.}else{8.});c.depth=d;}else{c.width=(c.width+(r.pick(5)as f64*2.-4.)).clamp(24.,100.);c.depth=(c.depth+(r.pick(5)as f64*2.-4.)).clamp(24.,100.);}
+        if c.stories>=2{c.depth=c.depth.max(architecture::minimum_depth(&c));}
+        scheme(&mut c,&schemes[r.pick(schemes.len())]);
+        if mode=="Affordable"{c.wallpaper="None".into();c.bedroom_wallpaper="None".into();c.trim_size="Normal".into();}
+        else{c.trim_package=trims[r.pick(trims.len())].clone();let(a,b)=(r.pick(papers.len()),r.pick(papers.len()));c.wallpaper=if mode=="Premium"||r.pick(2)==0{papers[a].into()}else{"None".into()};c.bedroom_wallpaper=papers[b].into();c.trim_size=if mode=="Premium"{"Oversized".into()}else{"Normal".into()};}
+        if r.pick(2)==0{let(sd,rf,tr)=palettes[r.pick(palettes.len())];for(key,value)in[("siding",sd),("roof",rf),("trim",tr)]{c.colors.insert(key.into(),value.into());}}
+        let coverings=[roofing::METAL,roofing::ASPHALT,roofing::CEDAR,roofing::SLATE];c.roofing=if r.pick(10)<7{"Style matched".into()}else{let k=coverings[r.pick(4)];if c.pitch>=roofing::min_pitch(k){k.into()}else{"Style matched".into()}};
+        c.dormer_style=if c.pitch>=8.&&r.pick(10)<4{"Style matched".into()}else{"None".into()};c.dormer_count=2;c.dormer_width=4.;c.dormer_depth=8.;c.dormer_side="Automatic".into();
+        c.garage=if r.pick(10)<3{"Attached".into()}else{"None".into()};c.garage_side="Automatic".into();
+        c.ceiling=if roof::cathedral_ok(&c)&&r.pick(10)<3{"Cathedral".into()}else{"Flat ceiling".into()};
+        c.rear_outdoor="Style matched".into();c.balcony="Style matched".into();c.window_style="Style matched".into();c.window_size="Style matched".into();
+        c.layout=heritage::plan_name(&c.home_style);
+        match validate(&c){Err(e)=>{last=e;continue}Ok(())=>{}}
+        if practical(&c,&model::build(&c)){return Ok(c)}last="The room program did not fit.".into();
+    }
+    Err(format!("No design fit after several tries ({}). Turn off Keep my dimensions or adjust the size.",last))
+}
