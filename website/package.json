@@ -13,7 +13,8 @@
     "check:web": "node scripts/check-web.mjs",
     "test:rust": "node scripts/rust-tool.mjs test --locked",
     "test:features": "node scripts/tests/rust-ui-check.mjs && node scripts/tests/rust-report-check.mjs && node scripts/tests/scene-editor-check.mjs && node scripts/tests/scene-controller-check.mjs && node scripts/tests/context-menu-check.mjs && node scripts/tests/studio-hardening-check.mjs && node scripts/tests/texture-upload-check.mjs && node scripts/tests/panel-controls-check.mjs && node scripts/tests/walk-controls-check.mjs && node scripts/tests/finish-access-check.mjs",
-    "test": "node scripts/check-web.mjs && npm run -s test:features"
+    "test": "node scripts/check-web.mjs && node scripts/tests/api-check.mjs && npm run -s test:features",
+    "test:api": "node scripts/tests/api-check.mjs"
   },
   "dependencies": {
     "jspdf": "^4.2.1",

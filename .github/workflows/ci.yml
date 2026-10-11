@@ -50,6 +50,9 @@ jobs:
       - name: Type check
         run: node scripts/check-web.mjs
 
+      - name: Account API tests
+        run: node scripts/tests/api-check.mjs
+
       - name: Studio feature tests
         run: npm run -s test:features
 

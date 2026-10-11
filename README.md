@@ -28,8 +28,21 @@ Vercel builds from `vercel.json` (repository root) or `website/vercel.json` (if 
 
 CI (`.github/workflows/ci.yml`) runs the engine tests, release-fingerprint check, type check, feature tests and a production build on every pull request.
 
+## Accounts (Sign in with Google, saved builds)
+
+Visitors can sign in with Google and save builds to their profile (serverless functions in `website/api/`, wrapped by `api/` so either Vercel root directory works). Without these settings the site still works: builds are saved in the visitor's browser and no sign-in is offered.
+
+Set these environment variables in Vercel (Project → Settings → Environment Variables), then redeploy:
+
+| Variable | Where it comes from |
+| --- | --- |
+| `GOOGLE_CLIENT_ID` | Google Cloud Console → APIs & Services → Credentials → Create OAuth client ID → Web application. Add the site address (e.g. `https://yourdomain.com`) under Authorized JavaScript origins. |
+| `SESSION_SECRET` | Any random string of 32+ characters (e.g. `openssl rand -base64 48`). |
+| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Vercel → Storage → add the Upstash Redis integration to the project; it sets both automatically. |
+
+`/api/config/` reports whether accounts are active. API tests: `pnpm test:api`.
+
 ## Scope
 
-Quantities and checks follow the 2021 IRC/IECC, prices are US dollars and units are imperial. Estimates and structural screening are preliminary and must be reviewed by licensed professionals.
+Quantities and checks follow the 2021 IRC/IECC and prices are US dollars. Measurements default to US customary units; visitors can switch the display to metric. Estimates and structural screening are preliminary and must be reviewed by licensed professionals.
 
-The repository root also contains an earlier Flask prototype (`app.py`, `templates/`), which is not deployed (`.vercelignore`).

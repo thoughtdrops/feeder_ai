@@ -199,9 +199,12 @@ details.framing-tools[open]>summary::after{content:" ▾"}
  .visual-panel:not(.expanded) .stage{height:clamp(340px,calc(100dvh - 360px),660px);min-height:0}
 }
 @media (max-width:850px){
- .visual-panel:not(.expanded){position:sticky;top:0;z-index:5;box-shadow:0 10px 24px #0003}
- .visual-panel:not(.expanded) .stage{height:38dvh;min-height:230px;max-height:none}
+ /* Phones: the view toolbar scrolls away and only the 3D view follows, so the controls keep most of the
+    screen; scroll-padding keeps any field the page scrolls to below the viewer, never under it. */
+ .visual-panel:not(.expanded){position:sticky;top:calc(-1 * var(--viewbar-h,0px));z-index:5;box-shadow:0 10px 24px #0003}
+ .visual-panel:not(.expanded) .stage{height:32dvh;min-height:210px;max-height:none}
  .visual-panel:not(.expanded) .home-stats{display:none}
+ html{scroll-padding-top:calc(max(32dvh,210px) + 16px)}
 }
 /* Overlay panels inside the 3D view take their own clicks (the overlay layer itself lets drags reach the model). */
 #scene-ui details,#scene-ui summary,#scene-ui .framing-tools{pointer-events:auto}
@@ -210,3 +213,59 @@ details.framing-tools[open]>summary::after{content:" ▾"}
 :root:not([data-theme=dark]) [data-floor].active{color:#05663f}
 /* Comfortable touch targets for checkboxes on phones. */
 @media (max-width:850px){input[type=checkbox]{width:22px;height:22px}}
+/* American / metric units switch (top of Layout). */
+.units-switch{display:flex;align-items:center;gap:.4rem;margin:0 0 1rem;flex-wrap:wrap}
+.units-switch span{font-size:.75rem;font-weight:650;color:var(--muted);margin-right:.2rem}
+.units-switch button{flex:1 1 auto;min-height:40px;padding:.45rem .7rem;border:1px solid var(--line-strong);border-radius:9px;background:transparent;color:var(--ink);font-weight:600;font-size:.8125rem;cursor:pointer}
+.units-switch button[aria-pressed=true]{background:var(--accent-soft);border-color:var(--green);color:var(--green)}
+:root:not([data-theme=dark]) .units-switch button[aria-pressed=true]{color:#05663f}
+/* ---------- Profile, saved builds and the Google welcome screen ---------- */
+.header-left.has-profile{display:flex;align-items:center}
+.profile-button{display:inline-flex;align-items:center;gap:.55rem;min-height:44px;padding:.3rem .8rem .3rem .3rem;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font-family:"Inter var",Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:.875rem;font-weight:650;cursor:pointer;letter-spacing:0;text-transform:none}
+.profile-button:hover{border-color:var(--green)}
+.profile-button:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.profile-avatar{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;overflow:hidden;background:var(--raised);color:var(--green);flex-shrink:0}
+.profile-avatar img{width:100%;height:100%;object-fit:cover}
+.profile-avatar svg{width:22px;height:22px}
+.profile-avatar.large{width:56px;height:56px}
+.profile-avatar.large svg{width:32px;height:32px}
+.avatar-initial{font-weight:750;font-size:.95rem}
+.profile-avatar.large .avatar-initial{font-size:1.4rem}
+@media (max-width:850px){
+ .header{position:relative}
+ .header-left.has-profile{display:flex;position:absolute;left:.55rem;top:.55rem;z-index:41}
+ .header-left.has-profile .profile-label{display:none}
+ .header-left.has-profile .profile-button{padding:.25rem;min-width:44px;justify-content:center}
+}
+.account-shade{position:fixed;inset:0;z-index:120;background:#0b1510b3;display:grid;place-items:center;padding:1rem;backdrop-filter:blur(4px)}
+.account-panel{width:min(560px,100%);max-height:calc(100dvh - 2rem);overflow:auto;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 60px #0006;padding:1.2rem 1.25rem 1.3rem}
+.account-panel h2{margin:0;font-size:1.25rem}
+.account-panel h3{margin:0;font-size:1rem}
+.account-muted{color:var(--muted);font-size:.8125rem;margin:.2rem 0 0}
+.profile-head{display:flex;align-items:center;gap:.85rem;margin-bottom:1rem}
+.profile-head>div{flex:1;min-width:0}
+.profile-head .close-modal{position:static}
+.google-slot{display:flex;justify-content:center;min-height:44px;margin:.4rem 0 1rem}
+.profile-section{border-top:1px solid var(--line);padding-top:.9rem;margin-top:.4rem}
+.profile-section-head{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin-bottom:.6rem}
+.build-list{list-style:none;margin:0;padding:0;display:grid;gap:.5rem}
+.build-item{display:flex;align-items:center;justify-content:space-between;gap:.7rem;padding:.65rem .75rem;border:1px solid var(--line);border-radius:12px;background:var(--raised)}
+.build-item.current{border-color:var(--green)}
+.build-text{display:grid;min-width:0}
+.build-text strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.build-actions{display:flex;gap:.4rem;flex-shrink:0}
+.build-actions .button{min-height:40px;padding:.4rem .75rem}
+.button.ghost{background:transparent;border:1px solid transparent;color:var(--danger)}
+.account-actions{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem}
+.account-actions.end{justify-content:flex-end}
+.save-panel input{font-size:16px}
+.build-library{display:flex;gap:.5rem;justify-content:flex-end;margin-top:.5rem;flex-wrap:wrap}
+@media (max-width:560px){.build-item{flex-direction:column;align-items:stretch}.build-actions .button{flex:1}}
+/* Welcome / sign-up: the loading screen's forest green and gold, with Google's button. */
+.welcome{z-index:130;gap:.4rem;text-align:center;padding:1.5rem}
+.welcome img{width:min(360px,72vw);height:auto}
+.welcome h1{margin:.6rem 0 0;font-size:clamp(1.4rem,4.5vw,2rem);color:#f2d27a;letter-spacing:.01em}
+.welcome p{margin:.2rem auto .6rem;max-width:440px;color:#d9e7dc;font-size:.95rem;text-transform:none;letter-spacing:0}
+.welcome .google-slot{margin:.8rem 0 .4rem}
+.welcome-skip{background:none;border:0;color:#e8d6a0;text-decoration:underline;text-underline-offset:3px;font:inherit;font-size:.9rem;cursor:pointer;min-height:44px;padding:.4rem .8rem}
+.welcome-skip:focus-visible{outline:2px solid #f2d27a;outline-offset:2px;border-radius:6px}
