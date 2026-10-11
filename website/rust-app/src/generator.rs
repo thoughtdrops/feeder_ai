@@ -142,6 +142,8 @@ pub fn surprise(current:&Config, seed:u32, keep_size:bool) -> Result<Config,Stri
         let(w,d)=(c.width,c.depth);architecture::apply(&mut c,!keep_size);
         if keep_size{c.width=w.max(if c.stories>=2{24.}else{8.});c.depth=d;}else{c.width=(c.width+(r.pick(5)as f64*2.-4.)).clamp(24.,100.);c.depth=(c.depth+(r.pick(5)as f64*2.-4.)).clamp(24.,100.);}
         if c.stories>=2{c.depth=c.depth.max(architecture::minimum_depth(&c));}
+        // Keep my dimensions means exactly that: a program that needs a deeper house is skipped, not stretched.
+        if keep_size&&(!near(c.width,w)||!near(c.depth,d)){last="The kept dimensions are too small for that program.".into();continue}
         scheme(&mut c,&schemes[r.pick(schemes.len())]);
         if mode=="Affordable"{c.wallpaper="None".into();c.bedroom_wallpaper="None".into();c.trim_size="Normal".into();}
         else{c.trim_package=trims[r.pick(trims.len())].clone();let(a,b)=(r.pick(papers.len()),r.pick(papers.len()));c.wallpaper=if mode=="Premium"||r.pick(2)==0{papers[a].into()}else{"None".into()};c.bedroom_wallpaper=papers[b].into();c.trim_size=if mode=="Premium"{"Oversized".into()}else{"Normal".into()};}
