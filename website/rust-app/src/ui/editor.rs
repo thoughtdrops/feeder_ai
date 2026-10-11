@@ -50,7 +50,7 @@ pub fn act(target:Element){let command=target.get_attribute("data-action").unwra
  "undo"|"redo"=>redraw=history(&mut a,&command),
  "edit-draw"=>{a.draw_walls=!a.draw_walls;a.placing=false;a.tab="edit".into();reset_selection(&mut a);},
  "edit-edge-start"|"edit-edge-end"=>a.wall_edge=if command.ends_with("start"){"start"}else{"end"}.into(),
- "edit-stairs"=>{if a.c.stories<2{a.message="Choose two or three stories before adding stairs.".into();return}a.c.active_floor=0;a.m=model::build(&a.c);a.insert_kind="stairs".into();a.insert_rotation=0.;a.placing=true;a.draw_walls=false;a.tab="edit".into();a.view="dollhouse".into();reset_selection(&mut a);redraw=true;},
+ "edit-stairs"=>{if a.c.stories<2{a.message="Choose two or three stories before adding stairs.".into();return}a.c.active_floor=0;a.m=fresh(&a.c);a.insert_kind="stairs".into();a.insert_rotation=0.;a.placing=true;a.draw_walls=false;a.tab="edit".into();a.view="dollhouse".into();reset_selection(&mut a);redraw=true;},
  "edit-bearing"=>{let id=s(&t,"wallId").to_string();if a.c.bearing_walls.contains(&id){a.c.bearing_walls.retain(|v|v!=&id)}else{a.c.bearing_walls.push(id);}changed(&mut a);a.message="Bearing designation updated. Joist spans and preliminary sizing recalculated; support approval is pending.".into();redraw=true;},
  "edit-place"=>{a.placing=!a.placing;a.draw_walls=false;a.tab="edit".into();reset_selection(&mut a);if a.view!="dollhouse"{a.view="dollhouse".into();redraw=true;}},
  "edit-move"=>{a.placing=false;a.draw_walls=false;a.insert_rotation=a.m["furniture"].as_array().unwrap().iter().find(|f|s(f,"id")==s(&t,"id")).map(|f|n(f,"rotation")).unwrap_or(0.);a.moving=s(&t,"id").into();a.selection=Value::Null;a.message="Click the floor where you want to move this item.".into();},
@@ -83,7 +83,7 @@ pub fn opening_kind(){let kind=val("edit-opening-kind");for(id,value)in if kind=
 fn history(a:&mut State,command:&str)->bool{
  let next=if command=="undo"{a.undo.pop()}else{a.redo.pop()};let Some(mut c)=next else{return false};
  let floor=a.c.active_floor;let current=a.c.clone();if command=="undo"{a.redo.push(current)}else{a.undo.push(current)}
- c.active_floor=floor.min(c.stories-1);a.c=c;a.previous=a.c.clone();a.m=model::build(&a.c);reset_selection(a);a.message.clear();true
+ c.active_floor=floor.min(c.stories-1);a.c=c;a.previous=a.c.clone();a.m=fresh(&a.c);reset_selection(a);a.message.clear();true
 }
 fn wall_selected(a:&mut State,w:Wall){a.wall=w.id.clone();a.selection=json!({"kind":"wall","wallId":w.id,"wall":w,"at":w.length/2.,"sectionAt":0.,"sectionWidth":w.length,"screenX":a.selection["screenX"],"screenY":a.selection["screenY"]});}
 pub fn draw(input:&str){

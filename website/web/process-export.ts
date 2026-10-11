@@ -38,7 +38,9 @@ function exportable(source:T.Object3D):T.Object3D|null{
  if(!(copy as any).isMesh&&!copy.children.length)return null;
  return copy;
 }
-function texturesReady(root:T.Object3D){let ok=true;root.traverse(o=>{const mats=(o as T.Mesh).material;if(!mats)return;for(const mat of Array.isArray(mats)?mats:[mats])for(const value of Object.values(mat))if(value instanceof T.Texture&&!(value as any).isCanvasTexture&&value.image&&!(value.image.width>0))ok=false;});return ok;}
+// Loader textures start with no image (or, for trim, a 1 × 1 stand-in canvas) until the photo arrives.
+function imageReady(t:T.Texture){const img:any=t.image;if(!img)return false;if(img instanceof HTMLImageElement&&!img.complete)return false;if(t.userData?.url&&img.width<=1)return false;return img.width>0;}
+function texturesReady(root:T.Object3D){let ok=true;root.traverse(o=>{const mats=(o as T.Mesh).material;if(!mats)return;for(const mat of Array.isArray(mats)?mats:[mats])for(const value of Object.values(mat))if(value instanceof T.Texture&&!(value as any).isCanvasTexture&&!imageReady(value))ok=false;});return ok;}
 function store(record:any){return new Promise<void>((resolve,reject)=>{const req=indexedDB.open('uf-process',1);req.onupgradeneeded=()=>req.result.createObjectStore('models');req.onerror=()=>reject(req.error);req.onsuccess=()=>{const db=req.result;const tx=db.transaction('models','readwrite');tx.objectStore('models').put(record,'house');tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>{db.close();reject(tx.error);};};});}
 export async function exportHouseForProcess(payload:any,design:string,live?:T.Scene){
  cleaned.clear();shrunk.clear();light.clear();

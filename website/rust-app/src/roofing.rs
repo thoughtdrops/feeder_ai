@@ -38,6 +38,13 @@ pub fn panel_count(roof:&Value)->usize{
 }
 pub fn apply(c:&Config,mut m:Value)->Value{
  let k=kind(c);let roof=m["roof"].clone();let area=n(&roof,"area");let(eave,rake,ridge,hip,valley)=(n(&roof,"eaveLF"),n(&roof,"rakeLF"),n(&roof,"ridgeLF"),n(&roof,"hipLF"),n(&roof,"valleyLF"));
+ // Dormer roofs flatter than the covering allows (shed dormers at 2:12, eyebrow back slopes) are
+ // standing-seam metal instead; lapped ribbed panels also stop at 3:12 (IRC R905.10.2).
+ let dormer_pitch=|d:&Value|match s(d,"kind"){"Shed"=>2.,"Eyebrow"=>(c.pitch-3.).max(1.).round(),_=>n(d,"roofPitch")*12.};
+ let dormers:Vec<Value>=m["dormers"].as_array().cloned().unwrap_or_default();let lowest=if k==METAL{3.}else{min_pitch(k)};
+ let low=dormers.iter().filter(|d|dormer_pitch(d)+1e-9<lowest).map(|d|n(d,"roofArea")).sum::<f64>().min(area);
+ let shallow_asphalt=if k==ASPHALT&&c.pitch>=4.{dormers.iter().filter(|d|{let p=dormer_pitch(d);p+1e-9>=lowest&&p<4.}).map(|d|n(d,"roofArea")).sum::<f64>()}else{0.};
+ let full_area=area;let area=area-low;let seam=k==METAL&&c.pitch<3.;
  let squares=area/100.;let ice=(eave*3.+valley*3.).min(area);let panels=panel_count(&roof);
  let item_qty=|m:&Value,pred:&dyn Fn(&str)->bool|m["items"].as_array().unwrap().iter().filter(|i|pred(s(i,"id"))).map(|i|n(i,"qty")).sum::<f64>();
  let sheets=item_qty(&m,&|id|id=="ziproof");let rafters=item_qty(&m,&|id|id.starts_with("rafter")&&id[6..].bytes().all(|b|b.is_ascii_digit()));
@@ -46,7 +53,7 @@ pub fn apply(c:&Config,mut m:Value)->Value{
  if k!=METAL{
   m["items"].as_array_mut().unwrap().retain(|i|!["roofmetal","roofclips","ridge","metalclosure","roof-purlins","underlay","roof-snowguards"].contains(&s(i,"id")));
   let double=k==ASPHALT&&c.pitch<4.;
-  add!("underlay",&format!("Synthetic roofing underlayment · 10-square roll{}",if double{" · two layers"}else{""}),(area-ice).max(0.)*if double{2.}else{1.}/1000.,"rolls",125.,if double{"Roof area outside the ice-barrier strips. Two layers below 4:12 per IRC R905.1.1 for asphalt shingles."}else{"Roof area outside the ice-barrier strips; laps, fastening and the shingle maker's requirements govern."},true);
+  add!("underlay",&format!("Synthetic roofing underlayment · 10-square roll{}",if double{" · two layers"}else{""}),((area-ice).max(0.)*if double{2.}else{1.}+shallow_asphalt)/1000.,"rolls",125.,if double{"Roof area outside the ice-barrier strips. Two layers below 4:12 per IRC R905.1.1 for asphalt shingles."}else{"Roof area outside the ice-barrier strips; laps, fastening and the shingle maker's requirements govern."},true);
   add!("roof-dripedge",&format!("{} drip edge · 10 ft",if k==SLATE{"16 oz copper"}else{"Aluminum"}),(eave+rake)/10.,"pieces",if k==SLATE{48.}else{11.},"Every eave and rake; drip edge goes under the underlayment at eaves and over it at rakes.",true);
  }
  match k{
@@ -74,10 +81,15 @@ pub fn apply(c:&Config,mut m:Value)->Value{
   },
   _=>{}
  }
+ if k==METAL{for i in m["items"].as_array_mut().unwrap().iter_mut().filter(|i|s(i,"id")=="roofmetal"){
+   if seam{i["name"]=json!("24-gauge mechanically seamed standing-seam metal roofing");if !c.prices.contains_key("roofmetal"){i["price"]=json!(round(n(i,"price")*1.6));}i["basis"]=json!("Actual roof planes including overhangs. Below 3:12 lapped ribbed panels are not permitted (IRC R905.10.2); standing seam is approved down to 1/4:12.");}
+   else if low>0.{i["rawNet"]=json!((n(i,"rawNet")-low).max(0.));}pricing::recalc_item(i,c);}}
+ if low>0.&&!seam{add!("roof-lowslope","24-gauge standing-seam metal on low-slope dormer roofs",low,"sq ft",6.7,&format!("{:.0} sq ft of dormer roof is flatter than {}:12, the least this covering may be laid at, so it is standing seam over its own underlayment.",low,lowest),false);}
  if c.home_style=="Craftsman"{if let Some(i)=m["items"].as_array_mut().unwrap().iter_mut().find(|i|s(i,"id")=="soffit"){i["name"]=json!("Open-eave tongue-and-groove eave boards over exposed rafter tails");i["basis"]=json!("Plan overhang area. Craftsman eaves stay open, so the boards are the finished underside; screened rim vents still apply.");pricing::recalc_item(i,c);}}
  add!("roof-panelkits",&format!("Factory roof panel joint, gasket & lifting kits · {} panels",panels),panels,"kits",85.,&format!("Roof panels (up to 32 ft along the eave × 22 ft up the slope) are assembled from the {:.0} ZIP roof sheets and {:.0} I-joist rafters already listed; this line adds only per-panel joint screws, gaskets and lifting straps. Dormer roofs are framed on site.",sheets,rafters),true);
  m["items"].as_array_mut().unwrap().extend(t.items.iter().map(|i|serde_json::to_value(i).unwrap()));
- m["roofing"]=json!({"kind":k,"choice":c.roofing,"minPitch":min_pitch(k),"panels":panels,"deadLoadPsf":match k{SLATE=>9.,CEDAR=>3.,ASPHALT=>2.5,_=>1.5},"note":if k==SLATE{"Slate weighs about 8–10 psf. Roof I-joists, the LVL ridge and supports must be designed for it."}else{""}});
+ let note=[if k==SLATE{"Slate weighs about 8–10 psf. Roof I-joists, the LVL ridge and supports must be designed for it."}else{""},if seam{"Below 3:12 the metal roof is standing seam; lapped ribbed panels need at least 3:12."}else{""},if low>0.&&!seam{"Low-slope dormer roofs are standing-seam metal."}else{""}].iter().filter(|t|!t.is_empty()).copied().collect::<Vec<_>>().join(" ");
+ m["roofing"]=json!({"kind":k,"choice":c.roofing,"minPitch":min_pitch(k),"panels":panels,"deadLoadPsf":match k{SLATE=>9.,CEDAR=>3.,ASPHALT=>2.5,_=>1.5},"lowSlopeArea":round(low),"roofArea":round(full_area),"note":note});
  let info=m["roofing"].clone();if let Some(l)=m["levels"].as_array_mut().and_then(|l|l.last_mut()){l["roofing"]=info;}
  let mut cats:BTreeMap<String,f64>=BTreeMap::new();for i in m["items"].as_array().unwrap(){*cats.entry(s(i,"category").into()).or_default()+=n(i,"total");}
  let subtotal=round(cats.values().sum());for total in cats.values_mut(){*total=round(*total)}m["categoryTotals"]=json!(cats);m["subtotal"]=json!(subtotal);m["tax"]=json!(round(subtotal*c.tax/100.));m["total"]=json!(round(subtotal+n(&m,"tax")));m

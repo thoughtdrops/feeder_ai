@@ -17,7 +17,7 @@ pub fn apply(c:&Config,m:&mut Value,t:&mut model::Takeoff){
     let(ox,oz)=(n(&m["roof"],"overhangX"),n(&m["roof"],"overhangZ"));let p=c.pitch/12.;
     for edge in m["roof"]["edges"].as_array().unwrap().clone().iter(){
         let a:Vec<f64>=serde_json::from_value(edge["a"].clone()).unwrap();let b:Vec<f64>=serde_json::from_value(edge["b"].clone()).unwrap();
-        let along_x=!near(a[0],b[0]);let(axis,other)=if along_x{(0,2)}else{(2,0)};let over=if along_x{oz}else{ox};let line=a[other];let size=if along_x{c.depth}else{c.width};let wall=if line<size/2.{0.}else{size};let out=if line<size/2.{-1.}else{1.};
+        let along_x=!near(a[0],b[0]);let(axis,other)=if along_x{(0,2)}else{(2,0)};let over=if along_x{oz}else{ox};let line=a[other];let size=if along_x{c.depth}else{c.width};let wall=if line<size/2.{0.}else{size};
         if style=="Craftsman brackets"&&s(edge,"kind")=="eave"&&near(a[1],b[1]){let(lo,hi)=(a[axis].min(b[axis]),a[axis].max(b[axis]));let mut at=(lo/(16./12.)).ceil()*(16./12.);while at<=hi-0.2{if at>=0.3&&at<=(if along_x{c.width}else{c.depth})-0.3{let mut e=[0.;3];e[axis]=at;e[other]=line;e[1]=a[1]-0.45;let mut w=e;w[other]=wall;w[1]=a[1]+p*over-0.45;ornaments.push(json!({"kind":"tail","a":w,"b":e,"size":oversized}));}at+=16./12.;}}
         if s(edge,"kind")!="rake"{continue}
         let(low,high)=if a[1]<b[1]{(&a,&b)}else{(&b,&a)};let run_axis=if near(a[0],b[0]){2}else{0};let wall_axis=2-run_axis;

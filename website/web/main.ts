@@ -12,7 +12,7 @@ let unbindAccessibility:undefined|(()=>void);
 let reportBusy=false;
 let app:any,stage:ReturnType<typeof createSceneController>|undefined;
 let zipController:AbortController|undefined;
-let engineWorker:Worker|undefined;const engineReplies=new Map<number,ReturnType<typeof setTimeout>>();
+let engineWorker:Worker|undefined,workerBroken=false;const engineReplies=new Map<number,ReturnType<typeof setTimeout>>();
 (globalThis as any).ufBridge={
  layoutEditor,
  navigateScene(direction:string){stage?.navigate(direction);},
@@ -23,12 +23,13 @@ let engineWorker:Worker|undefined;const engineReplies=new Map<number,ReturnType<
  selectScene(raw:string){stage?.select(JSON.parse(raw));},
  pickScene(target:any){app?.pick_scene(JSON.stringify(target));},
  assetStatus(message:string){app?.show_status(message);},
- async openProcess(raw:string,design:string){const shade=document.createElement('div');shade.className='splash';shade.setAttribute('role','status');shade.innerHTML='<img src="/brand/universal-frames-loading.webp" alt="" width="861" height="603"><div class="splash-bar" aria-hidden="true"><span></span></div><p>Preparing your build…</p>';document.body.appendChild(shade);(globalThis as any).__ufPauseScene=true;try{const {exportHouseForProcess}=await import('./process-export');await Promise.race([exportHouseForProcess(JSON.parse(raw),design,stage?.liveScene('exterior')),new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),30000))]);}catch(e){console.warn('Studio model was not handed to the simulator; it will build its own panels.',e);}location.href='process/';},
+ async openProcess(raw:string,design:string,live=true){const shade=document.createElement('div');shade.className='splash process-shade';shade.setAttribute('role','status');shade.innerHTML='<img src="/brand/universal-frames-loading.webp" alt="" width="861" height="603"><div class="splash-bar" aria-hidden="true"><span></span></div><p>Preparing your build…</p>';document.body.appendChild(shade);(globalThis as any).__ufPauseScene=true;try{const {exportHouseForProcess}=await import('./process-export');await Promise.race([exportHouseForProcess(JSON.parse(raw),design,live?stage?.liveScene('exterior'):undefined),new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),30000))]);}catch(e){console.warn('Studio model was not handed to the simulator; it will build its own panels.',e);}location.href='process/';},
  requestModel(config:string,seq:number){
   // The worker needs module workers; without them the engine builds on the main thread as before.
-  if(typeof Worker==='undefined')return false;
-  try{if(!engineWorker){engineWorker=new Worker(new URL('./engine-worker.ts',import.meta.url),{type:'module'});engineWorker.onmessage=(e:MessageEvent)=>{const {seq,model}=e.data;clearTimeout(engineReplies.get(seq));engineReplies.delete(seq);app?.apply_model(seq,typeof model==='string'?model:'');};engineWorker.onerror=()=>{for(const [seq,timer] of engineReplies){clearTimeout(timer);app?.apply_model(seq,'');}engineReplies.clear();};}}catch{return false;}
-  const timer=setTimeout(()=>app?.apply_model(seq,''),5000);
+  if(typeof Worker==='undefined'||workerBroken)return false;
+  // A reply only counts while its request is still waiting; once it times out the engine builds here instead.
+  try{if(!engineWorker){engineWorker=new Worker(new URL('./engine-worker.ts',import.meta.url),{type:'module'});engineWorker.onmessage=(e:MessageEvent)=>{const {seq,model}=e.data;if(!engineReplies.has(seq))return;clearTimeout(engineReplies.get(seq));engineReplies.delete(seq);app?.apply_model(seq,typeof model==='string'?model:'');};engineWorker.onerror=()=>{workerBroken=true;engineWorker?.terminate();engineWorker=undefined;const waiting=[...engineReplies];engineReplies.clear();for(const [seq,timer] of waiting){clearTimeout(timer);app?.apply_model(seq,'');}};}}catch{workerBroken=true;return false;}
+  const timer=setTimeout(()=>{engineReplies.delete(seq);app?.apply_model(seq,'');},5000);
   engineReplies.set(seq,timer);engineWorker.postMessage({seq,config,module:wasmModule,wasm:'/pkg/universal_frames_bg.wasm?v='+engineRevision});return true;
  },
  renderScene(raw:string){stage??=createSceneController({host:document.getElementById('scene')!,render:renderHouse,onError(error){console.error(error);app?.show_status('The 3D view could not load. Switch views or use Reset view to retry.');}});stage.update(JSON.parse(raw));},
@@ -36,6 +37,8 @@ let engineWorker:Worker|undefined;const engineReplies=new Map<number,ReturnType<
  download(data:string,mime:string,name:string){const url=URL.createObjectURL(new Blob([data],{type:mime}));const a=document.createElement('a');a.href=url;a.download=name;a.rel='noopener';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);app.show_status('Design JSON downloaded');},
  async report(raw:string,kind:string){if(reportBusy){app?.show_status('Your report is being prepared…');return;}reportBusy=true;try{const {config,model,project}=JSON.parse(raw);const r=await import('./report');r.setReportModel(model);if(kind==='pdf')await r.exportPDF(config,project);else if(kind==='framing')r.exportFraming(config);else r.exportCSV(config);app.show_status('Report downloaded');}catch(e){console.error(e);app.show_status('Report download failed. Please try again.');}finally{reportBusy=false;}}
 };
+// Back from the simulator (page restored from the back/forward cache): lift the hand-off screen and resume the 3D view.
+window.addEventListener('pageshow',event=>{if(!event.persisted)return;document.querySelectorAll('.process-shade').forEach(n=>n.remove());(globalThis as any).__ufPauseScene=false;window.dispatchEvent(new KeyboardEvent('keydown'));});
 window.addEventListener('pagehide',event=>{if(event.persisted)return;unbindAccessibility?.();unbindTextures?.();theme.dispose();zipController?.abort();stage?.dispose();const host=document.getElementById('scene');if(host)releaseRenderer(host);});
 declare const __UF_ENGINE_REVISION__:string;
 const engineRevision=__UF_ENGINE_REVISION__;

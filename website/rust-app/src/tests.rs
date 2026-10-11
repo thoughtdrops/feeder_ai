@@ -258,10 +258,23 @@ fn architecture_defaults_offer_bright_period_and_modern_wall_finishes() {
  for turn in 0..4{let mut f=staging::Furniture{id:"F-U-stairs".into(),kind:"stairs".into(),room_id:"custom".into(),x:16.,z:16.,w:8.,d:16.,rotation:0.,local_width:8.,local_depth:16.};edit::rotate_item(&mut f,turn as f64*std::f64::consts::FRAC_PI_2);c.placed_furniture=vec![f];let m=model::build(&c);let stair=&m["stair"];assert!(!stair.is_null());assert!(near(n(&stair["opening"],"area"),96.));assert!(n(stair,"riserInches")<=7.75);assert_eq!(m["floorFrameMembers"].as_array().unwrap().iter().filter(|v|s(v,"role")=="Stair opening header").count(),2);assert_eq!(m["floorFrameMembers"].as_array().unwrap().iter().filter(|v|s(v,"role")=="Stair opening trimmer").count(),2);let subfloor=m["items"].as_array().unwrap().iter().find(|i|s(i,"id")=="subfloor").unwrap();assert!(near(n(subfloor,"rawNet"),(1024.-96.)/32.));assert!(n(&m,"total")>base);for level in m["levels"].as_array().unwrap(){assert_eq!(level["stair"],*stair);assert!(near(level["rooms"].as_array().unwrap().iter().map(|r|n(r,"w")*n(r,"d")).sum::<f64>(),1024.));assert_eq!(level["furniture"].as_array().unwrap().iter().filter(|f|s(f,"kind")=="stairs").count(),1);}c.active_floor=1;assert_eq!(model::build(&c)["total"],m["total"]);c.active_floor=0;}
  c.placed_furniture.clear();assert!(model::build(&c)["stair"].is_null());
 }
-#[test]fn actual_bearing_supports_change_joist_spans_without_invented_beams(){
- let mut c=fixture();c.design_mode="Blank slate".into();c.stories=2;c.width=40.;c.depth=40.;architecture::reset_edits(&mut c);let open=model::build(&c);assert!(open["structural"]["floor"]["candidate"].is_null());assert!(near(n(&open["structural"]["floor"],"maxClearSpan"),39.54));assert!(!open["floorFrameMembers"].as_array().unwrap().iter().any(|v|s(v,"role")=="Floor support beam"));
- c.added_walls.push(Wall{id:"I-C-bearing".into(),name:"Center support".into(),x:20.,z:0.,length:40.,axis:"z".into(),exterior:false,openings:vec![]});assert!(model::build(&c)["structural"]["floor"]["candidate"].is_null(),"A partition cannot silently shorten a structural span");c.bearing_walls.push("I-C-bearing".into());let supported=model::build(&c);assert!(near(n(&supported["structural"]["floor"],"maxClearSpan"),19.54));assert_eq!(s(&supported["structural"]["floor"]["candidate"],"series"),"TJI 110");assert!(!supported["structural"]["forte"]["analysisRun"].as_bool().unwrap());
- c.wall_adjustments.insert("I-C-bearing".into(),WallGeometry{x:2.,z:0.,length:40.,axis:"z".into()});assert!(model::build(&c)["structural"]["floor"]["candidate"].is_null(),"Moving a support must restore the long-span warning");c.wall_adjustments.clear();c.floor_live_load=80.;assert!(model::build(&c)["structural"]["floor"]["candidate"].is_null(),"Unsupported load cases cannot pass the floor table");
+#[test]fn upper_floor_spans_use_bearing_walls_then_girder_lines_over_the_foundation(){
+ let beams=|m:&Value|m["floorFrameMembers"].as_array().unwrap().iter().filter(|v|s(v,"role")=="Floor support beam").count();
+ let posts=|m:&Value|m["floorFrameMembers"].as_array().unwrap().iter().filter(|v|s(v,"role")=="Girder post").count();
+ let mut c=fixture();c.design_mode="Blank slate".into();c.stories=2;c.width=40.;c.depth=40.;architecture::reset_edits(&mut c);
+ // No bearing walls: flush girders at the 16 ft floor-panel joints (x = 16, 32) carry the deck on posts over the pier rows.
+ let open=model::build(&c);let f=&open["structural"]["floor"];assert_eq!(f["girderLines"],json!([16.,32.]));assert!(near(n(f,"maxClearSpan"),15.54));assert_eq!(s(&f["candidate"],"series"),"TJI 110");
+ assert_eq!(beams(&open),2);let rows=piers::layout(&c).per_line;assert_eq!(posts(&open),2*(rows-2));
+ let item=|m:&Value,id:&str|m["items"].as_array().unwrap().iter().find(|i|s(i,"id")==id).map(|i|n(i,"rawNet")).unwrap_or(0.);assert!(near(item(&open,"floorbeams"),80.));assert!(item(&open,"girderposts")>0.);
+ assert!(open["structural"]["issues"].as_array().unwrap().iter().any(|v|v.as_str().unwrap().starts_with("Upper floor: 2 flush LVL girder lines")));
+ let g=&open["structural"]["mainFloor"];assert_eq!(n(g,"girderLines"),4.);assert!(near(n(g,"maxClearSpan"),15.54));assert_eq!(s(g,"candidate"),"TJI 110");
+ // An unmarked partition is not a support; a marked bearing wall is, and then no girders are needed.
+ c.added_walls.push(Wall{id:"I-C-bearing".into(),name:"Center support".into(),x:20.,z:0.,length:40.,axis:"z".into(),exterior:false,openings:vec![]});assert_eq!(beams(&model::build(&c)),2,"A partition cannot silently shorten a structural span");
+ c.bearing_walls.push("I-C-bearing".into());let supported=model::build(&c);assert!(near(n(&supported["structural"]["floor"],"maxClearSpan"),19.54));assert_eq!(s(&supported["structural"]["floor"]["candidate"],"series"),"TJI 110");assert_eq!(beams(&supported),0);assert_eq!(posts(&supported),0);assert!(!supported["structural"]["forte"]["analysisRun"].as_bool().unwrap());
+ c.wall_adjustments.insert("I-C-bearing".into(),WallGeometry{x:2.,z:0.,length:40.,axis:"z".into()});let moved=model::build(&c);assert_eq!(beams(&moved),2,"Moving a support brings the girders back");assert!(near(n(&moved["structural"]["floor"],"maxClearSpan"),15.54));
+ c.wall_adjustments.clear();c.floor_live_load=80.;let heavy=model::build(&c);assert!(heavy["structural"]["floor"]["candidate"].is_null(),"Unsupported load cases cannot pass the floor table");assert!(heavy["structural"]["mainFloor"]["candidate"].is_null());
+ // Crawlspace: posts every 16 ft or less along each girder, landing on the crawlspace girder piers.
+ c.floor_live_load=40.;c.bearing_walls.clear();c.added_walls.clear();c.foundation=piers::CONCRETE.into();let crawl=model::build(&c);assert_eq!(beams(&crawl),2);assert_eq!(posts(&crawl),2*2);
 }
 #[test]fn garage_side_overrides_place_attached_and_detached_on_the_selected_side(){
  for kind in ["Attached","Detached"]{let mut c=fixture();c.garage=kind.into();c.garage_side="Left".into();let left=model::build(&c);assert!(n(&left["garage"],"x")<0.);assert!(n(&left["siteBounds"],"minX")<0.);c.garage_side="Right".into();let right=model::build(&c);assert!(n(&right["garage"],"x")>=c.width);for m in [&left,&right]{assert!(near(n(&m["garage"],"w"),24.));assert_eq!(round(m["items"].as_array().unwrap().iter().map(|i|n(i,"total")).sum()),n(m,"subtotal"));}}
@@ -516,4 +529,25 @@ fn balconies_have_an_actual_upper_door_supports_and_itemized_materials(){
   for seed in 0..8u32{let next=generator::surprise(&c,1000+seed*97,keep).unwrap_or_else(|e|panic!("{} {}: {}",mode,seed,e));validate(&next).unwrap();assert_ne!(next.home_style,c.home_style,"each click changes the style");
    let m=model::build(&next);assert!(generator::practical(&next,&m));styles.insert(next.home_style.clone());sizes.insert(format!("{}x{}",next.width,next.depth));stories.insert(next.stories);c=next;}}
  assert!(styles.len()>=8,"varied styles: {:?}",styles);assert!(sizes.len()>=8,"varied sizes: {:?}",sizes);assert!(stories.len()>=2);
+}
+#[test]fn affordable_and_premium_buttons_return_homes_instead_of_errors(){
+ for stories in [1,2]{for bedrooms in [1,2,3,4]{for mode in ["Affordable","Premium"]{let mut c=Config::default();c.stories=stories;c.bedrooms=bedrooms;
+  for seed in (1000..10000).step_by(997){let g=generator::generate(&c,mode,seed,false);assert!(g.is_ok(),"{} {} story {} bed seed {}: {:?}",mode,stories,bedrooms,seed,g.err());}}}}
+}
+#[test]fn roof_coverings_respect_minimum_slopes_on_dormers_and_metal(){
+ let item=|m:&Value,id:&str|m["items"].as_array().unwrap().iter().find(|i|s(i,"id")==id).cloned();
+ // Coastal style-matched: cedar shingles with 2:12 shed dormers -> those dormer roofs are standing seam.
+ let mut c=Config::default();c.home_style="Coastal".into();c.stories=1;architecture::apply(&mut c,true);c.pitch=12.;c.dormer_style="Shed".into();c.dormer_count=2;c.dormer_width=4.;c.dormer_depth=8.;
+ let m=model::build(&c);assert_eq!(s(&m["roofing"],"kind"),roofing::CEDAR);let low=n(&m["roofing"],"lowSlopeArea");
+ if !m["dormers"].as_array().unwrap().is_empty(){assert!(low>0.);assert!(near(n(&item(&m,"roof-lowslope").unwrap(),"net"),round(low)));}
+ // Ribbed metal below 3:12 becomes standing seam; at 3:12 and above it stays ribbed.
+ let mut flat=Config::default();flat.home_style="Contemporary".into();architecture::apply(&mut flat,true);flat.roofing=roofing::METAL.into();flat.pitch=1.;flat.dormer_style="None".into();
+ assert!(s(&item(&model::build(&flat),"roofmetal").unwrap(),"name").contains("standing-seam"));flat.pitch=4.;assert!(s(&item(&model::build(&flat),"roofmetal").unwrap(),"name").contains("ribbed"));
+}
+#[test]fn cathedral_ventilation_and_garages_report_honestly(){
+ let mut c=Config::default();c.home_style="Georgian".into();c.stories=1;architecture::apply(&mut c,true);c.ceiling="Cathedral".into();
+ if roof::cathedral(&c){let m=model::build(&c);let v=&m["ventilation"];assert_eq!(n(v,"boxVentCount"),0.);assert_eq!(v["cathedral"],true);
+  let screens=m["items"].as_array().unwrap().iter().find(|i|s(i,"id")=="ventscreen").map(|i|n(i,"net")).unwrap_or(0.);assert!(near(screens,n(v,"intakeVentCount")));}
+ let mut g=Config::default();g.garage="Attached".into();let m=model::build(&g);
+ assert!(!m["structural"]["issues"].as_array().unwrap().iter().any(|v|v.as_str().unwrap().contains("exterior wall section is removed")),"A garage is not a removed house wall");
 }

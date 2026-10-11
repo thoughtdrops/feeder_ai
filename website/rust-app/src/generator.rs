@@ -4,7 +4,8 @@ struct Random(u32);
 impl Random {
     fn pick(&mut self, count: usize) -> usize {
         self.0 = self.0.wrapping_mul(1664525).wrapping_add(1013904223);
-        (self.0 as usize) % count
+        // The high bits: an LCG's low bits cycle quickly (pick(2) would simply alternate).
+        ((self.0 >> 16) as usize) % count
     }
 }
 
@@ -41,7 +42,20 @@ pub fn practical(c: &Config, m: &Value) -> bool {
     })
 }
 
+/// Affordable / Premium / Blank slate. A candidate that cannot hold the room program is retried with
+/// another draw, then with a slightly larger footprint, so the buttons give a home instead of an error.
 pub fn generate(current: &Config, mode: &str, seed: u32, keep_size: bool) -> Result<Config,String> {
+    let mut last = Err("No design fit.".to_string());
+    for grow in [0., 4., 8.] {
+        if grow > 0. && (keep_size || mode != "Affordable") { break }
+        for attempt in 0..12u32 {
+            last = generate_once(current, mode, seed.wrapping_add(attempt.wrapping_mul(7919)), keep_size, grow);
+            if last.is_ok() || mode == "Blank slate" || last.as_ref().is_err_and(|e| !e.starts_with("These dimensions")) { return last }
+        }
+    }
+    last
+}
+fn generate_once(current: &Config, mode: &str, seed: u32, keep_size: bool, grow: f64) -> Result<Config,String> {
     let mut c = current.clone();
     c.design_mode = mode.into();
     c.active_floor = 0;
@@ -69,7 +83,7 @@ pub fn generate(current: &Config, mode: &str, seed: u32, keep_size: bool) -> Res
                     _ => &[(40.,52.),(44.,52.),(48.,56.)]
                 }
             };
-            let (w,d) = dimensions[random.pick(dimensions.len())]; c.width = w; c.depth = d;
+            let (w,d) = dimensions[random.pick(dimensions.len())]; c.width = w + grow; c.depth = d + grow;
         }
         c.home_style = if c.stories >= 2 {"Colonial"} else {"Ranch"}.into();
         c.pitch = 4.; c.wall_height = 8.09375; c.stud_type = "Sawn lumber".into();

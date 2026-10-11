@@ -1686,6 +1686,8 @@ function attachStudio(model) {
   });
   scene.add(house); scene.add(grade);
   STUDIO.root = house; STUDIO.site = grade;
+  // The studio house carries its own glass, so the simulator's window toggle has nothing to add.
+  const win = $('#windows'); if (win && win.closest('label')) win.closest('label').style.display = 'none';
   assignStudio();
 }
 function assignStudio() {
@@ -1712,11 +1714,23 @@ function assignStudio() {
 }
 function revealStudio(t) {
   if (!STUDIO.root) return;
+  // See-through shows the framed simulator panels instead of the finished studio house.
+  const finished = !SHOW.xray;
   const at = (p) => (p.late ? STUDIO.lastSet : p.idx.reduce((m, i) => Math.max(m, ELEMS[i].s1), 0));
   const hide = ELEMS.map(() => -1);
-  STUDIO.parts.forEach((p) => { const r = at(p); p.m.visible = t >= r; if (!p.late) p.idx.forEach((i) => { hide[i] = Math.max(hide[i], r); }); });
-  // A simulator panel steps aside once every studio piece over it is showing.
-  ELEMS.forEach((e, i) => { if (hide[i] >= 0 && t >= hide[i]) { elemObj[i].root.visible = false; elemObj[i].wins.forEach((g) => { g.visible = false; }); } });
+  STUDIO.parts.forEach((p) => { const r = at(p); p.m.visible = finished && t >= r; if (!p.late) p.idx.forEach((i) => { hide[i] = Math.max(hide[i], r); }); });
+  // A simulator panel steps aside once every studio piece over it is showing; its room names stay.
+  ELEMS.forEach((e, i) => {
+    const o = elemObj[i]; if (!o) return;
+    const own = (c) => c === o.mesh || o.labels.includes(c) || o.wins.includes(c) || Object.values(o.lay).includes(c);
+    if (finished && hide[i] >= 0 && t >= hide[i]) {
+      o.root.children.forEach((c) => { if (!o.labels.includes(c)) c.visible = false; });
+      o.wins.forEach((g) => { g.visible = false; }); o.studioHidden = true;
+    } else if (o.studioHidden) {
+      // poseElement has already set the panel and its layers for this moment; bring back the rest.
+      o.root.children.forEach((c) => { if (!own(c)) c.visible = true; }); o.studioHidden = false;
+    }
+  });
 }
 /* ---------- Lumber stack spot (girders and beams); the framing truck itself is built in 04f ---------- */
 const DECK_Y = 50, PLAT = new THREE.Vector3(834 + SX, DECK_Y, 192);
@@ -3853,7 +3867,7 @@ function frame(now) {
   if (SITE.started) narrate(); else P.events.length = 0;
   if (SITE.started && SITE.t >= PLAN.total && lastSetIdx !== 9999) {
     lastSetIdx = 9999;
-    const m = `Shell closed in at ${fmtClockMin(PLAN.total)}: ${PLAN.piers} piers, ${PANELS()} panels and ${ELEMS.length - PANELS()} beams in ${fmtHM(PLAN.total)}. Turn on Windows or See-through to look inside.`;
+    const m = `Shell closed in at ${fmtClockMin(PLAN.total)}: ${PLAN.piers} piers, ${PANELS()} panels and ${ELEMS.length - PANELS()} beams in ${fmtHM(PLAN.total)}. ${STUDIO.root ? 'Turn on See-through to look at the framing inside.' : 'Turn on Windows or See-through to look inside.'}`;
     setStatus(m); announce(m);
   }
   updateCamera(dt);
