@@ -42,20 +42,29 @@ pub fn recalc_item(i:&mut Value,c:&Config) {
     let _=c;
 }
 
-/// Default wholesale scenario by category size: builders buying a whole-house package from a
-/// distributor or pro desk typically see 20–30% under shelf price on the big categories.
-pub fn scenario_discount(category_retail:f64)->f64{if category_retail>=10000.{25.}else if category_retail>=2000.{20.}else{10.}}
+/// Production-builder pricing: what a builder closing 1,000+ homes a year pays against shelf retail,
+/// through national accounts, manufacturer contracts, truckload/mill-direct lumber and rebates.
+/// Planning defaults by category from typical builder-program ranges (about 25–45% under retail);
+/// each one is editable and the builder's own contract rates replace them.
+pub fn builder_discount(cat:&str)->f64{match cat{
+ "Kitchen & bath"=>45.,
+ "Openings"|"Plumbing"|"Electrical"|"Electrical distribution"=>40.,
+ "Appliances"|"HVAC"|"Mechanical ventilation"|"Insulation"|"Interior"|"Connections"|"Fasteners"=>35.,
+ "Foundation"=>25.,
+ _=>30.}}
+/// Furniture and staging furnish the model home; they are shown but are not part of the build cost.
+pub fn furnishing(cat:&str)->bool{["Furniture","Staging"].contains(&cat)}
 pub fn apply(c:&Config,mut m:Value)->Value {
     let mut retail_categories:BTreeMap<String,f64>=BTreeMap::new();
     for i in m["items"].as_array().unwrap(){*retail_categories.entry(s(i,"category").into()).or_default()+=round(n(i,"qty")*n(i,"price"));}
-    let mut categories:BTreeMap<String,f64>=BTreeMap::new();let mut subtotal=0.;let mut retail_subtotal=0.;let mut unquoted=0;
+    let mut categories:BTreeMap<String,f64>=BTreeMap::new();let mut furnishings=0.;let mut subtotal=0.;let mut retail_subtotal=0.;let mut unquoted=0;
     for i in m["items"].as_array_mut().unwrap(){
         let cat=s(i,"category").to_string();let id=s(i,"id").to_string();let retail=n(i,"price");
         let zip_bulk=id=="zipwall"&&!s(i,"name").contains("R-6")&&n(i,"qty")>=80.&&!c.prices.contains_key(&id);
         // A user-supplied quote percentage is never stacked with a published tier; otherwise the larger
         // of the volume scenario and the published tier applies.
         let quoted=c.bulk_discounts.contains_key(&cat);let tier=if zip_bulk{(1.-26.54/29.49)*100.}else{0.};
-        let proposed=*c.bulk_discounts.get(&cat).unwrap_or(&scenario_discount(retail_categories[&cat]));
+        let proposed=*c.bulk_discounts.get(&cat).unwrap_or(&builder_discount(&cat));
         let discount=if c.pricing_mode=="Retail"{0.}else if quoted{proposed}else{proposed.max(tier)};
         let effective=round(retail*(1.-discount/100.));
         let retail_total=round(n(i,"qty")*retail);let total=round(n(i,"qty")*effective);
@@ -63,21 +72,21 @@ pub fn apply(c:&Config,mut m:Value)->Value {
         if n(i,"qty")>0.&&s(&reference,"status").starts_with("Retail allowance"){unquoted+=1;}
         i["retailPrice"]=json!(retail);i["retailTotal"]=json!(retail_total);i["price"]=json!(effective);i["total"]=json!(total);
         i["discountPercent"]=json!(round(discount));i["priceReference"]=reference;
-        i["discountBasis"]=json!(if c.pricing_mode=="Retail"{"Retail basis"}else if c.bulk_discounts.contains_key(&cat){"User-entered supplier discount; confirm eligibility"}else if zip_bulk&&tier>=discount-1e-9{"Published 80-sheet tier · McCoy's San Marcos reference"}else{"Whole-house volume scenario (25% at $10,000+ per category, 20% at $2,000+, 10% below); confirm with a supplier quote"});
-        subtotal+=total;retail_subtotal+=retail_total;*categories.entry(cat).or_default()+=total;
+        i["discountBasis"]=json!(if c.pricing_mode=="Retail"{"Retail basis"}else if c.bulk_discounts.contains_key(&cat){"User-entered supplier discount; confirm eligibility"}else if zip_bulk&&tier>=discount-1e-9{"Published 80-sheet tier · McCoy's San Marcos reference"}else{"Production-builder category rate (1,000+ homes a year); replace with your contract rate"});
+        if furnishing(&cat){furnishings+=total;}else{subtotal+=total;retail_subtotal+=retail_total;}*categories.entry(cat).or_default()+=total;
     }
     for v in categories.values_mut(){*v=round(*v)}
     let mut budget_subtotal=0.;let mut overrides=0;
     let groups=categories.iter().map(|(cat,calculated)|{
         let override_value=c.category_budgets.get(cat);if override_value.is_some(){overrides+=1;}
-        let budget=round(*override_value.unwrap_or(calculated));budget_subtotal+=budget;
-        json!({"name":cat,"calculated":calculated,"retail":round(retail_categories[cat]),"budget":budget,"overridden":override_value.is_some(),"discountPercent":c.bulk_discounts.get(cat).copied().unwrap_or(scenario_discount(retail_categories[cat]))})
+        let budget=round(*override_value.unwrap_or(calculated));if !furnishing(cat){budget_subtotal+=budget;}
+        json!({"name":cat,"calculated":calculated,"retail":round(retail_categories[cat]),"budget":budget,"overridden":override_value.is_some(),"discountPercent":c.bulk_discounts.get(cat).copied().unwrap_or(builder_discount(cat)),"furnishing":furnishing(cat)})
     }).collect::<Vec<_>>();
     let subtotal=round(subtotal);let tax=round(subtotal*c.tax/100.);let budget_subtotal=round(budget_subtotal);let budget_tax=round(budget_subtotal*c.tax/100.);
-    m["subtotal"]=json!(subtotal);m["tax"]=json!(tax);m["total"]=json!(round(subtotal+tax));m["categoryTotals"]=json!(categories);
+    m["furnishingsTotal"]=json!(round(furnishings));m["subtotal"]=json!(subtotal);m["tax"]=json!(tax);m["total"]=json!(round(subtotal+tax));m["categoryTotals"]=json!(categories);
     if m["garage"].is_object(){m["garage"]["subtotal"]=json!(round(m["items"].as_array().unwrap().iter().filter(|i|s(i,"id").starts_with("garage-")).map(|i|n(i,"total")).sum()));}
     m["categoryBudgets"]=json!(groups);m["budgetSubtotal"]=json!(budget_subtotal);m["budgetTax"]=json!(budget_tax);m["materialsBudgetTotal"]=json!(round(budget_subtotal+budget_tax));
     m["retailSubtotal"]=json!(round(retail_subtotal));m["volumeSavings"]=json!(round(retail_subtotal-subtotal));m["budgetOverrideCount"]=json!(overrides);m["pricingMode"]=json!(c.pricing_mode);
-    m["pricing"]=json!({"checked":PRICE_DATE,"zip":c.zip,"unquotedLineCount":unquoted,"status":"Reference retail allowances, not live local-store pricing","bulkStatus":"Published tiers where available; other discounts are editable unquoted scenarios. Discounts are not stacked.","sources":[{"name":"ZIP retail and 80-sheet bulk reference", "url":ZIP_SOURCE},{"name":"Lowe's Pro quote and discount terms", "url":"https://www.lowes.com/l/Pro/pro-benefits"},{"name":"Fiberglass retail product references", "url":"https://www.homedepot.com/b/Building-Materials-Insulation/R21/N-5yc1vZasbsZ1z18nge"}]});
+    m["pricing"]=json!({"checked":PRICE_DATE,"zip":c.zip,"unquotedLineCount":unquoted,"status":"Reference retail allowances, not live local-store pricing","bulkStatus":"Production-builder category rates (1,000+ homes a year) or the published tier, whichever is larger; your contract rates replace them. Discounts are not stacked.","sources":[{"name":"ZIP retail and 80-sheet bulk reference", "url":ZIP_SOURCE},{"name":"Lowe's Pro quote and discount terms", "url":"https://www.lowes.com/l/Pro/pro-benefits"},{"name":"Fiberglass retail product references", "url":"https://www.homedepot.com/b/Building-Materials-Insulation/R21/N-5yc1vZasbsZ1z18nge"}]});
     m
 }

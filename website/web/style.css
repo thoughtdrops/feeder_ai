@@ -183,3 +183,11 @@ input[type=checkbox]{accent-color:var(--green)}
 @keyframes splash-in{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
 @keyframes splash-bar{from{transform:translateX(-110%)}to{transform:translateX(260%)}}
 @media (prefers-reduced-motion:reduce){.splash img,.splash-bar span{animation:none}}
+/* Framing options fold to a small button so the framing stays in view. */
+details.framing-tools{z-index:3}
+details.framing-tools:not([open]){width:auto;max-height:none;padding:0;overflow:visible}
+details.framing-tools>summary{cursor:pointer;list-style:none;font-weight:650;font-size:.75rem;color:var(--ink);padding:.45rem .7rem;border-radius:9px;user-select:none}
+details.framing-tools>summary::-webkit-details-marker{display:none}
+details.framing-tools>summary::after{content:" ▴";color:var(--muted)}
+details.framing-tools[open]>summary{padding:0 0 .5rem}
+details.framing-tools[open]>summary::after{content:" ▾"}

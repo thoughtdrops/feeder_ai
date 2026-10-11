@@ -3683,15 +3683,15 @@ function nowLine(done, total) {
   return s.charAt(0).toUpperCase() + s.slice(1) + '.';
 }
 let lastKey = '';
-// Each piece the crane sets, with the site-clock time it landed and how long the lift took.
-let logCount = -1;
+// The piece the crane set last (clock time and lift minutes) and the next one; once every piece is set the
+// lines step aside so the finished house is in full view.
 function pieceLog() {
-  const t = SITE.t, done = ELEMS.filter((e) => t >= e.s1).sort((a, b) => a.s1 - b.s1), next = ELEMS.filter((e) => t < e.s1).sort((a, b) => a.s1 - b.s1)[0];
-  txt('#nextPiece', next ? `Next: ${next.name || KIND_WORD[next.kind]} at ${fmtClockMin(next.s1)}` : SITE.started ? 'All pieces set' : '');
-  if (done.length === logCount) return; logCount = done.length;
-  const list = document.getElementById('pieceLog'); if (!list) return;
-  list.replaceChildren(...done.slice(-40).reverse().map((e) => { const li = document.createElement('li'), a = document.createElement('b'), b = document.createElement('span'), c = document.createElement('span');
-    a.textContent = fmtClockMin(e.s1); b.textContent = e.name || KIND_WORD[e.kind] || e.kind; c.textContent = `${Math.max(1, Math.round(e.set))} min`; li.append(a, b, c); return li; }));
+  const t = SITE.t, info = document.getElementById('pieceInfo'); if (!info) return;
+  const finished = SITE.started && t >= PLAN.total; info.hidden = finished; if (finished) return;
+  let last = null, next = null;
+  for (const e of ELEMS) { if (t >= e.s1) { if (!last || e.s1 > last.s1) last = e; } else if (!next || e.s1 < next.s1) next = e; }
+  txt('#lastPiece', last ? `Set ${fmtClockMin(last.s1)}: ${last.name || KIND_WORD[last.kind] || last.kind} · ${Math.max(1, Math.round(last.set))} min lift` : '');
+  txt('#nextPiece', next ? `Next ${fmtClockMin(next.s1)}: ${next.name || KIND_WORD[next.kind] || next.kind}` : '');
 }
 function updateHud(force) {
   const total = TOTAL_PIERS();
