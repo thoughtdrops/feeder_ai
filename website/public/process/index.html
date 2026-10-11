@@ -60,7 +60,7 @@ body{height:100%;margin:0;background:var(--paper);color:var(--ink);font:400 15px
 .card{pointer-events:auto;background:var(--panel);border:1px solid var(--edge);border-radius:10px;box-shadow:var(--shadow);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .intro{max-width:410px;padding:13px 15px 12px}
 .build-mode .intro{background:none;border:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;padding:0;max-width:none}
-.build-mode .intro>*:not(.back):not(.warn){display:none}
+.build-mode .intro>*:not(.back):not(.warn):not(.toast){display:none}
 .build-mode .intro .back{margin:0;background:var(--panel);box-shadow:var(--shadow);border:1px solid var(--edge)}
 .build-mode .intro .warn{margin-top:8px;max-width:360px;background:var(--panel);padding:8px 10px;border-radius:8px}
 h1{margin:0;font:700 27px/1.02 var(--font-head);letter-spacing:.003em}
@@ -68,6 +68,13 @@ h1{margin:0;font:700 27px/1.02 var(--font-head);letter-spacing:.003em}
 .status{margin:10px 0 0;padding:8px 10px;border-left:3px solid var(--accent);border-radius:0 6px 6px 0;background:var(--accent-wash);font-size:14px;line-height:1.38;min-height:3.1em}
 .hint{margin:8px 0 0;color:var(--ink-soft);font-size:12.5px}
 .power{padding:11px 15px;min-width:250px}
+@media (min-width:901px){.power{width:400px}}
+.settings-toggle{display:none}
+.settings-toggle[aria-expanded=true]{background:var(--accent-wash)}
+#btnStart.complete{background:var(--accent);color:var(--on-accent);opacity:1;border-color:var(--accent)}
+.toast{margin:8px 0 0;max-width:360px;padding:8px 11px;border-radius:8px;background:var(--panel);border:1px solid var(--edge);box-shadow:var(--shadow);font-size:13px;line-height:1.35;opacity:0;transform:translateY(-4px);transition:opacity .25s,transform .25s;pointer-events:none}
+.toast.show{opacity:1;transform:none}
+.build-mode .intro .toast{display:block}
 .power h2{margin:0 0 6px;font:600 13px/1.2 var(--font-body);color:var(--ink-soft)}
 .soc{display:flex;align-items:baseline;gap:8px}
 .soc strong{font:600 30px/1 var(--font-head);font-variant-numeric:tabular-nums}
@@ -119,8 +126,9 @@ h1{margin:0;font:700 27px/1.02 var(--font-head);letter-spacing:.003em}
   .kv{grid-template-columns:repeat(4,auto)}
   .heads{grid-template-columns:repeat(2,minmax(0,1fr))}
   .head canvas{height:24px}
-  .controls{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;-webkit-overflow-scrolling:touch;padding-bottom:2px}
-  .steps,.aux{flex-wrap:nowrap}
+  .controls{flex-wrap:wrap;overflow:visible;justify-content:flex-start;gap:8px}
+  .steps,.aux{flex-wrap:wrap}
+
   .controls>*{flex:0 0 auto}
 }
 @media (max-height:640px) and (min-width:901px){.sub,.hint{display:none}.head canvas{height:22px}}
@@ -155,6 +163,17 @@ a.btn{text-decoration:none}
 .setup .times input{width:48px;padding:6px 6px}
 @media (max-width:900px){.now-line{text-align:left;flex-basis:100%}}
 @media (max-width:900px){.rows{grid-template-columns:1fr}.lane p{min-height:0}}
+.controls .settings-toggle{display:none}
+/* Phones: playback, Settings, views and toggles wrap to fit; the job setup opens from Settings. */
+@media (max-width:900px){
+  .controls .setup{display:none}
+  .controls.show-setup .setup{display:flex;flex-wrap:wrap;width:100%}
+  .controls .settings-toggle{display:inline-flex}
+  .controls .steps{display:flex;flex-wrap:wrap;gap:6px;width:100%}
+  .controls .steps .btn{flex:1 1 auto;justify-content:center;padding:8px 9px;font-size:15px}
+  .controls .aux{display:flex;flex-wrap:wrap;gap:6px;width:100%}
+  .controls .aux .seg{max-width:100%;overflow-x:auto;scrollbar-width:none}
+}
 </style>
 </head>
 <body>
@@ -190,8 +209,9 @@ a.btn{text-decoration:none}
           <button class="btn" id="btnNext" type="button" disabled>Skip ahead</button>
           <button class="btn" id="btnEnd" type="button" disabled>Finish</button>
           <button class="btn" id="btnReset" type="button">Reset</button>
+          <button class="btn settings-toggle" id="btnSettings" type="button" aria-expanded="false" aria-controls="jobSetup">Settings</button>
         </div>
-        <div class="setup" role="group" aria-label="Job setup">
+        <div class="setup" id="jobSetup" role="group" aria-label="Job setup">
           <span class="grp"><span class="seg-label" id="stLbl">House</span>
           <span class="seg" role="group" aria-labelledby="stLbl">
             <button type="button" data-stories="1" aria-pressed="false">1 story</button><button type="button" data-stories="2" aria-pressed="false">2</button><button type="button" data-stories="3" aria-pressed="true">3</button>
@@ -201,10 +221,10 @@ a.btn{text-decoration:none}
           <button class="btn" id="btnSpacing" type="button">Apply</button>
           <span id="spHelp" class="sr-only">Feet, for example 16, 12 or 10'8". Smallest is 10'8" with four heads.</span>
           <span class="times" role="group" aria-labelledby="tmLbl"><span class="seg-label" id="tmLbl">Line min</span>
-            <label>Wall <input id="tWall" type="number" inputmode="decimal" min="1" max="240" step="0.5" value="13"></label>
-            <label>Floor <input id="tFloor" type="number" inputmode="decimal" min="1" max="240" step="0.5" value="20"></label>
-            <label>Roof <input id="tRoof" type="number" inputmode="decimal" min="1" max="240" step="0.5" value="20"></label>
-            <label>Interior <input id="tInt" type="number" inputmode="decimal" min="1" max="240" step="0.5" value="6"></label>
+            <label>Wall <input id="tWall" type="number" inputmode="numeric" min="1" max="120" step="1" value="13"></label>
+            <label>Floor <input id="tFloor" type="number" inputmode="numeric" min="1" max="120" step="1" value="20"></label>
+            <label>Roof <input id="tRoof" type="number" inputmode="numeric" min="1" max="120" step="1" value="20"></label>
+            <label>Interior <input id="tInt" type="number" inputmode="numeric" min="1" max="120" step="1" value="6"></label>
           </span>
           <label class="grp" for="depth"><span class="seg-label">Pier depth ft</span>
           <input id="depth" type="number" inputmode="decimal" min="10" max="34" step="0.5" value="24" aria-describedby="dpHelp"></label>
