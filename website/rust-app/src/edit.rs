@@ -49,7 +49,7 @@ pub fn rotated_wall(w:&Wall,c:&Config,turns:i32,ws:&[Wall])->Result<Wall,String>
  moved_wall(&next,c,0.,0.,ws)
 }
 pub fn walls(mut ws:Vec<Wall>,c:&Config)->Vec<Wall>{
- ws.extend(c.added_walls.iter().filter(|w|w.id.contains("-L2")== (c.active_floor==1)&&w.length>=1.&&w.x>=0.&&w.z>=0.&&w.x+if w.axis=="x"{w.length}else{0.}<=c.width&&w.z+if w.axis=="z"{w.length}else{0.}<=c.depth).cloned());
+ ws.extend(c.added_walls.iter().filter(|w|tag_floor(&w.id)==c.active_floor&&w.length>=1.&&w.x>=0.&&w.z>=0.&&w.x+if w.axis=="x"{w.length}else{0.}<=c.width&&w.z+if w.axis=="z"{w.length}else{0.}<=c.depth).cloned());
  for w in &mut ws{adjusted(w,c);}
  ws=remove_sections(ws,c);
  ws=stairs::clear_upper_walls(ws,c);

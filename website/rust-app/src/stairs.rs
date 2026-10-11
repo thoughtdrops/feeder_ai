@@ -1,7 +1,7 @@
 use crate::*;
 
 pub fn custom(c: &Config) -> Option<&staging::Furniture> {
-    if c.stories != 2 || c.design_mode != "Blank slate" { return None }
+    if c.stories < 2 || c.design_mode != "Blank slate" { return None }
     c.placed_furniture.iter().find(|f| f.kind == "stairs")
 }
 pub fn bounds(f: &staging::Furniture, rect: [f64;4]) -> [f64;4] {
@@ -12,7 +12,7 @@ pub fn bounds(f: &staging::Furniture, rect: [f64;4]) -> [f64;4] {
 pub fn approach(f:&staging::Furniture)->[f64;4]{bounds(f,[1.5,-5.3,6.5,-0.3])}
 
 pub fn placement_error(f:&staging::Furniture,c:&Config,ws:&[Wall],others:&[staging::Furniture])->Option<String>{
-    if c.stories!=2{return Some("Choose two stories before adding stairs.".into())}
+    if c.stories<2{return Some("Choose two or three stories before adding stairs.".into())}
     if c.design_mode!="Blank slate"{return Some("This layout already includes stairs. Use blank slate to place your own.".into())}
     if f.id=="preview"&&c.active_floor!=0{return Some("Place stairs on the main floor. The upper opening is cleared automatically.".into())}
     if f.id=="preview"&&custom(c).is_some(){return Some("Click the existing stairs to move, rotate or delete them.".into())}
@@ -30,7 +30,7 @@ pub fn placement_error(f:&staging::Furniture,c:&Config,ws:&[Wall],others:&[stagi
 /// Derive the upper clearance from the current stairs, so move/delete/Undo also restore it.
 /// All wall finishes, openings, framing and quantities consume these same cut segments.
 pub fn clear_upper_walls(mut ws:Vec<Wall>,c:&Config)->Vec<Wall>{
-    if c.active_floor!=1{return ws}
+    if c.active_floor==0{return ws}
     let Some(f)=custom(c)else{return ws};
     let body=[f.x-f.w/2.-0.3,f.z-f.d/2.-0.3,f.x+f.w/2.+0.3,f.z+f.d/2.+0.3];
     let mut landing=approach(f);landing[0]-=0.3;landing[1]-=0.3;landing[2]+=0.3;landing[3]+=0.3;
@@ -53,7 +53,7 @@ pub fn clear_upper_walls(mut ws:Vec<Wall>,c:&Config)->Vec<Wall>{
     }
     ws
 }
-pub fn room(c:&Config)->Option<Room>{let f=custom(c)?;Some(Room{id:format!("custom-stairs{}",if c.active_floor==1{"-L2"}else{""}),name:"Stairwell".into(),kind:"stairs".into(),x:f.x-f.w/2.,z:f.z-f.d/2.,w:f.w,d:f.d})}
+pub fn room(c:&Config)->Option<Room>{let f=custom(c)?;Some(Room{id:format!("custom-stairs{}",floor_tag(c.active_floor)),name:"Stairwell".into(),kind:"stairs".into(),x:f.x-f.w/2.,z:f.z-f.d/2.,w:f.w,d:f.d})}
 pub fn info(c:&Config,rooms:&Value,floor_height:f64)->Value {
     let (x,z,w,d,cx,cz,rotation,id)=if let Some(f)=custom(c){(f.x-f.w/2.,f.z-f.d/2.,f.w,f.d,f.x,f.z,f.rotation,Some(f.id.clone()))}else if c.design_mode!="Blank slate" {let Some(r)=rooms.as_array().unwrap().iter().find(|r|s(r,"type")=="stairs")else{return Value::Null};let(x,z,w,d)=(n(r,"x"),n(r,"z"),n(r,"w"),n(r,"d"));(x,z,w,d,x+4.,z+8.,if z<1.{std::f64::consts::PI}else{0.},None)}else{return Value::Null};
     let f=staging::Furniture{id:id.clone().unwrap_or_default(),kind:"stairs".into(),room_id:"stairs".into(),x:cx,z:cz,w,d,rotation,local_width:8.,local_depth:16.};

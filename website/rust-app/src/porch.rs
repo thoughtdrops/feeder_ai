@@ -34,7 +34,7 @@ pub fn design(c: &Config, ground: &Value) -> Value {
         if !["Colonial","English cottage"].contains(&c.home_style.as_str()){
             rectangles[0]["x"]=json!(if return_side=="Left"{-rw}else{x});rectangles[0]["w"]=json!(width+rw);
         }
-        let deck_ys=if c.home_style=="Colonial"&&c.stories==2{vec![0.2,0.2+c.wall_height+structural::floor_gap(c)]}else{vec![0.2]};
+        let deck_ys=if c.home_style=="Colonial"&&c.stories>=2{vec![0.2,0.2+c.wall_height+structural::floor_gap(c)]}else{vec![0.2]};
         rectangles.push(json!({"x":if return_side=="Left"{-rw}else{c.width},"z":0.,"w":rw,"d":rd,"roofType":"Hip","deckYs":deck_ys}));
     }
     let roof_height=c.wall_height-0.3;
@@ -44,7 +44,7 @@ pub fn design(c: &Config, ground: &Value) -> Value {
     let mut add_rail=|a:[f64;3],b:[f64;3]|{let length=((a[0]-b[0]).powi(2)+(a[2]-b[2]).powi(2)).sqrt();if length>0.2{rails.push(json!({"a":a,"b":b,"length":length,"balusters":(length/(4./12.)).ceil().max(2.) as usize-1}));}};
     for (i,r) in rectangles.iter().enumerate(){
         let(rx,rz,rw,rd)=(n(r,"x"),n(r,"z"),n(r,"w"),n(r,"d"));area+=rw*rd;
-        let mut pc=c.clone();pc.width=rw;pc.depth=rd;pc.wall_height=roof_height+if r["deckYs"].as_array().unwrap().len()>1{c.wall_height+structural::floor_gap(c)}else{0.};pc.pitch=if ["Tudor","English cottage","Colonial"].contains(&c.home_style.as_str())&&i==0{6.}else{3.};pc.stories=1;pc.active_floor=0;pc.design_mode="Custom".into();pc.home_style=if ["Tudor","English cottage","Colonial"].contains(&c.home_style.as_str())&&i==0{"Colonial"}else{"Modern farmhouse"}.into();
+        let mut pc=c.clone();pc.width=rw;pc.depth=rd;pc.wall_height=roof_height+if r["deckYs"].as_array().unwrap().len()>1{c.wall_height+structural::floor_gap(c)}else{0.};pc.pitch=if ["Tudor","English cottage","Colonial"].contains(&c.home_style.as_str())&&i==0{6.}else{3.};pc.stories=1;pc.active_floor=0;pc.design_mode="Custom".into();pc.home_style=if ["Tudor","English cottage","Colonial"].contains(&c.home_style.as_str())&&i==0{"Colonial"}else{"Coastal"}.into();
         let roof=roof::build_with_overhang(&pc,0.25);roof_area+=n(&roof,"area");
         roofs.push(json!({"x":rx,"z":rz,"w":rw,"d":rd,"h":pc.wall_height,"roof":roof}));
         let stations=(rw/(16./12.)).ceil()as usize;
@@ -70,10 +70,10 @@ pub fn design(c: &Config, ground: &Value) -> Value {
 }
 
 pub fn apply(c:&Config,mut m:Value)->Value{
-    let ground=if c.stories==2{&m["levels"][0]}else{&m};
+    let ground=if c.stories>=2{&m["levels"][0]}else{&m};
     let mut ground=ground.clone();ground["garage"]=m["garage"].clone();
     let porch=design(c,&ground);m["porch"]=porch.clone();
-    if c.stories==2{m["levels"][0]["porch"]=porch.clone();}
+    if c.stories>=2{m["levels"][0]["porch"]=porch.clone();}
     if porch.is_null(){return m}
     let mut t=model::Takeoff{items:vec![],c};let area=n(&porch,"area");let deck_area=n(&porch,"deckArea");let roof_area=n(&porch,"roofArea");
     let posts=porch["posts"].as_array().unwrap().len()as f64;

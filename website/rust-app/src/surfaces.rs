@@ -13,7 +13,7 @@ pub fn validate(c:&Config)->Result<(),String>{
  if c.custom_textures.len()>3{return Err("Use at most three custom textures.".into())}
  for (key,p) in &c.custom_textures{
   let prefix="data:image/jpeg;base64,";
-  if !["bedroom","general","floor"].contains(&key.as_str())||p.name.len()>100||p.name.chars().any(char::is_control)||!p.repeat_feet.is_finite()||!(0.25..=16.).contains(&p.repeat_feet)||p.data_url.len()>200_000||!p.data_url.starts_with(prefix){return Err("Custom textures must be a bounded JPEG pattern, repeating every 0.25–16 feet.".into())}
+  if !["bedroom","general","floor"].contains(&key.as_str())||p.name.chars().count()>100||p.name.chars().any(char::is_control)||!p.repeat_feet.is_finite()||!(0.25..=16.).contains(&p.repeat_feet)||p.data_url.len()>200_000||!p.data_url.starts_with(prefix){return Err("Custom textures must be a bounded JPEG pattern, repeating every 0.25–16 feet.".into())}
   let encoded=&p.data_url[prefix.len()..];
   if encoded.len()<16||!encoded.starts_with("/9j/")||!encoded.bytes().all(|b|b.is_ascii_alphanumeric()||b"+/=".contains(&b)){return Err("Invalid custom JPEG texture.".into())}
  }

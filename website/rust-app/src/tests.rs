@@ -9,8 +9,8 @@ fn fixture()->Config{let mut c=Config::default();c.stories=1;c.wall_height=9.;c.
  let items=m["items"].as_array().unwrap();let row=|id:&str|items.iter().find(|p|s(p,"id")==id).unwrap();
  for id in ["crawl-bottom","crawl-polyiso","crawl-subfloor"]{assert_eq!(n(row(id),"rawNet"),16.);}
  assert_eq!(n(row("crawl-r30"),"rawNet"),512.);assert_eq!(n(row("crawl-r19"),"rawNet"),512.);
- assert_eq!(n(row("drywallwalls"),"rawNet"),2.*48.*c.wall_height/64.);assert_eq!(n(row("drywallceiling"),"rawNet"),panels::roof_panel_area(&c,&m)/64.);
- assert!(items.iter().all(|i|!["slab","floor-batts","interior-batts","ceilingjoists"].contains(&s(i,"id"))));
+ assert_eq!(n(row("drywallwalls"),"rawNet"),2.*48.*c.wall_height/64.);assert_eq!(n(row("drywallceiling"),"rawNet"),c.width*c.depth/64.,"a flat ceiling covers the footprint");let mut vault=c.clone();vault.ceiling="Cathedral".into();let v=model::build(&vault);assert_eq!(n(v["items"].as_array().unwrap().iter().find(|p|s(p,"id")=="drywallceiling").unwrap(),"rawNet"),panels::roof_panel_area(&vault,&v)/64.,"a cathedral ceiling follows the roof");
+ assert!(items.iter().all(|i|!["slab","floor-batts","interior-batts"].contains(&s(i,"id"))));assert!(items.iter().any(|i|s(i,"id")=="ceilingjoists"),"a flat ceiling is framed");assert!(v["items"].as_array().unwrap().iter().all(|i|!["ceilingjoists","attichatch","roofvents"].contains(&s(i,"id"))),"a cathedral roof has no attic");
  assert_eq!(items.len(),items.iter().map(|i|s(i,"id")).collect::<std::collections::BTreeSet<_>>().len());
  assert_eq!(n(&m["counts"],"drywallSheets"),items.iter().filter(|i|s(i,"unit")=="sheets"&&s(i,"name").contains("drywall")).map(|i|n(i,"qty")).sum::<f64>());
  let mut g=c.clone();g.garage="Attached".into();let garage=model::build(&g);assert!(near(n(row("atticinsulation"),"rawNet"),n(garage["items"].as_array().unwrap().iter().find(|i|s(i,"id")=="atticinsulation").unwrap(),"rawNet")));
@@ -87,8 +87,8 @@ fn garage_material_prices_waste_and_removal_recalculate(){
  for w in (8..=100).step_by(2){for d in (8..=100).step_by(2){for style in catalog()["layoutStyles"].as_array().unwrap(){let mut c=fixture();c.width=w as f64;c.depth=d as f64;c.layout=s(style,"name").into();let(rs,_)=layout(&c);assert!(!rs.is_empty());assert!(near(rs.iter().map(|r|r.w*r.d).sum(),c.width*c.depth));for(i,r)in rs.iter().enumerate(){for n in [r.x,r.z,r.w,r.d]{assert!(near(n/2.,(n/2.).round()));}assert!(r.w>=2.&&r.d>=2.&&r.x>=0.&&r.z>=0.&&r.x+r.w<=c.width&&r.z+r.d<=c.depth);for other in &rs[i+1..]{assert!((r.x+r.w).min(other.x+other.w)<=r.x.max(other.x)+1e-8||(r.z+r.d).min(other.z+other.d)<=r.z.max(other.z)+1e-8);}}}}}
 }
 #[test]fn detailed_takeoff_reconciles_with_geometry_rounded_prices_waste_tax_and_categories(){
- for(w,d)in[(8.,8.),(24.,32.),(48.,36.),(100.,100.)]{let mut c=fixture();c.width=w;c.depth=d;c.tax=7.25;c.waste=13.;c.wallpaper="Midnight damask".into();c.bedroom_wallpaper="Botanical silk".into();c.prices.insert("counter".into(),45.125);let m=model::build(&c);let items=m["items"].as_array().unwrap();let mut ids=std::collections::BTreeSet::new();let mut categories=BTreeMap::<String,f64>::new();for i in items{assert!(ids.insert(s(i,"id")));let raw=n(i,"rawNet");let ordered=raw*(1.+n(i,"wastePercent")/100.);let expected=if s(i,"rounding")=="Whole purchase units"{(ordered-1e-9).max(0.).ceil()}else{round(ordered)};assert!(near(n(i,"net"),round(raw)));assert!(near(n(i,"qty"),expected));assert!(near(n(i,"price"),round(n(i,"price"))));assert!(near(n(i,"total"),round(n(i,"qty")*n(i,"price"))));*categories.entry(s(i,"category").into()).or_default()+=n(i,"total");}assert!(near(n(&m,"subtotal"),round(items.iter().map(|i|n(i,"total")).sum())));assert!(near(n(&m,"tax"),round(n(&m,"subtotal")*c.tax/100.)));assert!(near(n(&m,"total"),round(n(&m,"subtotal")+n(&m,"tax"))));for(cat,total)in categories{assert!(near(m["categoryTotals"][cat].as_f64().unwrap(),total));}
- let row=|id:&str|items.iter().find(|i|s(i,"id")==id).unwrap();assert!(near(n(row("roofmetal"),"rawNet"),(w+3.)*(d+3.)*(1.+(c.pitch/12.).powi(2)).sqrt()));assert!(near(n(row("counter"),"rawNet"),m["furniture"].as_array().unwrap().iter().filter(|f|["kitchen","island"].contains(&s(f,"kind"))).map(|f|n(f,"localWidth")*n(f,"localDepth")).sum()));let faces=m["wallFaces"].as_array().unwrap();assert!((faces.iter().map(|f|n(f,"area")).sum::<f64>()-n(&m,"drywallWalls")).abs()<0.011);assert!((n(&m,"wallpaperBedroomArea")+n(&m,"wallpaperGeneralArea")-n(&m,"wallpaperArea")).abs()<0.021);assert!(m["ventilation"]["passesArea"]==true&&m["ventilation"]["passesBalance"]==true);assert!(!items.iter().any(|i|["electrical","plumbing","hvac","appliances"].contains(&s(i,"id"))));}
+ for(w,d)in[(8.,8.),(24.,32.),(48.,36.),(100.,100.)]{let mut c=fixture();c.width=w;c.depth=d;c.tax=7.25;c.waste=13.;c.wallpaper="Midnight damask".into();c.bedroom_wallpaper="Botanical silk".into();c.prices.insert("counter".into(),45.125);c.roofing=roofing::METAL.into();let m=model::build(&c);let items=m["items"].as_array().unwrap();let mut ids=std::collections::BTreeSet::new();let mut categories=BTreeMap::<String,f64>::new();for i in items{assert!(ids.insert(s(i,"id")));let raw=n(i,"rawNet");let ordered=raw*(1.+n(i,"wastePercent")/100.);let expected=if s(i,"rounding")=="Whole purchase units"{(ordered-1e-9).max(0.).ceil()}else{round(ordered)};assert!(near(n(i,"net"),round(raw)));assert!(near(n(i,"qty"),expected));assert!(near(n(i,"price"),round(n(i,"price"))));assert!(near(n(i,"total"),round(n(i,"qty")*n(i,"price"))));*categories.entry(s(i,"category").into()).or_default()+=n(i,"total");}assert!(near(n(&m,"subtotal"),round(items.iter().map(|i|n(i,"total")).sum())));assert!(near(n(&m,"tax"),round(n(&m,"subtotal")*c.tax/100.)));assert!(near(n(&m,"total"),round(n(&m,"subtotal")+n(&m,"tax"))));for(cat,total)in categories{assert!(near(m["categoryTotals"][cat].as_f64().unwrap(),total));}
+ let row=|id:&str|items.iter().find(|i|s(i,"id")==id).unwrap();assert!(near(n(row("roofmetal"),"rawNet"),(w+2.*n(&m["roof"],"overhangX"))*(d+2.*n(&m["roof"],"overhangZ"))*(1.+(c.pitch/12.).powi(2)).sqrt()));assert!(near(n(row("counter"),"rawNet"),m["furniture"].as_array().unwrap().iter().filter(|f|["kitchen","island"].contains(&s(f,"kind"))).map(|f|n(f,"localWidth")*n(f,"localDepth")).sum()));let faces=m["wallFaces"].as_array().unwrap();assert!((faces.iter().map(|f|n(f,"area")).sum::<f64>()-n(&m,"drywallWalls")).abs()<0.011);assert!((n(&m,"wallpaperBedroomArea")+n(&m,"wallpaperGeneralArea")-n(&m,"wallpaperArea")).abs()<0.021);assert!(m["ventilation"]["passesArea"]==true&&m["ventilation"]["passesBalance"]==true);assert!(!items.iter().any(|i|["electrical","plumbing","hvac","appliances"].contains(&s(i,"id"))));}
 }
 #[test]fn opening_heights_reject_invalid_sills_and_keep_product_approval_explicit(){
  for(w,d)in[(8.,8.),(8.,100.),(100.,8.),(24.,32.),(48.,36.),(100.,100.)]{for style in catalog()["layoutStyles"].as_array().unwrap(){for h in [8.,9.,10.]{let mut c=fixture();c.width=w;c.depth=d;c.wall_height=h;c.layout=s(style,"name").into();let(rs,_)=layout(&c);let ws=model::walls(&c,&rs);for wall in &ws{assert!(rules::opening_error(&wall.openings,wall,&c,&rs).is_none(),"{} x {} / {} / {} ft: {} {:?}",w,d,c.layout,h,wall.name,rules::opening_error(&wall.openings,wall,&c,&rs));}}}}
@@ -129,7 +129,7 @@ fn garage_material_prices_waste_and_removal_recalculate(){
 
 #[test]fn architecture_changes_footprints_wall_plans_and_roof_topology(){
  let mut signatures=std::collections::BTreeSet::new();for name in catalog()["options"]["homeStyle"].as_array().unwrap(){let mut c=fixture();c.home_style=name.as_str().unwrap().into();architecture::apply(&mut c,true);validate(&c).unwrap();let m=model::build(&c);assert!(!c.layout.is_empty());signatures.insert(format!("{}:{}:{}:{}",c.width,c.depth,c.layout,m["roof"]["type"]));let roof=&m["roof"];assert!(n(roof,"area")>c.width*c.depth);assert!(!roof["facets"].as_array().unwrap().is_empty());for r in m["rafters"].as_array().unwrap(){for suffix in ["1","2"]{let x=n(r,&format!("x{}",suffix));let z=n(r,&format!("z{}",suffix));let y=n(r,&format!("y{}",suffix));assert!((y-c.wall_height-roof::height(&c,x,z)).abs()<1e-5,"{} {:?}",c.home_style,r);}let len=((n(r,"x2")-n(r,"x1")).powi(2)+(n(r,"z2")-n(r,"z1")).powi(2)+(n(r,"y2")-n(r,"y1")).powi(2)).sqrt();assert!((len-n(r,"length")).abs()<1e-6);}
- let projected:f64=roof["facets"].as_array().unwrap().iter().map(|f|{let p=f["plane"].as_array().unwrap();n(f,"area")/(1.+p[0].as_f64().unwrap().powi(2)+p[1].as_f64().unwrap().powi(2)).sqrt()}).sum();let expected=(c.width+3.)*(c.depth+3.);assert!((projected-expected).abs()<1e-5,"Roof plane area must cover the entire footprint exactly once");if s(roof,"type")=="Hip"{assert!(n(roof,"hipLF")>0.);assert_eq!(n(roof,"infillArea"),0.);}if s(roof,"type")=="Cross gable"{assert!(n(roof,"valleyLF")>0.);} }
+ let projected:f64=roof["facets"].as_array().unwrap().iter().map(|f|{let p=f["plane"].as_array().unwrap();n(f,"area")/(1.+p[0].as_f64().unwrap().powi(2)+p[1].as_f64().unwrap().powi(2)).sqrt()}).sum();let expected=(c.width+2.*n(roof,"overhangX"))*(c.depth+2.*n(roof,"overhangZ"));assert!((projected-expected).abs()<1e-5,"Roof plane area must cover the entire footprint exactly once");if s(roof,"type")=="Hip"{assert!(n(roof,"hipLF")>0.);assert_eq!(n(roof,"infillArea"),0.);}if s(roof,"type")=="Cross gable"{assert!(n(roof,"valleyLF")>0.);} }
  assert_eq!(signatures.len(),15);
 }
 #[test]fn two_storeys_have_connected_programs_and_single_roof_foundation(){for name in ["Victorian","Georgian","Ranch","Scandinavian","Contemporary"]{let mut c=fixture();c.home_style=name.into();c.stories=2;architecture::apply(&mut c,true);let m=model::build(&c);let ls=m["levels"].as_array().unwrap();assert_eq!(ls.len(),2);assert_eq!(n(&ls[0]["counts"],"bedrooms"),0.);assert_eq!(n(&ls[1]["counts"],"bedrooms"),3.);assert!(!ls[0]["furniture"].as_array().unwrap().iter().any(|f|["bed","wallbed"].contains(&s(f,"kind"))));assert!(!ls[1]["furniture"].as_array().unwrap().iter().any(|f|["kitchen","sofa"].contains(&s(f,"kind"))));for l in ls{let rs:Vec<Room>=serde_json::from_value(l["rooms"].clone()).unwrap();assert_eq!(rs.iter().map(|r|r.w*r.d).sum::<f64>(),c.width*c.depth);for r in &rs{assert!([r.x,r.z,r.w,r.d].iter().all(|x|near(*x/2.,(*x/2.).round())));}let ws:Vec<Wall>=serde_json::from_value(l["walls"].clone()).unwrap();for r in rs.iter().filter(|r|["bedroom","bath","stairs"].contains(&r.kind.as_str())){assert!(!staging::aprons(r,&ws).is_empty(),"No access for {} in {}",r.name,name);}}
@@ -335,7 +335,7 @@ fn reference_porches_and_carved_surrounds_match_their_live_takeoff(){
  let mut c=fixture();c.home_style="Colonial".into();c.width=40.;c.depth=48.;c.pitch=10.;c.dormer_style="Gable".into();c.dormer_side="Automatic".into();c.dormer_width=4.;c.dormer_depth=8.;c.dormer_count=2;c.rear_outdoor="None".into();
  let roof=roof::build(&c);let m=model::build(&c);let ds=m["dormers"].as_array().unwrap();assert_eq!(ds.len(),2);assert!(m["dormerNotes"].as_array().unwrap().is_empty());
  let triangle_area=|points:&Value|{let points=points.as_array().unwrap();let p=|i:usize,j:usize|points[i][j].as_f64().unwrap();(1..points.len()-1).map(|i|{let a=[p(i,0)-p(0,0),p(i,1)-p(0,1),p(i,2)-p(0,2)];let b=[p(i+1,0)-p(0,0),p(i+1,1)-p(0,1),p(i+1,2)-p(0,2)];let cross=[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];cross.iter().map(|v|v*v).sum::<f64>().sqrt()/2.}).sum::<f64>()};
- let surface=m["roof"]["facets"].as_array().unwrap().iter().chain(ds.iter().flat_map(|d|d["facets"].as_array().unwrap())).map(|f|triangle_area(&f["points"])).sum::<f64>();assert!(near(surface,n(&m,"roofArea")),"visible roof triangles must reconcile to sheathing area");
+ let surface=m["roof"]["facets"].as_array().unwrap().iter().chain(ds.iter().flat_map(|d|d["facets"].as_array().unwrap())).map(|f|triangle_area(&f["points"])).sum::<f64>();assert!((surface-n(&m,"roofArea")).abs()<0.006,"visible roof triangles must reconcile to the (cent-rounded) sheathing area: {} vs {}",surface,n(&m,"roofArea"));
  assert_eq!(m["mainRafterStock"],roof["rafters"]);assert!(m["rafters"].as_array().unwrap().iter().any(|r|s(r,"id").contains("CUT")));
  let stock_qty:f64=m["items"].as_array().unwrap().iter().filter(|i|s(i,"id").starts_with("rafter")&&s(i,"unit")=="pieces"&&s(i,"id")!="rafterblocking").map(|i|n(i,"rawNet")).sum();assert!(near(stock_qty,roof["rafters"].as_array().unwrap().len()as f64));
  for d in ds{let front=d["members"].as_array().unwrap();for o in d["openings"].as_array().unwrap(){let oid=s(o,"id");assert_eq!(front.iter().filter(|v|s(v,"openingId")==oid&&s(v,"role")=="King").count(),2);assert_eq!(front.iter().filter(|v|s(v,"openingId")==oid&&s(v,"role")=="Jack").count(),2);assert_eq!(front.iter().filter(|v|s(v,"openingId")==oid&&s(v,"role")=="Header ply").count(),2);assert_eq!(front.iter().filter(|v|s(v,"openingId")==oid&&s(v,"role")=="Rough sill").count(),1);}
@@ -401,4 +401,88 @@ fn balconies_have_an_actual_upper_door_supports_and_itemized_materials(){
  assert!(m["levels"][1]["frameMembers"].as_array().unwrap().iter().any(|p|s(p,"openingId")=="BALCONY-DOOR-L2"&&s(p,"role")=="Header ply"));let item=m["items"].as_array().unwrap().iter().find(|i|s(i,"id")=="balcony-joists").unwrap();let lf:f64=m["balcony"]["joists"].as_array().unwrap().iter().map(|j|n(j,"stockLength")).sum();assert!(near(n(item,"rawNet"),lf));
  assert!(m["rearOutdoor"]["roofs"].as_array().unwrap().is_empty(),"A porch roof cannot cut through the balcony deck");
  c.stories=1;c.active_floor=0;let single=model::build(&c);assert!(single["balcony"].is_null());assert!(!single["items"].as_array().unwrap().iter().any(|i|s(i,"id").starts_with("balcony-")));
+}
+#[test]fn crawlspace_takeoff_has_no_slab_leftovers_or_doubled_single_assemblies(){
+ let mut c=Config::default();c.waste=10.;c.foundation=piers::CONCRETE.into();let m=model::build(&c);let items=m["items"].as_array().unwrap();
+ let row=|id:&str|items.iter().find(|i|s(i,"id")==id);
+ // The crawlspace floor has no slab, and its own sill gasket replaces the slab-era line.
+ for id in ["slab","slabjoints","sillgasket"]{assert!(row(id).is_none(),"{id} should not be ordered for a crawlspace floor");}
+ assert!(near(n(row("crawl-sillseal").unwrap(),"rawNet"),n(&m,"perimeter")/50.));
+ // Ordering waste must not round one access hatch or one moisture system up to two.
+ for id in ["crawl-access","crawl-moisture"]{let i=row(id).unwrap();assert_eq!(n(i,"qty"),1.);assert_eq!(n(i,"wastePercent"),0.);}
+}
+#[test]fn helical_pier_foundation_is_the_default_and_replaces_concrete_lines(){
+ let c=Config::default();assert_eq!(c.foundation,piers::HELICAL);let m=model::build(&c);let items=m["items"].as_array().unwrap();
+ let row=|id:&str|items.iter().find(|i|s(i,"id")==id);
+ for id in ["footings","footingrebar","rebarsupports","anchors","anchorwashers","crawl-wall","crawl-rebar","crawl-damp","crawl-girder","crawl-piers","crawl-sill","crawl-sillseal","crawl-access"]{assert!(row(id).is_none(),"{id} belongs to the concrete foundation");}
+ // 26 x 46 ft, two stories: 1,196 sq ft x 185/1,024 = 216.1 kips; 24 ft piers hold 0.95 x 5,000 ft-lb x 9 / 2 = 21.4 kips, so 11 are needed.
+ let f=&m["foundation"];assert_eq!(n(f,"piersNeeded"),11.);assert_eq!(n(f,"girderLines"),3.);assert_eq!(n(f,"piersPerLine"),4.);assert_eq!(n(f,"piers"),12.);assert!(near(n(f,"kipsPerPier"),21.38));
+ assert!(n(f,"piers")*n(f,"kipsPerPier")>=n(f,"houseKips"));
+ // 24 ft depth + 1 ft reveal - 7 ft lead = 18 ft: two 10 ft extensions, each joint bolted.
+ assert_eq!(n(row("pier-leads").unwrap(),"qty"),12.);assert_eq!(n(row("pier-ext10").unwrap(),"qty"),24.);assert_eq!(n(row("pier-ext5").unwrap(),"qty"),0.);assert_eq!(n(row("pier-couplers").unwrap(),"qty"),24.);assert_eq!(n(row("pier-caps").unwrap(),"qty"),12.);
+ assert!(near(n(row("pier-girders").unwrap(),"rawNet"),3.*46.));
+ // A shallower, weaker pier needs more of them: 14 ft gives 0.95 x 2,100 x 9 / 2 = 9 kips, so 25 piers carry 216 kips.
+ let mut shallow=c.clone();shallow.pier_depth=14.;let f=piers::summary(&shallow);assert_eq!(n(&f,"piersNeeded"),25.);assert!(n(&f,"piers")>=25.);
+ let mut concrete=c.clone();concrete.foundation=piers::CONCRETE.into();let m=model::build(&concrete);assert!(m["items"].as_array().unwrap().iter().any(|i|s(i,"id")=="crawl-wall"));assert!(!m["items"].as_array().unwrap().iter().any(|i|s(i,"id").starts_with("pier-")));
+ let mut bad=c.clone();bad.foundation="Slab".into();assert!(validate(&bad).is_err());bad=c.clone();bad.pier_depth=40.;assert!(validate(&bad).is_err());
+}
+#[test]fn three_story_homes_stack_floors_stairs_and_one_roof(){
+ let styles:Vec<String>=catalog()["homeStyles"].as_array().unwrap().iter().map(|v|s(v,"name").to_string()).collect();
+ let mut checked=0;
+ for style in &styles{for catalog_plan in [true,false]{for beds in [1usize,3,4]{
+  let mut c=Config::default();c.home_style=style.clone();architecture::apply(&mut c,true);c.catalog_plan=catalog_plan;c.stories=3;c.bedrooms=beds;c.width=c.width.max(28.);c.depth=c.depth.max(architecture::minimum_depth(&c)).max(36.);
+  if validate(&c).is_err(){continue}
+  let m=model::build(&c);let levels=m["levels"].as_array().unwrap();assert_eq!(levels.len(),3,"{style}");checked+=1;
+  // Floor-specific ids: ground untagged, second "-L2", third "-L3".
+  for(f,level)in levels.iter().enumerate(){for r in level["rooms"].as_array().unwrap(){assert_eq!(tag_floor(s(r,"id")),f,"{style} room {} on floor {f}",s(r,"id"));}}
+  // The stairwell is in the same place on every floor.
+  let stair=|l:&Value|l["rooms"].as_array().unwrap().iter().find(|r|s(r,"type")=="stairs").map(|r|(n(r,"x"),n(r,"z"),n(r,"w"),n(r,"d")));
+  assert!(stair(&levels[0]).is_some(),"{style}: no stair");assert_eq!(stair(&levels[0]),stair(&levels[1]),"{style} {catalog_plan} {beds}");assert_eq!(stair(&levels[1]),stair(&levels[2]),"{style} {catalog_plan} {beds}");
+  // Bedrooms split across the two upper floors.
+  let beds_on=|f:usize|levels[f]["rooms"].as_array().unwrap().iter().filter(|r|s(r,"type")=="bedroom").count();
+  assert!(beds_on(1)+beds_on(2)<=beds&&beds_on(1)>=1,"{style} {catalog_plan} {beds}: {} + {}",beds_on(1),beds_on(2));
+ }}}
+ assert!(checked>=20,"only {checked} three-story combinations validated");
+ // One roof, one foundation, two floor decks and two stair flights.
+ let mut c=Config::default();c.stories=3;let m3=model::build(&c);let mut c2=c.clone();c2.stories=2;let m2=model::build(&c2);
+ let item=|m:&Value,id:&str|m["items"].as_array().unwrap().iter().find(|i|s(i,"id")==id).map(|i|n(i,"rawNet")).unwrap_or(0.);
+ assert!(near(item(&m3,"roofmetal"),item(&m2,"roofmetal")));assert!(near(item(&m3,"pier-leads"),n(&m3["foundation"],"piers")));
+ assert!(near(item(&m3,"stairrisers"),2.*item(&m2,"stairrisers")));assert!(near(item(&m3,"subfloor"),2.*item(&m2,"subfloor")));
+ let hole=c.width*c.depth*2.-n(&m2,"area");assert!(near(n(&m3,"area"),c.width*c.depth*3.-2.*hole));
+ let decks:std::collections::BTreeSet<i64>=m3["floorFrameMembers"].as_array().unwrap().iter().map(|v|(n(v,"y1")*100.).round()as i64).collect();assert_eq!(decks.len(),2,"joists sit at two deck heights");
+ assert!(n(&m3["foundation"],"houseKips")>n(&m2["foundation"],"houseKips"));
+ // Walls and exterior skin grow with the third story; there is still one water heater and service panel.
+ assert!(item(&m3,"zipwall")>item(&m2,"zipwall")*1.3);assert!(near(item(&m3,"waterheater"),1.));assert!(near(item(&m3,"servicepanel"),1.));
+ let mut bad=c.clone();bad.stories=4;assert!(validate(&bad).is_err());
+}
+#[test]fn process_handoff_carries_the_whole_design(){
+ for stories in [1usize,2,3]{let mut c=Config::default();c.stories=stories;if stories==1{c.width=40.;c.depth=32.;}let m=model::build(&c);let h=process::handoff(&c,&m);
+  assert_eq!(n(&h,"width"),c.width);assert_eq!(n(&h,"stories"),stories as f64);let levels=h["levels"].as_array().unwrap();assert_eq!(levels.len(),stories);
+  for l in levels{let ws=l["walls"].as_array().unwrap();assert!(ws.iter().filter(|w|w["exterior"]==true).count()>=4);assert!(!l["rooms"].as_array().unwrap().is_empty());}
+  assert!(levels[0]["walls"].as_array().unwrap().iter().any(|w|w["openings"].as_array().unwrap().iter().any(|o|s(o,"kind")=="door")),"front door");
+  assert!(!h["roof"]["facets"].as_array().unwrap().is_empty());assert!(h["roof"]["facets"][0].as_array().unwrap().len()>=3);
+  assert_eq!(h["stair"].is_object(),stories>1);assert!(n(&h["foundation"],"piers")>0.);
+  assert!(security::parse(&serde_json::to_string(&c).unwrap()).is_ok(),"the return copy restores");}
+}
+#[test]fn roof_coverings_follow_each_style_and_swap_their_takeoff(){
+ for name in catalog()["options"]["homeStyle"].as_array().unwrap(){let mut c=fixture();c.home_style=name.as_str().unwrap().into();architecture::apply(&mut c,true);validate(&c).unwrap();let m=model::build(&c);let items=m["items"].as_array().unwrap();let has=|id:&str|items.iter().any(|i|s(i,"id")==id);
+  let kind=s(&m["roofing"],"kind");let expected=roofing::style_default(&c.home_style);assert_eq!(kind,if c.pitch>=roofing::min_pitch(expected){expected}else{roofing::METAL},"{}",c.home_style);
+  if kind==roofing::METAL{assert!(has("roofmetal")&&has("roof-purlins")&&!has("roof-shingles"));}else{assert!(has("roof-shingles")&&has("roof-hipridge")&&has("roof-dripedge")&&has("underlay"));assert!(!has("roofmetal")&&!has("roof-purlins")&&!has("roofclips"),"{} keeps no metal roofing",c.home_style);}
+  let kits=items.iter().find(|i|s(i,"id")=="roof-panelkits").unwrap();assert!(n(kits,"rawNet")>=1.);assert_eq!(n(kits,"rawNet"),n(&m["roofing"],"panels"));assert!(s(kits,"basis").contains("already listed"),"panel kits do not repeat sheathing or I-joists");}
+ let mut c=fixture();c.home_style="Victorian".into();architecture::apply(&mut c,true);assert_eq!(c.pitch,12.);assert_eq!(architecture::preset("Cape Cod").3,"Gable");assert_eq!(architecture::preset("Scandinavian").3,"Front gable");
+ let mut k=fixture();k.home_style="Craftsman".into();architecture::apply(&mut k,true);let roof=roof::build(&k);assert_eq!(n(&roof,"overhangZ"),2.5);assert_eq!(n(&roof,"overhangX"),2.);
+ let mut r=fixture();r.home_style="Ranch".into();architecture::apply(&mut r,true);r.roofing=roofing::SLATE.into();assert!(validate(&r).is_ok());r.home_style="Mid-century".into();architecture::apply(&mut r,true);assert!(validate(&r).unwrap_err().contains("4:12"));
+ let mut a=fixture();a.home_style="Ranch".into();architecture::apply(&mut a,true);a.pitch=3.;a.roofing=roofing::ASPHALT.into();let m=model::build(&a);assert!(s(m["items"].as_array().unwrap().iter().find(|i|s(i,"id")=="underlay").unwrap(),"name").contains("two layers"),"asphalt below 4:12 needs double underlayment");
+ let mut sl=fixture();sl.roofing=roofing::SLATE.into();sl.pitch=8.;let m=model::build(&sl);let row=m["items"].as_array().unwrap().iter().find(|i|s(i,"id")=="roof-shingles").unwrap();assert!(s(row,"name").contains("3 in headlap"));assert!(near(n(row,"rawNet"),n(&m["roof"],"area")/100.*14400./85.));
+}
+#[test]fn cathedral_ceilings_are_offered_only_on_roofs_that_can_vault(){
+ let mut c=fixture();c.home_style="Colonial".into();architecture::apply(&mut c,true);c.ceiling="Cathedral".into();let m=model::build(&c);assert_eq!(m["cathedral"],true);assert!(s(&m["panelAssemblies"][5],"name").contains("Cathedral"));
+ c.ceiling="Flat ceiling".into();let f=model::build(&c);assert_eq!(f["cathedral"],false);let row=|m:&Value,id:&str|n(m["items"].as_array().unwrap().iter().find(|i|s(i,"id")==id).unwrap(),"rawNet");assert!(row(&m,"drywallceiling")>row(&f,"drywallceiling"),"a vault has more ceiling than a flat ceiling");assert_eq!(row(&f,"atticinsulation"),c.width*c.depth);
+ let mut low=fixture();low.home_style="Mid-century".into();architecture::apply(&mut low,true);low.ceiling="Cathedral".into();validate(&low).unwrap();assert_eq!(model::build(&low)["cathedral"],false,"a low-slope roof cannot vault");
+ let mut two=fixture();two.stories=2;two.home_style="Tudor".into();architecture::apply(&mut two,true);two.ceiling="Cathedral".into();validate(&two).unwrap();let m=model::build(&two);assert_eq!(m["levels"][1]["cathedral"],true);assert_eq!(n(&m["levels"][1],"ceilingBays"),0.);
+}
+#[test]fn eyebrow_and_arched_dormers_are_built_and_priced(){
+ for(style,kind)in[("English cottage","Eyebrow"),("French country","Arched")]{let mut c=fixture();c.home_style=style.into();architecture::apply(&mut c,true);c.width=c.width.max(32.);c.depth=c.depth.max(32.);c.dormer_style="Style matched".into();c.dormer_width=if kind=="Arched"{4.}else{8.};c.dormer_depth=8.;c.dormer_count=2;c.rear_outdoor="None".into();validate(&c).unwrap();let m=model::build(&c);
+  let ds=m["dormers"].as_array().unwrap();assert!(!ds.is_empty(),"{} dormers fit: {:?}",kind,m["dormerNotes"]);for d in ds{assert_eq!(s(d,"kind"),kind);assert!(n(&d["arch"],"rise")>=1.);assert!(!d["facets"].as_array().unwrap().is_empty());assert!(!d["rafters"].as_array().unwrap().is_empty());for f in d["facets"].as_array().unwrap(){for p in f["points"].as_array().unwrap(){assert!(p.as_array().unwrap().iter().all(|v|v.as_f64().unwrap().is_finite()));}}}
+  let items=m["items"].as_array().unwrap();assert!(items.iter().any(|i|s(i,"id").ends_with("-archheader")));assert!(items.iter().any(|i|s(i,"name").contains(if kind=="Eyebrow"{"eyebrow window"}else{"Arched-top"})));if kind=="Arched"{assert!(items.iter().any(|i|s(i,"id").ends_with("-ribs")));}else{assert!(ds.iter().all(|d|d["cheeks"].as_array().unwrap().is_empty()),"eyebrows have no cheek walls");}}
 }

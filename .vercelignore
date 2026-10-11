@@ -1,0 +1,5 @@
+# The old Flask prototype and its settings are not part of the hosted site.
+app.py
+requirements.txt
+templates
+.env

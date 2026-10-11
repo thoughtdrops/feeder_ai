@@ -26,7 +26,7 @@ assert.equal(lastScene.model.w,26);assert.equal(lastScene.model.d,46);
 const startup=structuredClone(lastScene);
 assert.deepEqual(lastScene.config,JSON.parse(app.defaults()),'The first scene uses the Rust startup house');
 assert.equal(lastScene.config.homeStyle,'Victorian');assert.equal(lastScene.config.layout,'Catalog · Sears Modern Homes No. 114 (1911)');assert.equal(lastScene.config.floor,'Natural oak');assert.equal(lastScene.config.trimPackage,'Georgian grand');assert.equal(lastScene.config.bedroomWallpaper,'Peacock chinoiserie');assert.equal(lastScene.config.wallpaper,'Teal lattice');
-assert.equal(lastScene.config.pitch,10);assert.equal(lastScene.model.homeStyle.feature,'gingerbread');assert.equal(lastScene.model.trimPackage.name,'Georgian grand');
+assert.equal(lastScene.config.pitch,12,'the Victorian opens at its historic 12:12 pitch');assert.equal(lastScene.model.homeStyle.feature,'gingerbread');assert.equal(lastScene.model.trimPackage.name,'Georgian grand');
 assert.ok(lastScene.model.rooms.some(r=>r.type==='hall'));assert.ok(lastScene.model.wallpaperBedroomArea>0&&lastScene.model.wallpaperGeneralArea>0);assert.ok(Math.abs(lastScene.model.wallpaperArea-lastScene.model.drywallWalls)<.02);
 assert.ok(lastScene.model.wallFaces.every(f=>f.wallpaper===(f.group==='bedroom'?'Peacock chinoiserie':'Teal lattice')));
 // The layout menu follows the requested order, with history collapsed at the end.
