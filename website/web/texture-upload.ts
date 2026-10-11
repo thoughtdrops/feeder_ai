@@ -13,7 +13,7 @@ export async function normalizeTexture(file:File,repeatFeet:number):Promise<Patt
   let edge=1024,dataUrl='';
   for(let attempt=0;attempt<6;attempt++){const scale=Math.min(1,edge/Math.max(image.naturalWidth,image.naturalHeight));canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));context.fillStyle='#e1ded4';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(image,0,0,canvas.width,canvas.height);dataUrl=canvas.toDataURL('image/jpeg',.8-attempt*.06);if(dataUrl.length<=MAX_ENCODED)break;edge=Math.round(edge*.8);}
   if(!dataUrl.startsWith('data:image/jpeg;base64,')||dataUrl.length>MAX_ENCODED)throw Error('Choose a smaller or less detailed pattern image.');
-  return {name:file.name.replace(/[\x00-\x1f\x7f]/g,'').slice(0,100),dataUrl,repeatFeet};
+  return {name:Array.from(file.name.replace(/[\x00-\x1f\x7f]/g,'')).slice(0,100).join(''),dataUrl,repeatFeet};
  }finally{URL.revokeObjectURL(url);image.src='';}
 }
 export function bindTextureUploads(app:()=>any){let busy=false;const listener=async(event:Event)=>{
