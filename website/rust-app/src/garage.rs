@@ -12,6 +12,15 @@ fn placement(c: &Config, rooms: &[Room]) -> Placement {
     if c.garage != "Attached" {
         let left=c.garage_side=="Left";return Placement { x: if left{-SIZE-8.}else{c.width+8.}, z: 0., left, entry: None };
     }
+    // A garage the visitor positioned stays there; its door goes into the best room it borders.
+    if let Some(z)=c.garage_offset{
+        let left=c.garage_side=="Left";let z=((z/2.).round()*2.).clamp(-16.,(c.depth-8.).max(0.));
+        let entry=rooms.iter().filter(|r|!["bedroom","stairs"].contains(&r.kind.as_str())&&near(if left{r.x}else{r.x+r.w},if left{0.}else{c.width})).filter_map(|r|{
+            let lo=r.z.max(z).max(0.)+0.4;let hi=(r.z+r.d).min(z+SIZE).min(c.depth)-0.4;
+            (hi-lo>=38./12.).then(||{let rank:f64=match r.kind.as_str(){"hall"=>0.,"flex"=>1.,"kitchen"=>2.,"living"|"studio"=>3.,"bath"=>5.,_=>4.};(rank,(r.z+r.d/2.-19./12.).clamp(lo,hi-38./12.))})
+        }).min_by(|a,b|a.0.total_cmp(&b.0)).map(|v|v.1);
+        return Placement{x:if left{-SIZE}else{c.width},z,left,entry};
+    }
     if c.design_mode=="Blank slate" {
         let left=c.garage_side=="Left";
         let entry=rooms.iter().filter(|r|r.kind!="stairs"&&near(if left{r.x}else{r.x+r.w},if left{0.}else{c.width})).find_map(|r|{
@@ -71,15 +80,30 @@ pub fn connection_error(o:&Opening,w:&Wall,c:&Config,rooms:&[Room])->Option<Stri
     let p=placement(c,rooms);let(lo,hi)=shared_range(c,&p);
     if c.garage!="Attached"||!on_shared(c,&p,w)||o.kind!="door"||o.width<38./12.-1e-8||!near(o.bottom,0.)||w.z+o.at<lo+0.4||w.z+o.at+o.width>hi-0.4{return Some("Keep the garage connection inside its shared wall, with a protected door at least 38 in wide in the rough opening.".into())}
     let a=w.z+o.at;let b=a+o.width;
-    if rooms.iter().any(|r|["bedroom","bath","stairs"].contains(&r.kind.as_str())&&near(if p.left{r.x}else{r.x+r.w},w.x)&&a<r.z+r.d&&b>r.z){return Some("Choose a garage connection into a hall, living or utility space, clear of bedrooms, bathrooms and stairs.".into())}
+    // IRC R302.5.1: no garage opening into a room used for sleeping; stair runs stay clear for safety.
+    if rooms.iter().any(|r|["bedroom","stairs"].contains(&r.kind.as_str())&&near(if p.left{r.x}else{r.x+r.w},w.x)&&a<r.z+r.d&&b>r.z){return Some("A garage door can't open into a bedroom (IRC R302.5.1) or onto a stair run.".into())}
     None
 }
 
-pub fn move_connection(c:&mut Config,rooms:&[Room],walls:&[Wall],center:f64)->Result<(),String>{
+/// Door centers (ft from the house front) where the house-garage door may go, as continuous spans.
+pub fn connection_spans(c:&Config,rooms:&[Room],walls:&[Wall])->Vec<(f64,f64)>{
+    let Some(w)=walls.iter().find(|w|w.openings.iter().any(|o|o.id=="G-HOUSE-DOOR"))else{return vec![]};
+    let mut spans:Vec<(f64,f64)>=vec![];let mut k=0;
+    loop{let center=w.z+k as f64*0.25;if center>w.z+w.length{break}k+=1;let mut os=w.openings.clone();let o=os.iter_mut().find(|o|o.id=="G-HOUSE-DOOR").unwrap();o.at=center-w.z-o.width/2.;
+        if rules::opening_error(&os,w,c,rooms).is_none(){match spans.last_mut(){Some(s) if (center-s.1-0.25).abs()<1e-6=>s.1=center,_=>spans.push((center,center))}}}
+    spans
+}
+/// Move the house-garage door to `center`. A blocked spot snaps to the nearest allowed one; the note
+/// says so. Errors only when no spot on the shared wall can take the door.
+pub fn move_connection(c:&mut Config,rooms:&[Room],walls:&[Wall],center:f64)->Result<Option<String>,String>{
     let Some(w)=walls.iter().find(|w|w.openings.iter().any(|o|o.id=="G-HOUSE-DOOR"))else{return Err("No shared house / garage doorway fits this layout.".into())};
-    let mut os=w.openings.clone();let o=os.iter_mut().find(|o|o.id=="G-HOUSE-DOOR").unwrap();o.at=center-w.z-o.width/2.;
+    if !center.is_finite(){return Err("Enter the door position in feet from the front of the house.".into())}
+    let spans=connection_spans(c,rooms,walls);if spans.is_empty(){return Err("No spot on the shared wall can take the door. Move the garage or change the adjoining rooms.".into())}
+    let target=spans.iter().map(|&(a,b)|center.clamp(a,b)).min_by(|x,y|(x-center).abs().total_cmp(&(y-center).abs())).unwrap();
+    let mut os=w.openings.clone();let o=os.iter_mut().find(|o|o.id=="G-HOUSE-DOOR").unwrap();o.at=target-w.z-o.width/2.;
     if let Some(error)=rules::opening_error(&os,w,c,rooms){return Err(error)}
-    c.opening_overrides.insert(w.id.clone(),os);Ok(())
+    c.opening_overrides.insert(w.id.clone(),os);
+    Ok(((target-center).abs()>0.1).then(||format!("Moved to the nearest allowed spot, {:.2} ft from the front: a garage door can't open into a bedroom or onto a stair run.",target)))
 }
 
 pub fn shared_area(c: &Config, rooms: &[Room], walls: &[Wall]) -> f64 {

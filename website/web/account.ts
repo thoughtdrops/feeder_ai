@@ -21,7 +21,7 @@ const store={
  read():LocalBuild[]{try{const v=JSON.parse(localStorage.getItem(LOCAL_KEY)||'[]');return Array.isArray(v)?v:[];}catch{return [];}},
  write(list:LocalBuild[]){try{localStorage.setItem(LOCAL_KEY,JSON.stringify(list.slice(0,LOCAL_LIMIT)));return true;}catch{return false;}},
 };
-const say=(text:string)=>engine?.show_status(text);
+let queued='';const say=(text:string)=>{if(engine)engine.show_status(text);else queued=text;};
 const firstName=(u:User)=>(u.name||u.email||'').split(/\s+/)[0]||'Profile';
 const when=(iso:string)=>{const d=new Date(iso);return Number.isNaN(d.getTime())?'':d.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})+' · '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});};
 
@@ -38,7 +38,7 @@ async function googleButton(host:HTMLElement,width=280){
 async function onCredential(response:{credential?:string}){
  if(!response?.credential)return;
  try{const r=await api<{user:User}>('/api/auth/google/',{method:'POST',body:JSON.stringify({credential:response.credential})});user=r.user;
-  try{localStorage.setItem(WELCOME_KEY,'1');}catch{}closeWelcome();renderProfileButton();await carryLocalBuilds();if(panel?.isConnected)renderPanel();say(`Signed in as ${user.name||user.email}. Your builds now save to your profile.`);}
+  try{localStorage.setItem(WELCOME_KEY,'1');}catch{}leaveWelcome();renderProfileButton();await carryLocalBuilds();if(panel?.isConnected)renderPanel();say(`Signed in as ${user.name||user.email}. Your builds now save to your profile.`);}
  catch(e:any){say(e?.message?`Sign-in failed: ${e.message}`:'Sign-in failed. Please try again.');}
 }
 async function carryLocalBuilds(){
@@ -132,26 +132,45 @@ async function renderPanel(focusBuilds=false){
  (p.querySelector('.close-modal') as HTMLElement)?.focus();
 }
 
-// ---------- Welcome (sign-up) screen ----------
-function closeWelcome(){const w=document.getElementById('welcome');if(!w)return;w.classList.add('done');setTimeout(()=>w.remove(),500);}
-function showWelcome(){
- if(document.getElementById('welcome'))return;
- const g=el('div',{class:'google-slot'});const skip=el('button',{class:'welcome-skip',type:'button',text:'Explore without an account'});
- skip.onclick=()=>{try{localStorage.setItem(WELCOME_KEY,'1');}catch{}closeWelcome();};
- const w=el('div',{id:'welcome',class:'splash welcome',role:'dialog','aria-modal':'true','aria-labelledby':'welcome-title'},
-  el('img',{src:'/brand/universal-frames-loading.webp',alt:'Universal Frames',width:'861',height:'603'}),
-  el('h1',{id:'welcome-title',text:'Design your home. Keep every build.'}),
-  el('p',{text:'Sign in with Google: no forms, no passwords. Your builds save to your profile and open on any device.'}),g,skip);
- document.body.append(w);googleButton(g,300);
-}
-
-export async function initAccounts(app:Engine){
- engine=app;renderProfileButton();
+// ---------- Loading + sign-in screen ----------
+// The loading screen doubles as the sign-in screen: account status is fetched while the engine loads, and a
+// visitor who isn't signed in sees "Continue with Google" / "Explore without an account" right on it. The
+// studio opens once the engine is ready and they have chosen (or immediately, when no choice is needed).
+const boot:Promise<void>=(async()=>{
  try{const c=await api<{accounts:boolean;googleClientId:string|null}>('/api/config/');accounts=!!c.accounts&&!!c.googleClientId;clientId=c.googleClientId||'';}catch{accounts=false;}
  if(accounts){try{user=(await api<{user:User}>('/api/auth/me/')).user;}catch{user=null;}}
- renderProfileButton();
+})();
+let gate:'none'|'waiting'|'chosen'='none',engineReady=false,finishSplash:(()=>void)|null=null;
+function leaveWelcome(){
+ if(gate!=='waiting')return;gate='chosen';
+ const splash=document.getElementById('splash');splash?.querySelector('.welcome-choice')?.remove();
+ if(engineReady){finishSplash?.();finishSplash=null;}
+ else if(splash){splash.classList.remove('welcome');splash.setAttribute('role','status');splash.removeAttribute('aria-modal');}
+}
+function showWelcome(){
+ const splash=document.getElementById('splash');if(!splash||splash.classList.contains('done')||gate!=='none')return false;
  let seen=false;try{seen=localStorage.getItem(WELCOME_KEY)==='1';}catch{}
- if(accounts&&!user&&!seen)showWelcome();
+ if(!accounts||user||seen)return false;
+ gate='waiting';
+ const g=el('div',{class:'google-slot'});const skip=el('button',{class:'welcome-skip',type:'button',text:'Explore without an account'});
+ skip.onclick=()=>{try{localStorage.setItem(WELCOME_KEY,'1');}catch{}leaveWelcome();};
+ splash.classList.add('welcome');splash.setAttribute('role','dialog');splash.setAttribute('aria-modal','true');splash.setAttribute('aria-labelledby','welcome-title');
+ splash.querySelector('img')?.after(el('div',{class:'welcome-choice'},
+  el('h1',{id:'welcome-title',text:'Design your home. Keep every build.'}),
+  el('p',{text:'Sign in with Google: no forms, no passwords. Your builds save to your profile and open on any device.'}),g,skip));
+ googleButton(g,300);return true;
+}
+// Show the sign-in choice on the loading screen as soon as account status is known (never after 4 s, so a
+// slow network can't pop it up over a studio that is already open).
+export function prepareSplash(){Promise.race([boot.then(()=>true),new Promise<boolean>(r=>setTimeout(()=>r(false),4000))]).then(known=>{if(known&&!engineReady)showWelcome();});}
+
+export async function initAccounts(app:Engine,finish:()=>void){
+ engine=app;engineReady=true;finishSplash=finish;renderProfileButton();
+ const known=await Promise.race([boot.then(()=>true),new Promise<boolean>(r=>setTimeout(()=>r(false),1500))]);
+ if(known&&gate==='none')showWelcome();
+ if(gate==='waiting'){const splash=document.getElementById('splash');splash?.querySelector('.splash-bar')?.remove();const note=splash?.querySelector(':scope > p');if(note)note.textContent='Your studio is ready';}
+ else{finishSplash?.();finishSplash=null;}
+ await boot;renderProfileButton();if(queued){say(queued);queued='';}
 }
 export function saveBuild(design:string,summary:string){saveDialog(design,summary);}
 export function openBuilds(){openPanel(true);}
