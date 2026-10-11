@@ -359,7 +359,7 @@ function stepPier() {
 }
 
 /* ---------- House ---------- */
-const GIRDER_D = 11.875, GIRDER_W = 5.25, FLOOR_T = DESIGN ? 16.71875 : 12.625, WALL_H = DESIGN ? DESIGN.wallHeight * 12 : 96, EXT_T = 6.5, INT_T = 4.5, ROOF_T = DESIGN ? 16.625 : 12;
+const GIRDER_D = 11.875, GIRDER_W = 5.25, FLOOR_T = DESIGN ? (DESIGN.floorGap > 0.5 && DESIGN.floorGap < 4 ? DESIGN.floorGap * 12 : 16.71875) : 12.625, WALL_H = DESIGN ? DESIGN.wallHeight * 12 : 96, EXT_T = 6.5, INT_T = 4.5, ROOF_T = DESIGN ? 16.625 : 12;
 const PITCH_A = Math.atan(10 / 12), ROOF_SLOPE = 264;
 const RISE = (L / 2) * Math.tan(PITCH_A);
 const GIRDER_BOT = PIER_TOP + CAP_T;
@@ -1646,6 +1646,77 @@ function buildHouseObjects() {
     });
     return { root, mesh, lay, labels, wins: finishParts.slice(w0) };
   });
+}
+/* ---------- The studio's own house ----------
+   "See our process" stores the studio's exterior 3D house (a GLB) in IndexedDB. Each of its pieces is
+   assigned to the panels it sits in and appears when the last of them is set; the simulator's panel
+   is retired once everything over it is showing. When the shell is done, the house on site is the
+   studio design itself. Ground-level pieces (walks, stoop) sit on grade; porch and garage go on last. */
+const STUDIO = { root: null, site: null, parts: [], hideAt: [] };
+function loadStudioModel() {
+  if (!DESIGN || !window.indexedDB || !THREE.GLTFLoader) return;
+  let design = null; try { design = localStorage.getItem('uf-process-design'); } catch (e) { return; }
+  const req = indexedDB.open('uf-process', 1);
+  req.onupgradeneeded = () => req.result.createObjectStore('models');
+  req.onerror = () => {};
+  req.onsuccess = () => {
+    const db = req.result; let get;
+    try { get = db.transaction('models', 'readonly').objectStore('models').get('house'); } catch (e) { db.close(); return; }
+    get.onsuccess = () => { const rec = get.result; db.close();
+      if (!rec || !(rec.data instanceof ArrayBuffer) || rec.design !== design || rec.data.byteLength > 200e6) return;
+      try { new THREE.GLTFLoader().parse(rec.data, '', (gltf) => attachStudio(gltf.scene), () => {}); } catch (e) { /* the simulator's own panels stay */ }
+    };
+    get.onerror = () => db.close();
+  };
+}
+function attachStudio(model) {
+  const grade = new THREE.Group(), house = new THREE.Group();
+  // Studio feet, centered on the house; the simulator works in inches from the front-left corner.
+  house.scale.setScalar(12); house.position.set(HW / 2, yFloorTop(0), HD / 2);
+  grade.scale.setScalar(12); grade.position.set(HW / 2, 0.55 * 12, HD / 2);
+  model.updateMatrixWorld(true);
+  const box = new THREE.Box3(), meshes = [];
+  model.traverse((o) => { if (o.isMesh) meshes.push(o); });
+  meshes.forEach((m) => {
+    box.setFromObject(m); const low = box.max.y < -0.02;
+    const holder = low ? grade : house, w = new THREE.Matrix4().copy(m.matrixWorld);
+    m.parent.remove(m); m.matrix.copy(w); m.matrix.decompose(m.position, m.quaternion, m.scale); holder.add(m);
+    m.castShadow = true; m.receiveShadow = true; m.visible = false;
+    [].concat(m.material).forEach((mat) => { if (mat.map) mat.map.anisotropy = maxAniso; });
+  });
+  scene.add(house); scene.add(grade);
+  STUDIO.root = house; STUDIO.site = grade;
+  assignStudio();
+}
+function assignStudio() {
+  if (!STUDIO.root) return;
+  STUDIO.root.updateMatrixWorld(true); STUDIO.site.updateMatrixWorld(true);
+  const boxes = ELEMS.map((e, i) => {
+    const o = elemObj[i]; if (!o || e.kind === 'girder') return null;
+    o.root.position.copy(e.pos); o.root.quaternion.copy(e.quat); o.root.updateMatrixWorld(true);
+    const b = new THREE.Box3().setFromObject(o.mesh); b.expandByScalar(-1.5); return b;
+  });
+  const lastSet = ELEMS.reduce((m, e) => Math.max(m, e.s1), 0), pb = new THREE.Box3(), c = new THREE.Vector3();
+  STUDIO.parts = [];
+  const inFootprint = (b) => b.min.x > -24 && b.max.x < HW + 24 && b.min.z > -24 && b.max.z < HD + 24;
+  [STUDIO.root, STUDIO.site].forEach((holder) => holder.children.forEach((m) => {
+    pb.setFromObject(m); pb.getCenter(c);
+    const hits = []; boxes.forEach((b, i) => { if (b && b.intersectsBox(pb)) hits.push(i); });
+    let idx = hits;
+    if (!hits.length) { let best = -1, bd = Infinity; boxes.forEach((b, i) => { if (!b) return; const d = b.distanceToPoint(c); if (d < bd) { bd = d; best = i; } }); idx = best >= 0 ? [best] : []; }
+    STUDIO.parts.push({ m, idx, late: !inFootprint(pb) || holder === STUDIO.site });
+  }));
+  STUDIO.hideAt = ELEMS.map(() => -1);
+  STUDIO.parts.forEach((p) => { if (p.late) return; p.idx.forEach((i) => { STUDIO.hideAt[i] = Math.max(STUDIO.hideAt[i], 0); }); });
+  STUDIO.lastSet = lastSet;
+}
+function revealStudio(t) {
+  if (!STUDIO.root) return;
+  const at = (p) => (p.late ? STUDIO.lastSet : p.idx.reduce((m, i) => Math.max(m, ELEMS[i].s1), 0));
+  const hide = ELEMS.map(() => -1);
+  STUDIO.parts.forEach((p) => { const r = at(p); p.m.visible = t >= r; if (!p.late) p.idx.forEach((i) => { hide[i] = Math.max(hide[i], r); }); });
+  // A simulator panel steps aside once every studio piece over it is showing.
+  ELEMS.forEach((e, i) => { if (hide[i] >= 0 && t >= hide[i]) { elemObj[i].root.visible = false; elemObj[i].wins.forEach((g) => { g.visible = false; }); } });
 }
 /* ---------- Lumber stack spot (girders and beams); the framing truck itself is built in 04f ---------- */
 const DECK_Y = 50, PLAT = new THREE.Vector3(834 + SX, DECK_Y, 192);
@@ -3437,6 +3508,7 @@ function poseHouse() {
     if (r && r.set != null) { hookP = r.hook; setE = e; setQ = r.set; poseSlings(e, elemObj[i], r.slings, r.hook); }
     elemObj[i].wins.forEach((g) => { g.visible = SHOW.windows && !SHOW.xray && t >= e.f1; });
   });
+  revealStudio(t);
   if (!setE) slings.forEach((m) => { m.visible = false; });
   poseCrane(hookP || PARK);
   setter.visible = !!setE && setQ > 0.62;
@@ -3557,6 +3629,16 @@ function nowLine(done, total) {
   return s.charAt(0).toUpperCase() + s.slice(1) + '.';
 }
 let lastKey = '';
+// Each piece the crane sets, with the site-clock time it landed and how long the lift took.
+let logCount = -1;
+function pieceLog() {
+  const t = SITE.t, done = ELEMS.filter((e) => t >= e.s1).sort((a, b) => a.s1 - b.s1), next = ELEMS.filter((e) => t < e.s1).sort((a, b) => a.s1 - b.s1)[0];
+  txt('#nextPiece', next ? `Next: ${next.name || KIND_WORD[next.kind]} at ${fmtClockMin(next.s1)}` : SITE.started ? 'All pieces set' : '');
+  if (done.length === logCount) return; logCount = done.length;
+  const list = document.getElementById('pieceLog'); if (!list) return;
+  list.replaceChildren(...done.slice(-40).reverse().map((e) => { const li = document.createElement('li'), a = document.createElement('b'), b = document.createElement('span'), c = document.createElement('span');
+    a.textContent = fmtClockMin(e.s1); b.textContent = e.name || KIND_WORD[e.kind] || e.kind; c.textContent = `${Math.max(1, Math.round(e.set))} min`; li.append(a, b, c); return li; }));
+}
 function updateHud(force) {
   const total = TOTAL_PIERS();
   const done = P.archive.length + (P.phase === 'drive' ? heads.filter((h) => h.state === 'done').length : 0);
@@ -3567,6 +3649,7 @@ function updateHud(force) {
   txt('#built', `${built} of ${n}`);
   txt('#set', `${ELEMS.filter((e) => e.fab > 0 && SITE.t >= e.s1).length} of ${n}`);
   txt('#doneAt', `${fmtClockMin(PLAN.total)} (${fmtHM(PLAN.total)})`);
+  pieceLog();
   const key = [SITE.started, SITE.running, SITE.t >= PLAN.total].join('|');
   if (key !== lastKey || force) {
     lastKey = key;
@@ -3631,6 +3714,7 @@ function plan(msg) {
   prepElems();
   buildHouseObjects();
   applySkins();
+  assignStudio();
   placeHeads(); anchorRow = -1;
   SITE.t = 0; SITE.running = false; SITE.started = false; lastSetIdx = -1;
   const w = $('#warn'), notes = [];
@@ -3795,6 +3879,7 @@ setCutaway(false);
 })();
 if (!DESIGN) autoGrid(SITE.stories, P.depthIn);
 plan();
+loadStudioModel();
 setView('site', true);
 requestAnimationFrame(frame);
 })();

@@ -218,8 +218,8 @@
     },
     {
       "path": "materials/brick-diff.jpg",
-      "sourceSha256": "936a7d0eb6585a73f6cf4dc609bbb27ac2cf8e7ada0944ce6c1221c0b01ef1bc",
-      "mobileSha256": "8d8c44c468681d68ccf80345e7ec880a5633c0af981ba07da3731032d8f189ca",
+      "sourceSha256": "b1534611a8f7d695c2a0d4928f20482676b5cdd20a8e04a2513fe59af8aaa477",
+      "mobileSha256": "7e096dce80a82acb36bbfeb29c3718d272638c928261dac189b00e43ef1e7661",
       "images": [
         {
           "original": [
@@ -252,8 +252,8 @@
     },
     {
       "path": "materials/brick-rough.jpg",
-      "sourceSha256": "412ffa94d826a5546c01a3eaad6cdae558e002f40e0b28aded890395c199a652",
-      "mobileSha256": "23e84c2d1d1cebba944ab42f43dd8bed13cad5d72f586ce8aa8f19235bc695d9",
+      "sourceSha256": "3359be33466b7efc60c32a7760ccec8779089283a209511a794a198cfe11ad76",
+      "mobileSha256": "ee2e5eabe337a6ce421e91874203e9f7f548177687becda97a153933051475f3",
       "images": [
         {
           "original": [
@@ -269,13 +269,13 @@
     },
     {
       "path": "materials/grass-diff.jpg",
-      "sourceSha256": "c7882529b221b1a3269c7fa2b086cf4c4ceaaecd6301f6542910087efa36cf10",
-      "mobileSha256": "57b89a879f1dd40ff114429ca3d59308c9f5fe000758beddb12d3d09c0392cfc",
+      "sourceSha256": "0cf0d1004e8e2eb521bf459fd2ca9e9432bd3fe63ac29e375add342a76bb74b9",
+      "mobileSha256": "f71f8a6a437bf8a8d67328d6b2f479aaf69825161aeb9a45f2eefc04b807795a",
       "images": [
         {
           "original": [
-            2048,
-            2048
+            1024,
+            1024
           ],
           "mobile": [
             512,
@@ -286,13 +286,13 @@
     },
     {
       "path": "materials/grass-nor_gl.jpg",
-      "sourceSha256": "b22f7cc975232b0724c4fa8b08d8e65e135db72389fdffb851fe7f8ecce62a07",
-      "mobileSha256": "b55bda87cb6b6cf931f123902b34a81c2d3d2fe938472714ed4667855b61db60",
+      "sourceSha256": "1688c1e56da494b404a8ea23600737cfa00aac477249a80b8c6d8f8db9895eac",
+      "mobileSha256": "724269dc21f2d0081465687cd54f44e0fed64c7c6a361b1088f9cf5e2b3516e6",
       "images": [
         {
           "original": [
-            2048,
-            2048
+            1024,
+            1024
           ],
           "mobile": [
             512,
@@ -303,13 +303,13 @@
     },
     {
       "path": "materials/grass-rough.jpg",
-      "sourceSha256": "e0c8f63298b15d35c316d653fbb902cc652ce92673477b911e289660880dc146",
-      "mobileSha256": "89ef331028fc807dd0563c2fd5e517f280ea7b4edda4586a9bb1002e4fd8e539",
+      "sourceSha256": "c143426adba892d9c147669c4d48be6fd55811e5d8e8fd43f093cb82a7db4166",
+      "mobileSha256": "515869167d0052516f69ab2fda842f97441f423cec34dba45f3b21e84454a4b0",
       "images": [
         {
           "original": [
-            2048,
-            2048
+            1024,
+            1024
           ],
           "mobile": [
             512,
@@ -371,13 +371,13 @@
     },
     {
       "path": "materials/plaster-diff.jpg",
-      "sourceSha256": "010e38a49c4ce9fc8426146435f02651168d1ae9022a3e3075283e230638a144",
-      "mobileSha256": "319c4e66c2ccb67fec340a1b653a6fb8a1f6db99970886014d4ddd4bf5a15545",
+      "sourceSha256": "76077bf7cab2ea5f62a55bbcafa31752de7d876a2483038bb7bd5c271ffd992a",
+      "mobileSha256": "bda011471818a081a3e303ca673a980baacebc1efc3886dbaf13b9188436c4a2",
       "images": [
         {
           "original": [
-            2048,
-            2048
+            1024,
+            1024
           ],
           "mobile": [
             512,
@@ -388,13 +388,13 @@
     },
     {
       "path": "materials/plaster-nor_gl.jpg",
-      "sourceSha256": "6591d4e76f3f29e05fa4728215eb23ef0a8992247cf9a3910cd77d06e47bc6d8",
-      "mobileSha256": "20499d4d419f600e99b93bc7d5aeb0dad8661b4225040e86c781c4a468bb8ceb",
+      "sourceSha256": "41b3b5a65d0372aad86a80fc6c498ee0aff9a4bc93d27ab842559962218012ea",
+      "mobileSha256": "24b595d8b2e17f936c16e23b60d8778dd1217a872f0dc4b23617995690388357",
       "images": [
         {
           "original": [
-            2048,
-            2048
+            1024,
+            1024
           ],
           "mobile": [
             512,
@@ -405,13 +405,13 @@
     },
     {
       "path": "materials/plaster-rough.jpg",
-      "sourceSha256": "035e0b4228be016d22d22e67e953c466181c979a7ea15fc809809384d6058b2f",
-      "mobileSha256": "23ac737b3f19d451b0e79221f739def93dcc3ace79bba4a4d1044b98b0bf946a",
+      "sourceSha256": "f36b9929c307659eb05e60140d6ea67c6a17df1e8851a70baf2a2b5f8d5c7039",
+      "mobileSha256": "64e4f1f262c8ed73e8d091f6f86a0b5cd3bc8830c6f9d7e959b1f93a701c793e",
       "images": [
         {
           "original": [
-            2048,
-            2048
+            1024,
+            1024
           ],
           "mobile": [
             512,
@@ -422,8 +422,8 @@
     },
     {
       "path": "materials/stone-diff.jpg",
-      "sourceSha256": "b50005ccca850b925f77dbe65d873e881222399d00a2c1e0e883c7b2ceeae73d",
-      "mobileSha256": "3c3f511e2cadf204e4896fbaf736df02a15a9c9ae7a382a4980cb475247b4bd4",
+      "sourceSha256": "5e0b4b23637930bcb0eadb8fd9d9c96527b1e72de3cef6c1a179f65c83ccd6ef",
+      "mobileSha256": "1033a7d43b93468e5b7330d1064a034f70a9c41d0180ef9c5892b4c82c53637f",
       "images": [
         {
           "original": [
@@ -456,8 +456,8 @@
     },
     {
       "path": "materials/stone-rough.jpg",
-      "sourceSha256": "19ed92ef390f045833e0a149d56459bdf088f4921f9637e7bc55aecf445443a0",
-      "mobileSha256": "1678ff9b6a44d9ee9fb2feb8232d17010812ee0dd01559a0a8504b2c40f63f3f",
+      "sourceSha256": "05d4943b13cb1ced5111cb238c34fd7328d8cfa93c31d9fc62e1d4b802f222a6",
+      "mobileSha256": "be4382c76c3aa278c200f417050f6a681c2066daa1c3ec4e6ff832651c3410e6",
       "images": [
         {
           "original": [
@@ -881,8 +881,8 @@
     },
     {
       "path": "materials/wallpaper/01-midnight-damask.webp",
-      "sourceSha256": "5a12e8437d47fc5ac916f62172c64a13926cbca1a225b8f3c19c4d50dcbceffd",
-      "mobileSha256": "774dded041c523ff270a847872a50dae566c47c51595b0eebd297aa9d59db79e",
+      "sourceSha256": "78ca91321faf1578f929c2b5785773522b1458403c816339efbdefeebeae5cdd",
+      "mobileSha256": "9670b59e7d75f21f0bbdba171ebe544b39b99485fede1ca83eedc25b0d92315b",
       "images": [
         {
           "original": [
@@ -898,8 +898,8 @@
     },
     {
       "path": "materials/wallpaper/02-botanical-silk.webp",
-      "sourceSha256": "53638e97150c1c8280852fb882540e94169539da49b24180c690939dddcadf53",
-      "mobileSha256": "4d104f2572b641d600af38176361da1b2102df01759370c1fc97c2de5f5990ae",
+      "sourceSha256": "410dda13fcd42d8de248e5ecd839859091412c7551af99de35f3e7a7290c8ff7",
+      "mobileSha256": "c065c2ec2da4246b032dcafc77eeb6c446b6a8cdb1e062ee92a9c18d9e51695d",
       "images": [
         {
           "original": [
@@ -915,8 +915,8 @@
     },
     {
       "path": "materials/wallpaper/03-copper-deco.webp",
-      "sourceSha256": "f60cb20993984f886a3e38f1d2b8578635573ef51af3b7876c0a8c05f3c3f0bd",
-      "mobileSha256": "f014a3667fa3a6bfec6bf5f3ee14710c3d8a7856987030c0fe8a111eb6ab224d",
+      "sourceSha256": "e886ae407c01530fcb8aac600086e73d4a6487e3ebfb626762e353475c5b758f",
+      "mobileSha256": "8a459beb2468465ac383590e232c30e16f1a316a9927399c86d7803bc6822088",
       "images": [
         {
           "original": [
@@ -932,8 +932,8 @@
     },
     {
       "path": "materials/wallpaper/04-peacock-chinoiserie.webp",
-      "sourceSha256": "8946efda176187df8bc69f5bbf82f8ccc08c916b160ab191ff5433f0de9f6a76",
-      "mobileSha256": "2c4b8aa035f2abe36f66a9167a33a78872c44dc828d60983c40770f80af5c3a2",
+      "sourceSha256": "ce0065b986dd0235acf3002dff9c79124150fc58746150bf08375cb60476db0c",
+      "mobileSha256": "7bd3c709f7d22905fe8ed1866fca34e02552786751fd1548d20aeaae1b2f369e",
       "images": [
         {
           "original": [
@@ -949,8 +949,8 @@
     },
     {
       "path": "materials/wallpaper/05-heritage-floral.webp",
-      "sourceSha256": "d18d880b3918943427444a4c0eaf00df4b315c069a3f6400b2a8e77904ce79c8",
-      "mobileSha256": "f40a493b334cad797f608f127e75c8b9cf84ceef36dee82a71a7b03dd32cf827",
+      "sourceSha256": "f0797367787164e5db9e81992c39af8868b3502693bda4fe9b3ab3f4d74a7bcb",
+      "mobileSha256": "b256b504f224e6fccf4095e14ade1ad4d9d4ff07f586ec7351666b63241e13c3",
       "images": [
         {
           "original": [
@@ -966,8 +966,8 @@
     },
     {
       "path": "materials/wallpaper/06-linen-toile.webp",
-      "sourceSha256": "0a506b1cc2845a38250e592cc92cd77280fdb248d4ee6abbed400cb34b80388f",
-      "mobileSha256": "c932375ffaedc634a832676ca1554519ed619179269fe926bc40c50b6094e4b8",
+      "sourceSha256": "1bb2e70f4e2f6e86c3d9121b48fdb7071a4e798f5491bad19cfab62132b7f4e6",
+      "mobileSha256": "d61315ed103a9dee6fb9cf803bf8e8af5cfedb3688e74f3066643d0b82d6f1d0",
       "images": [
         {
           "original": [
@@ -983,8 +983,8 @@
     },
     {
       "path": "materials/wallpaper/07-teal-lattice.webp",
-      "sourceSha256": "fe2e5183200414b4ae5141a74c6f1f632afba64a390cf04b6f9c0e3dd0b7127c",
-      "mobileSha256": "06e51fc7324e162a225f4815a93b791713a01939e5d7b85783993ffbf0afbe1c",
+      "sourceSha256": "32b3b0423fbe6d245facffa2ce57b78633967501f7fab5e3949d3b3e66af4e8c",
+      "mobileSha256": "f545aff63ad2e6b1ebe512a9d855b205cc7df64c7fe7c5f3028a4b9528f4b9c1",
       "images": [
         {
           "original": [
@@ -1000,8 +1000,8 @@
     },
     {
       "path": "materials/wallpaper/08-marble-filigree.webp",
-      "sourceSha256": "7b30c100aa5f939ea8c3d8d9be5a356017f4fd928bec2fef877f123487e4aace",
-      "mobileSha256": "f82ca728a3164005ef18b445b1400c86f3ed4b904ea2ab99a7ff942c44d61c63",
+      "sourceSha256": "b66775cd7c78bc778033ce58f41f6337c20a91d21a42a290fbbc1dc6a4e748af",
+      "mobileSha256": "a8e62463fcc301e62465c8aca7d1bb1529ef7f922b74214878ac2ed1d3a67e73",
       "images": [
         {
           "original": [
@@ -1017,8 +1017,8 @@
     },
     {
       "path": "materials/wallpaper/09-plum-baroque.webp",
-      "sourceSha256": "d75ccd69bc8c9e60b423c0bca6276b80e6d64b1516862d8bf269d6ffd30e125d",
-      "mobileSha256": "af1d3e111830787552562a4914a8753d813ec102a70bfdf15f964c9bd48ef84d",
+      "sourceSha256": "096ce30b99d5f2ebce19b141798ba894e1978e33b7e7630b5e5c5a4b9716d926",
+      "mobileSha256": "2e976fbb29785a35b933a2f00bc0c928357cee9c8ba93edaad1936d9a484d8f1",
       "images": [
         {
           "original": [
@@ -1034,8 +1034,8 @@
     },
     {
       "path": "materials/wallpaper/10-blue-medallion.webp",
-      "sourceSha256": "f4b5bbbde2976308b5e4c2928f0d1a0669097a39197b823565b8a1929c9f6489",
-      "mobileSha256": "f7d6e8cbbd5d1a5905090288fae154f22a9616c8be7b02f362934434d4978467",
+      "sourceSha256": "eb3edaf768da1ad26894cd30e67757ead508ccc75d2f8fd70fd0dba006cc6c01",
+      "mobileSha256": "591b809697d468b2d0249c24f6450ff1ed1089f9168ec33d9067605506d47000",
       "images": [
         {
           "original": [

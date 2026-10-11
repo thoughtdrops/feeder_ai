@@ -510,3 +510,10 @@ fn balconies_have_an_actual_upper_door_supports_and_itemized_materials(){
  time("finishes::faces",&||json!(finishes::faces(&cc,&rs,&ws).len()));
  time("accessibility::report",&||{let fs=staging::build(&rs,&ws).0;accessibility::report(&cc,&rs,&ws,&fs)});
 }
+#[test]fn generate_another_home_always_returns_a_complete_different_design(){
+ let mut styles=std::collections::BTreeSet::new();let mut sizes=std::collections::BTreeSet::new();let mut stories=std::collections::BTreeSet::new();
+ for(mode,keep)in[("Custom",false),("Custom",true),("Affordable",false),("Premium",false)]{let mut c=Config::default();c.design_mode=mode.into();
+  for seed in 0..8u32{let next=generator::surprise(&c,1000+seed*97,keep).unwrap_or_else(|e|panic!("{} {}: {}",mode,seed,e));validate(&next).unwrap();assert_ne!(next.home_style,c.home_style,"each click changes the style");
+   let m=model::build(&next);assert!(generator::practical(&next,&m));styles.insert(next.home_style.clone());sizes.insert(format!("{}x{}",next.width,next.depth));stories.insert(next.stories);c=next;}}
+ assert!(styles.len()>=8,"varied styles: {:?}",styles);assert!(sizes.len()>=8,"varied sizes: {:?}",sizes);assert!(stories.len()>=2);
+}

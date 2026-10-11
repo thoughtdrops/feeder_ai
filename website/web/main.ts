@@ -12,6 +12,7 @@ let unbindAccessibility:undefined|(()=>void);
 let reportBusy=false;
 let app:any,stage:ReturnType<typeof createSceneController>|undefined;
 let zipController:AbortController|undefined;
+let engineWorker:Worker|undefined;const engineReplies=new Map<number,ReturnType<typeof setTimeout>>();
 (globalThis as any).ufBridge={
  layoutEditor,
  navigateScene(direction:string){stage?.navigate(direction);},
@@ -22,6 +23,14 @@ let zipController:AbortController|undefined;
  selectScene(raw:string){stage?.select(JSON.parse(raw));},
  pickScene(target:any){app?.pick_scene(JSON.stringify(target));},
  assetStatus(message:string){app?.show_status(message);},
+ async openProcess(raw:string,design:string){const shade=document.createElement('div');shade.className='splash';shade.setAttribute('role','status');shade.innerHTML='<img src="/brand/universal-frames-loading.webp" alt="" width="861" height="603"><div class="splash-bar" aria-hidden="true"><span></span></div><p>Preparing your build…</p>';document.body.appendChild(shade);(globalThis as any).__ufPauseScene=true;try{const {exportHouseForProcess}=await import('./process-export');await Promise.race([exportHouseForProcess(JSON.parse(raw),design,stage?.liveScene('exterior')),new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),30000))]);}catch(e){console.warn('Studio model was not handed to the simulator; it will build its own panels.',e);}location.href='process/';},
+ requestModel(config:string,seq:number){
+  // The worker needs module workers; without them the engine builds on the main thread as before.
+  if(typeof Worker==='undefined')return false;
+  try{if(!engineWorker){engineWorker=new Worker(new URL('./engine-worker.ts',import.meta.url),{type:'module'});engineWorker.onmessage=(e:MessageEvent)=>{const {seq,model}=e.data;clearTimeout(engineReplies.get(seq));engineReplies.delete(seq);app?.apply_model(seq,typeof model==='string'?model:'');};engineWorker.onerror=()=>{for(const [seq,timer] of engineReplies){clearTimeout(timer);app?.apply_model(seq,'');}engineReplies.clear();};}}catch{return false;}
+  const timer=setTimeout(()=>app?.apply_model(seq,''),5000);
+  engineReplies.set(seq,timer);engineWorker.postMessage({seq,config,module:wasmModule,wasm:'/pkg/universal_frames_bg.wasm?v='+engineRevision});return true;
+ },
  renderScene(raw:string){stage??=createSceneController({host:document.getElementById('scene')!,render:renderHouse,onError(error){console.error(error);app?.show_status('The 3D view could not load. Switch views or use Reset view to retry.');}});stage.update(JSON.parse(raw));},
  async lookupZip(zip:string){if(!/^\d{5}$/.test(zip)){app?.show_status('Enter a five-digit US ZIP code.');return;}zipController?.abort();const controller=new AbortController();zipController=controller;let timedOut=false;const timeout=setTimeout(()=>{timedOut=true;controller.abort();},12000);try{const r=await fetch('https://api.zippopotam.us/us/'+encodeURIComponent(zip),{signal:controller.signal});if(!r.ok)throw Error('ZIP not found');const j=await r.json() as {places?:{latitude:string;longitude:string}[]};const p=j.places?.[0],lat=Number(p?.latitude),lon=Number(p?.longitude);if(!p||!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)throw Error('ZIP not found');app.apply_location(zip,lat,lon);}catch(e:any){if(e.name!=='AbortError'||timedOut&&zipController===controller)app.show_status('ZIP lookup is unavailable or the ZIP was not found. Choose state and county in Build.');}finally{clearTimeout(timeout);}},
  download(data:string,mime:string,name:string){const url=URL.createObjectURL(new Blob([data],{type:mime}));const a=document.createElement('a');a.href=url;a.download=name;a.rel='noopener';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);app.show_status('Design JSON downloaded');},
@@ -31,4 +40,5 @@ window.addEventListener('pagehide',event=>{if(event.persisted)return;unbindAcces
 declare const __UF_ENGINE_REVISION__:string;
 const engineRevision=__UF_ENGINE_REVISION__;
 const wasmModule='/pkg/universal_frames.js?v='+engineRevision;
-try{app=await import(/* @vite-ignore */wasmModule);await app.default({module_or_path:'/pkg/universal_frames_bg.wasm?v='+engineRevision});app.start();unbindTextures=bindTextureUploads(()=>app);theme.refresh();unbindAccessibility=bindStudioAccessibility();}catch(e){console.error(e);document.getElementById('app')!.innerHTML='<div class="load-error"><div class="loading-brand"><img class="brand-icon" src="/brand/universal-frames-icon.png" alt="" width="64" height="64"><img class="brand-wordmark" src="/brand/universal-frame-wordmark.webp" alt="Universal Frame" width="246" height="82"></div><p>The design engine could not load. Please refresh the page to retry.</p><button id="retry-studio">Reload studio</button></div>';document.getElementById('retry-studio')?.addEventListener('click',()=>location.reload());}
+const hideSplash=()=>{const splash=document.getElementById('splash');if(!splash)return;splash.classList.add('done');setTimeout(()=>splash.remove(),600);};
+try{app=await import(/* @vite-ignore */wasmModule);await app.default({module_or_path:'/pkg/universal_frames_bg.wasm?v='+engineRevision});app.start();requestAnimationFrame(()=>requestAnimationFrame(hideSplash));unbindTextures=bindTextureUploads(()=>app);theme.refresh();unbindAccessibility=bindStudioAccessibility();}catch(e){console.error(e);hideSplash();document.getElementById('app')!.innerHTML='<div class="load-error"><div class="loading-brand"><img class="brand-icon" src="/brand/universal-frames-icon.png" alt="" width="64" height="64"><img class="brand-wordmark" src="/brand/universal-frame-wordmark.webp" alt="Universal Frame" width="246" height="82"></div><p>The design engine could not load. Please refresh the page to retry.</p><button id="retry-studio">Reload studio</button></div>';document.getElementById('retry-studio')?.addEventListener('click',()=>location.reload());}

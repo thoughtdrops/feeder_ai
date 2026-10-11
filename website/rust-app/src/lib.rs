@@ -38,6 +38,7 @@ fn base_layout(c:&Config)->(Vec<Room>,Value){if c.design_mode=="Blank slate"{let
 #[derive(Clone,Serialize,Deserialize,Debug)]#[serde(rename_all="camelCase")]pub struct WallRemoval{pub wall_id:String,pub at:f64,pub width:f64}
 
 #[cfg(target_arch="wasm32")]#[wasm_bindgen]pub fn pick_scene(input:&str){ui::pick(input)}
+#[cfg(target_arch="wasm32")]#[wasm_bindgen]pub fn apply_model(seq:u32,json:&str){ui::apply_model(seq,json)}
 
 #[derive(Clone,Serialize,Deserialize,Debug)]pub struct WallGeometry{pub x:f64,pub z:f64,pub length:f64,#[serde(default)]pub axis:String}
 #[cfg(target_arch="wasm32")]#[wasm_bindgen]pub fn resize_wall(input:&str){ui::resize_wall(input)}

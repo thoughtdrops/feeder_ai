@@ -16,6 +16,12 @@
 .back{margin:0 0 10px;text-decoration:none}
 .swap{display:inline-block;margin:6px 0 0;color:var(--accent);font-size:13px;font-weight:600;text-underline-offset:3px}
 @media (max-width:900px){.swap{display:none}}
+.log-head{display:flex;justify-content:space-between;gap:8px;margin-top:10px;font-size:12px;color:var(--ink-soft)}
+.log-head span:last-child{color:var(--ink);font-weight:600;text-align:right}
+.piece-log{list-style:none;margin:6px 0 0;padding:0;max-height:132px;overflow:auto;font-size:12px;line-height:1.35;border-top:1px solid #ffffff1f}
+.piece-log li{display:grid;grid-template-columns:auto 1fr auto;gap:8px;padding:4px 0;border-bottom:1px solid #ffffff12}
+.piece-log b{font-variant-numeric:tabular-nums;color:var(--ink)}
+.piece-log li span:last-child{color:var(--ink-soft);font-variant-numeric:tabular-nums}
 </style>
 <style>
 :root{
@@ -171,6 +177,8 @@ a.btn{text-decoration:none}
           <span>Panels set</span><b id="set">0 of 0</b>
           <span>Shell done</span><b id="doneAt">–</b>
         </div>
+        <div class="log-head"><span>Piece log · time each piece is set</span><span id="nextPiece"></span></div>
+        <ol id="pieceLog" class="piece-log"></ol>
       </section>
     </div>
     <section class="card dock" aria-label="Job status and controls">
@@ -217,6 +225,7 @@ a.btn{text-decoration:none}
   <div id="live" class="sr-only" aria-live="polite"></div>
 </main>
 <script src="three.min.js"></script>
+<script src="gltf-loader.js"></script>
 <script src="process.js"></script>
 </body>
 </html>
