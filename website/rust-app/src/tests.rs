@@ -398,7 +398,29 @@ fn garage_connection_moves_without_moving_the_building_and_keeps_the_same_frame(
  let rs:Vec<Room>=serde_json::from_value(before["rooms"].clone()).unwrap();let ws:Vec<Wall>=serde_json::from_value(before["walls"].clone()).unwrap();garage::move_connection(&mut c,&rs,&ws,7.).unwrap();let after=model::build(&c);
  assert_eq!(before["garage"]["x"],after["garage"]["x"]);assert_eq!(before["garage"]["z"],after["garage"]["z"]);
  let door=after["openings"].as_array().unwrap().iter().find(|o|s(o,"id")=="G-HOUSE-DOOR").unwrap();assert!((n(door,"at")+n(door,"width")/2.-7.).abs()<1e-8);assert!(after["frameMembers"].as_array().unwrap().iter().any(|p|s(p,"openingId")=="G-HOUSE-DOOR"&&s(p,"role")=="Header ply"));
- assert!(garage::move_connection(&mut c,&rs,&ws,30.).is_err());
+ let note=garage::move_connection(&mut c,&rs,&ws,30.).unwrap();assert!(note.is_some(),"A spot past the shared wall snaps back with a note");
+ let snapped=model::build(&c);let door=snapped["openings"].as_array().unwrap().iter().find(|o|s(o,"id")=="G-HOUSE-DOOR").unwrap();let center=n(door,"at")+n(door,"width")/2.;
+ let spans=garage::connection_spans(&c,&rs,&ws);assert!(spans.iter().any(|&(a,b)|center>=a-1e-6&&center<=b+1e-6));assert!(center<24.);
+ assert!(garage::move_connection(&mut c,&rs,&ws,f64::NAN).is_err());
+}
+
+#[test]
+fn the_garage_slides_along_the_house_and_its_door_can_go_anywhere_but_bedrooms_and_stairs(){
+ let mut c=Config::default();c.garage="Attached".into();c.garage_side="Left".into();let auto=model::build(&c);
+ for z in [-16.,0.,8.,(c.depth-8.).max(0.)]{
+  c.garage_offset=Some(z);c.opening_overrides.clear();assert!(validate(&c).is_ok());let m=model::build(&c);assert_eq!(n(&m["garage"],"z"),z);
+  let rs:Vec<Room>=serde_json::from_value(m["rooms"].clone()).unwrap();let ws:Vec<Wall>=serde_json::from_value(m["walls"].clone()).unwrap();
+  let spans=garage::connection_spans(&c,&rs,&ws);
+  for &(a,b) in &spans{for center in [a,(a+b)/2.,b]{let mut t=c.clone();assert_eq!(garage::move_connection(&mut t,&rs,&ws,center).unwrap(),None);let door=model::build(&t)["openings"].as_array().unwrap().iter().find(|o|s(o,"id")=="G-HOUSE-DOOR").cloned().unwrap();assert!((n(&door,"at")+n(&door,"width")/2.-center).abs()<1e-6);
+   assert!(!rs.iter().any(|r|["bedroom","stairs"].contains(&r.kind.as_str())&&near(r.x,0.)&&center-19./12.<r.z+r.d&&center+19./12.>r.z),"never into a bedroom or stair");}}
+ }
+ c.garage_offset=Some(f64::NAN);assert!(validate(&c).is_err());c.garage_offset=Some(500.);assert!(validate(&c).is_err());
+ c.garage_offset=None;assert_eq!(model::build(&c)["garage"]["z"],auto["garage"]["z"]);
+ // A bath on the shared wall may take the door (IRC R302.5.1 only bars sleeping rooms).
+ let rooms=vec![Room{id:"B".into(),name:"Bath".into(),kind:"bath".into(),x:0.,z:0.,w:8.,d:10.}];let w=Wall{id:"W".into(),name:"Left".into(),x:0.,z:0.,length:24.,axis:"z".into(),exterior:true,openings:vec![]};
+ let mut t=Config::default();t.garage="Attached".into();t.garage_side="Left".into();t.garage_offset=Some(0.);t.depth=24.;
+ let o=Opening{id:"G-HOUSE-DOOR".into(),kind:"door".into(),at:3.,width:38./12.,bottom:0.,height:82.5/12.};assert!(garage::connection_error(&o,&w,&t,&rooms).is_none());
+ let bed=vec![Room{kind:"bedroom".into(),..rooms[0].clone()}];assert!(garage::connection_error(&o,&w,&t,&bed).is_some());
 }
 
 #[test]

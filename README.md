@@ -26,6 +26,15 @@ pnpm build          # production site in website/dist
 
 Vercel builds from `vercel.json` (repository root) or `website/vercel.json` (if the project's root directory is `website`): install with pnpm, `node scripts/build-rust-site.mjs`, publish `dist/`. Security headers and caching are defined there. Set `SITE_URL` (or rely on Vercel's production domain) so canonical, sharing and sitemap URLs are absolute.
 
+### Custom domain (e.g. one bought at GoDaddy)
+
+1. Vercel → Project → Settings → Domains → add `yourdomain.com` and `www.yourdomain.com` (let Vercel redirect one to the other).
+2. GoDaddy → My Products → the domain → DNS → Manage DNS. Delete any GoDaddy "Parked" `A @` record and any domain forwarding, then add exactly the records Vercel shows, typically:
+   - `A` · name `@` · value `76.76.21.21`
+   - `CNAME` · name `www` · value `cname.vercel-dns.com` (or the project-specific value Vercel lists)
+3. Wait for Vercel's Domains page to show both as Valid (minutes to a few hours); it issues HTTPS automatically.
+4. Set `SITE_URL=https://yourdomain.com` in Vercel's environment variables, add the domain to the Google OAuth client's Authorized JavaScript origins, and redeploy.
+
 CI (`.github/workflows/ci.yml`) runs the engine tests, release-fingerprint check, type check, feature tests and a production build on every pull request.
 
 ## Accounts (Sign in with Google, saved builds)

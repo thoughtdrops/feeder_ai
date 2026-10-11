@@ -7,7 +7,7 @@ import {renderHouse} from './scene';
 import {layoutEditor} from './context-menu';
 import {createSceneController} from './scene-controller';
 import {releaseRenderer} from './graphics';
-import {initAccounts,saveBuild,openBuilds} from './account';
+import {initAccounts,prepareSplash,saveBuild,openBuilds} from './account';
 let unbindTextures:undefined|(()=>void);
 let unbindAccessibility:undefined|(()=>void);
 let reportBusy=false;
@@ -52,4 +52,5 @@ declare const __UF_ENGINE_REVISION__:string;
 const engineRevision=__UF_ENGINE_REVISION__;
 const wasmModule='/pkg/universal_frames.js?v='+engineRevision;
 const hideSplash=()=>{const splash=document.getElementById('splash');if(!splash)return;splash.classList.add('done');setTimeout(()=>splash.remove(),600);};
-try{app=await import(/* @vite-ignore */wasmModule);await app.default({module_or_path:'/pkg/universal_frames_bg.wasm?v='+engineRevision});app.start();requestAnimationFrame(()=>requestAnimationFrame(hideSplash));initAccounts(app).catch(()=>{});scopeNote();unbindTextures=bindTextureUploads(()=>app);theme.refresh();unbindAccessibility=bindStudioAccessibility();}catch(e){console.error(e);hideSplash();document.getElementById('app')!.innerHTML='<div class="load-error"><div class="loading-brand"><img class="brand-icon" src="/brand/universal-frames-icon.png" alt="" width="64" height="64"><img class="brand-wordmark" src="/brand/universal-frame-wordmark.webp" alt="Universal Frame" width="246" height="82"></div><p>The design engine could not load. Please refresh the page to retry.</p><button id="retry-studio">Reload studio</button></div>';document.getElementById('retry-studio')?.addEventListener('click',()=>location.reload());}
+prepareSplash();
+try{app=await import(/* @vite-ignore */wasmModule);await app.default({module_or_path:'/pkg/universal_frames_bg.wasm?v='+engineRevision});app.start();initAccounts(app,()=>requestAnimationFrame(()=>requestAnimationFrame(hideSplash))).catch(()=>hideSplash());scopeNote();unbindTextures=bindTextureUploads(()=>app);theme.refresh();unbindAccessibility=bindStudioAccessibility();}catch(e){console.error(e);hideSplash();document.getElementById('app')!.innerHTML='<div class="load-error"><div class="loading-brand"><img class="brand-icon" src="/brand/universal-frames-icon.png" alt="" width="64" height="64"><img class="brand-wordmark" src="/brand/universal-frame-wordmark.webp" alt="Universal Frame" width="246" height="82"></div><p>The design engine could not load. Please refresh the page to retry.</p><button id="retry-studio">Reload studio</button></div>';document.getElementById('retry-studio')?.addEventListener('click',()=>location.reload());}
