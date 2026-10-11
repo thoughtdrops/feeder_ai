@@ -14,7 +14,7 @@ web-sys={version="=0.3.81",features=["Window","Document","Element","HtmlElement"
 console_error_panic_hook="0.1.7"
 [profile.release]
 lto=true
-opt-level="s"
+opt-level=3
 codegen-units=1
 panic="abort"
 strip=true

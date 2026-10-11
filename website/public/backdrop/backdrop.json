@@ -1,0 +1,9 @@
+{
+  "image": null,
+  "mobileImage": null,
+  "height": 5.5,
+  "radius": 320,
+  "rotation": 0,
+  "credit": "",
+  "about": "Set image to a 360-degree equirectangular photo in this folder (8192 x 4096 JPG recommended; mobileImage 4096 x 2048). height is the camera height of the photo in feet, radius how far its ground reaches in feet, rotation turns the photo in degrees."
+}
