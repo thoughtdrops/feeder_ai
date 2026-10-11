@@ -486,3 +486,27 @@ fn balconies_have_an_actual_upper_door_supports_and_itemized_materials(){
   let ds=m["dormers"].as_array().unwrap();assert!(!ds.is_empty(),"{} dormers fit: {:?}",kind,m["dormerNotes"]);for d in ds{assert_eq!(s(d,"kind"),kind);assert!(n(&d["arch"],"rise")>=1.);assert!(!d["facets"].as_array().unwrap().is_empty());assert!(!d["rafters"].as_array().unwrap().is_empty());for f in d["facets"].as_array().unwrap(){for p in f["points"].as_array().unwrap(){assert!(p.as_array().unwrap().iter().all(|v|v.as_f64().unwrap().is_finite()));}}}
   let items=m["items"].as_array().unwrap();assert!(items.iter().any(|i|s(i,"id").ends_with("-archheader")));assert!(items.iter().any(|i|s(i,"name").contains(if kind=="Eyebrow"{"eyebrow window"}else{"Arched-top"})));if kind=="Arched"{assert!(items.iter().any(|i|s(i,"id").ends_with("-ribs")));}else{assert!(ds.iter().all(|d|d["cheeks"].as_array().unwrap().is_empty()),"eyebrows have no cheek walls");}}
 }
+#[test]#[ignore]fn bench_model_build(){
+ for(name,stories,w,d)in[("Victorian",2,26.,46.),("Victorian",3,26.,46.),("Georgian",2,48.,40.),("Georgian",3,100.,100.)]{let mut c=Config::default();c.home_style=name.into();architecture::apply(&mut c,true);c.stories=stories;c.width=w;c.depth=d;if validate(&c).is_err(){c.catalog_plan=false;}
+  let t=std::time::Instant::now();let mut len=0;for _ in 0..5{len=model::build(&c).to_string().len();}let ms=t.elapsed().as_secs_f64()*1000./5.;
+  let m=model::build(&c);let mut sizes:Vec<(String,usize)>=m.as_object().unwrap().iter().map(|(k,v)|(k.clone(),v.to_string().len())).collect();sizes.sort_by(|a,b|b.1.cmp(&a.1));
+  println!("{} {} {}x{}: {:.1} ms, JSON {} KB; biggest: {:?}",name,stories,w,d,ms,len/1024,sizes.iter().take(8).map(|(k,s)|format!("{}={}KB",k,s/1024)).collect::<Vec<_>>());}
+}
+#[test]#[ignore]fn bench_model_stages(){
+ let mut c=Config::default();c.home_style="Georgian".into();architecture::apply(&mut c,true);c.stories=2;
+ let time=|label:&str,f:&dyn Fn()->Value|{let t=std::time::Instant::now();for _ in 0..5{std::hint::black_box(f());}println!("{:<28}{:>8.1} ms",label,t.elapsed().as_secs_f64()*200.);};
+ time("roof::build",&||roof::build(&c));
+ time("build_level floor0",&||{let mut cc=c.clone();cc.active_floor=0;model::build_level(&cc)});
+ time("build_level floor1",&||{let mut cc=c.clone();cc.active_floor=1;model::build_level(&cc)});
+ time("storeys::build",&||storeys::build(&c));
+ time("+garage+porch+additions",&||additions::apply(&c,porch::apply(&c,garage::apply(&c,storeys::build(&c)))));
+ time("+panels+roofing",&||roofing::apply(&c,panels::apply(&c,additions::apply(&c,porch::apply(&c,garage::apply(&c,storeys::build(&c)))))));
+ time("model::build (all)",&||model::build(&c));
+ time("model::build + to_string",&||json!(model::build(&c).to_string().len()));
+ let mut cc=c.clone();cc.active_floor=0;let rs=layout(&cc).0;let ws=model::walls(&cc,&rs);
+ time("frame::build floor0",&||{json!(frame::build(&ws,&cc).len())});
+ time("staging::build floor0",&||{json!(staging::build(&rs,&ws).0.len())});
+ time("rules::opening_schedule",&||rules::opening_schedule(&cc,&rs,&ws));
+ time("finishes::faces",&||json!(finishes::faces(&cc,&rs,&ws).len()));
+ time("accessibility::report",&||{let fs=staging::build(&rs,&ws).0;accessibility::report(&cc,&rs,&ws,&fs)});
+}

@@ -32,7 +32,7 @@ export function clearSceneResources(scene:T.Scene,textures:T.Texture[]){
  for(const material of materials)for(const value of Object.values(material))if(value instanceof T.Texture)maps.add(value);
  for(const geometry of geometries)geometry.dispose();
  for(const material of materials)material.dispose();
- for(const texture of maps)texture.dispose();
+ for(const texture of maps)if(!texture.userData.persistent)texture.dispose();
  // Cached GLB source images/geometries remain bounded and may be used again.
  scene.environment=null;scene.background=null;scene.clear();
 }
