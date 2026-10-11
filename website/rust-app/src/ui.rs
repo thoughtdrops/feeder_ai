@@ -37,7 +37,7 @@ fn controls(a:&State)->String{let c=&a.c;let mut out=String::from("<div class=pa
  else{out.push_str("<div class=notice><strong>Empty shell</strong><p>Draw walls on the 2-foot grid and click to place items. Each floor keeps its edits.</p></div>");}
  out.push_str("<details class=control-group data-section=roof><summary>Wall height &amp; roof pitch</summary><div class=two-fields>");
  out.push_str(&select("wallHeight","Wall height",&strings(&["8.09375","8","9","10"]),&c.wall_height.to_string()).replace(">8.09375</option>",">Standard panel · 97-1/8 in plates</option>"));
- out.push_str(&select("pitch","Roof pitch · :12",&if architecture::preset(&c.home_style).3=="Low slope"{strings(&["0.25","0.5","1","2","3","4","5","6","7","8","9","10"])}else{strings(&["2","3","4","5","6","7","8","9","10"])},&c.pitch.to_string()));
+ out.push_str(&select("pitch","Roof pitch · :12",&if architecture::preset(&c.home_style).3=="Low slope"{strings(&["0.25","0.5","1","2","3","4","5","6","7","8","9","10","11","12"])}else{strings(&["2","3","4","5","6","7","8","9","10","11","12"])},&c.pitch.to_string()));
  out.push_str("</div><p class=muted>Style-matched roof · I-joist rafters · four-ply LVL ridge. Final member sizing requires engineering.</p></details>");
  out.push_str(&features::roof(a));
  out.push_str(&select("foundation","Foundation",&strings(&[piers::HELICAL,piers::CONCRETE]),&c.foundation));

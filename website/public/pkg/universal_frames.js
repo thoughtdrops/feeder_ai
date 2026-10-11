@@ -406,7 +406,7 @@ function __wbg_adapter_4(arg0, arg1, arg2) {
     wasm.__wbindgen_export_5(arg0, arg1, addHeapObject(arg2));
 }
 
-function __wbg_adapter_11(arg0, arg1) {
+function __wbg_adapter_15(arg0, arg1) {
     wasm.__wbindgen_export_6(arg0, arg1);
 }
 
@@ -904,7 +904,7 @@ function __wbg_get_imports() {
     };
     imports.wbg.__wbindgen_cast_af54cb5d64a8cc15 = function(arg0, arg1) {
         // Cast intrinsic for `Closure(Closure { dtor_idx: 8, function: Function { arguments: [], shim_idx: 9, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-        const ret = makeMutClosure(arg0, arg1, 8, __wbg_adapter_11);
+        const ret = makeMutClosure(arg0, arg1, 8, __wbg_adapter_15);
         return addHeapObject(ret);
     };
     imports.wbg.__wbindgen_object_clone_ref = function(arg0) {

@@ -1,8 +1,14 @@
 use super::*;
 
 pub fn roof(a:&State)->String{
-    let c=&a.c;let mut out=String::from("<details class=control-group data-section=exterior><summary>Dormers &amp; architectural details</summary>");
-    out.push_str(&select("dormerStyle","Window dormer roof",&strings(&["None","Style matched","Gable","Shed","Hip"]),&c.dormer_style));
+    let c=&a.c;let mut out=String::from("<details class=control-group data-section=roofing><summary>Roof covering &amp; ceiling</summary>");
+    out.push_str(&select("roofing","Roof covering",&strings(&roofing::CHOICES),&c.roofing));
+    let r=&a.m["roofing"];out.push_str(&format!("<p class=muted>Building with {} · {} factory roof panels. Minimum pitch {}:12; style-matched shingles switch to metal on flatter roofs.</p>",esc(s(r,"kind")),n(r,"panels"),n(r,"minPitch")));
+    if !s(r,"note").is_empty(){out.push_str(&format!("<p class=feature-note>{}</p>",esc(s(r,"note"))));}
+    if roof::cathedral_ok(c){out.push_str(&select("ceiling","Top-floor ceiling",&strings(&["Flat ceiling","Cathedral"]),&c.ceiling));out.push_str("<p class=muted>Cathedral: the roof panels' underside is a vaulted ceiling on a structural LVL ridge, insulated in every rafter bay. Flat: ceiling joists at the top plates with a vented attic above.</p>");}
+    else{out.push_str("<p class=muted>Top-floor ceiling: flat with a vented attic. Cathedral ceilings need a pitched roof of at least 4:12.</p>");}
+    out.push_str("</details><details class=control-group data-section=exterior><summary>Dormers &amp; architectural details</summary>");
+    out.push_str(&select("dormerStyle","Window dormer roof",&strings(&["None","Style matched","Gable","Shed","Hip","Arched","Eyebrow"]),&c.dormer_style));
     if c.dormer_style!="None"{
         out.push_str("<div class=two-fields>");
         out.push_str(&select("dormerWidth","Dormer width · ft",&strings(&["2","4","8","16"]),&c.dormer_width.to_string()));

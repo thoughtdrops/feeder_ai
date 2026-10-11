@@ -7,7 +7,7 @@ let state;globalThis.ufBridge={layoutEditor(){},setEditMode(){},selectScene(){},
 const app=await import('../../public/pkg/universal_frames.js');app.initSync({module:fs.readFileSync('public/pkg/universal_frames_bg.wasm')});app.start();
 const q=s=>{const el=document.querySelector(s);assert.ok(el,'Missing '+s);return el;};const click=s=>q(s).dispatchEvent(new dom.window.MouseEvent('click',{bubbles:true}));
 const change=(s,value)=>{const el=q(s);if(el.type==='checkbox')el.checked=value;else el.value=String(value);el.dispatchEvent(new dom.window.Event('change',{bubbles:true}));};
-assert.equal(state.config.wallHeight,8.09375);assert.equal(state.model.panelAssemblies.length,5);
+assert.equal(state.config.wallHeight,8.09375);assert.equal(state.model.panelAssemblies.length,6);assert.equal(state.model.panelAssemblies[5].id,'ceiling','the ceiling panel follows the flat or cathedral choice');
 click('[data-tab="finishes"]');q('[data-section="surfaces"]').open=true;change('[data-field="floor"]','Carrara marble tile');assert.equal(state.model.tileFloorArea,state.model.area);
 change('[data-wall-tile="bedroom"]','Teal glazed subway tile');assert.equal(state.model.tileWallArea,state.model.bedroomWallArea);assert.ok(q('[data-section="surfaces"]').open);
 const pattern={name:'my-pattern.jpg',dataUrl:'data:image/jpeg;base64,/9j/AAAAAAAAAAAAAA==',repeatFeet:2};app.apply_texture(JSON.stringify({target:'general',pattern}));assert.equal(state.config.customTextures.general.dataUrl,pattern.dataUrl);assert.equal(state.model.customWallArea,state.model.generalWallArea);assert.equal(state.config.wallpaper,'None');

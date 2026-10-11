@@ -6,7 +6,7 @@ pub mod balconies;
 
 pub fn validate(c:&Config)->Result<(),String>{
     for(value,allowed,label)in[
-        (&c.dormer_style,vec!["None","Style matched","Gable","Shed","Hip"],"dormer roof"),
+        (&c.dormer_style,vec!["None","Style matched","Gable","Shed","Hip","Arched","Eyebrow"],"dormer roof"),
         (&c.dormer_side,vec!["Automatic","Front","Rear","Left","Right"],"dormer side"),
         (&c.balcony,vec!["Style matched","None","Rear balcony"],"upper balcony"),
         (&c.rear_outdoor,vec!["Style matched","None","Deck","Covered porch"],"rear outdoor space"),
