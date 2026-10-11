@@ -7,6 +7,7 @@ import {renderHouse} from './scene';
 import {layoutEditor} from './context-menu';
 import {createSceneController} from './scene-controller';
 import {releaseRenderer} from './graphics';
+import {initAccounts,saveBuild,openBuilds} from './account';
 let unbindTextures:undefined|(()=>void);
 let unbindAccessibility:undefined|(()=>void);
 let reportBusy=false;
@@ -24,6 +25,9 @@ let engineWorker:Worker|undefined,workerBroken=false;const engineReplies=new Map
  pickScene(target:any){app?.pick_scene(JSON.stringify(target));},
  assetStatus(message:string){app?.show_status(message);},
  async openProcess(raw:string,design:string,live=true){const shade=document.createElement('div');shade.className='splash process-shade';shade.setAttribute('role','status');shade.innerHTML='<img src="/brand/universal-frames-loading.webp" alt="" width="861" height="603"><div class="splash-bar" aria-hidden="true"><span></span></div><p>Preparing your build…</p>';document.body.appendChild(shade);(globalThis as any).__ufPauseScene=true;try{const {exportHouseForProcess}=await import('./process-export');await Promise.race([exportHouseForProcess(JSON.parse(raw),design,live?stage?.liveScene('exterior'):undefined),new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),30000))]);}catch(e){console.warn('Studio model was not handed to the simulator; it will build its own panels.',e);}location.href='process/';},
+ unitsChanged(metric:boolean){(globalThis as any).ufUnits?.set(metric);scopeNote();},
+ saveBuild(design:string,summary:string){saveBuild(design,summary);},
+ openBuilds(){openBuilds();},
  requestModel(config:string,seq:number){
   // The worker needs module workers; without them the engine builds on the main thread as before.
   if(typeof Worker==='undefined'||workerBroken)return false;
@@ -38,10 +42,14 @@ let engineWorker:Worker|undefined,workerBroken=false;const engineReplies=new Map
  async report(raw:string,kind:string){if(reportBusy){app?.show_status('Your report is being prepared…');return;}reportBusy=true;try{const {config,model,project}=JSON.parse(raw);const r=await import('./report');r.setReportModel(model);if(kind==='pdf')await r.exportPDF(config,project);else if(kind==='framing')r.exportFraming(config);else r.exportCSV(config);app.show_status('Report downloaded');}catch(e){console.error(e);app.show_status('Report download failed. Please try again.');}finally{reportBusy=false;}}
 };
 // Back from the simulator (page restored from the back/forward cache): lift the hand-off screen and resume the 3D view.
+// The heading's scope line names the units in use.
+function scopeNote(){const n=document.getElementById('scope-note');if(n)n.textContent='For US projects · 2021 IRC & IECC basis · prices in US dollars · '+((globalThis as any).ufUnits?.metric()?'metric measurements (converted)':'imperial units');}
+// Phones: the sticky viewer tucks its toolbar above the screen edge (CSS uses --viewbar-h).
+{const bar=()=>document.getElementById('viewbar');const sync=()=>{const h=bar()?.getBoundingClientRect().height??0;document.documentElement.style.setProperty('--viewbar-h',h+'px');};if('ResizeObserver' in window){const ro=new ResizeObserver(sync);const watch=()=>{const b=bar();if(b){ro.observe(b);sync();}else requestAnimationFrame(watch);};watch();}}
 window.addEventListener('pageshow',event=>{if(!event.persisted)return;document.querySelectorAll('.process-shade').forEach(n=>n.remove());(globalThis as any).__ufPauseScene=false;window.dispatchEvent(new KeyboardEvent('keydown'));});
 window.addEventListener('pagehide',event=>{if(event.persisted)return;unbindAccessibility?.();unbindTextures?.();theme.dispose();zipController?.abort();stage?.dispose();const host=document.getElementById('scene');if(host)releaseRenderer(host);});
 declare const __UF_ENGINE_REVISION__:string;
 const engineRevision=__UF_ENGINE_REVISION__;
 const wasmModule='/pkg/universal_frames.js?v='+engineRevision;
 const hideSplash=()=>{const splash=document.getElementById('splash');if(!splash)return;splash.classList.add('done');setTimeout(()=>splash.remove(),600);};
-try{app=await import(/* @vite-ignore */wasmModule);await app.default({module_or_path:'/pkg/universal_frames_bg.wasm?v='+engineRevision});app.start();requestAnimationFrame(()=>requestAnimationFrame(hideSplash));unbindTextures=bindTextureUploads(()=>app);theme.refresh();unbindAccessibility=bindStudioAccessibility();}catch(e){console.error(e);hideSplash();document.getElementById('app')!.innerHTML='<div class="load-error"><div class="loading-brand"><img class="brand-icon" src="/brand/universal-frames-icon.png" alt="" width="64" height="64"><img class="brand-wordmark" src="/brand/universal-frame-wordmark.webp" alt="Universal Frame" width="246" height="82"></div><p>The design engine could not load. Please refresh the page to retry.</p><button id="retry-studio">Reload studio</button></div>';document.getElementById('retry-studio')?.addEventListener('click',()=>location.reload());}
+try{app=await import(/* @vite-ignore */wasmModule);await app.default({module_or_path:'/pkg/universal_frames_bg.wasm?v='+engineRevision});app.start();requestAnimationFrame(()=>requestAnimationFrame(hideSplash));initAccounts(app).catch(()=>{});scopeNote();unbindTextures=bindTextureUploads(()=>app);theme.refresh();unbindAccessibility=bindStudioAccessibility();}catch(e){console.error(e);hideSplash();document.getElementById('app')!.innerHTML='<div class="load-error"><div class="loading-brand"><img class="brand-icon" src="/brand/universal-frames-icon.png" alt="" width="64" height="64"><img class="brand-wordmark" src="/brand/universal-frame-wordmark.webp" alt="Universal Frame" width="246" height="82"></div><p>The design engine could not load. Please refresh the page to retry.</p><button id="retry-studio">Reload studio</button></div>';document.getElementById('retry-studio')?.addEventListener('click',()=>location.reload());}

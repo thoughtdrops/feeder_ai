@@ -1,0 +1,15 @@
+{
+  "name": "Universal Frame Home Design Studio",
+  "short_name": "Universal Frame",
+  "description": "Design a home in 3D with a live material takeoff and budget.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0e3a28",
+  "theme_color": "#0e3a28",
+  "icons": [
+    {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

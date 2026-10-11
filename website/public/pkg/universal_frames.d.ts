@@ -5,6 +5,8 @@ export function defaults(): string;
 export function start(): void;
 export function apply_location(zip: string, lat: number, lon: number): void;
 export function show_status(message: string): void;
+export function load_design(json: string): boolean;
+export function set_units(metric: boolean): void;
 export function pick_scene(input: string): void;
 export function apply_model(seq: number, json: string): void;
 export function resize_wall(input: string): void;
@@ -22,6 +24,8 @@ export interface InitOutput {
   readonly start: () => void;
   readonly apply_location: (a: number, b: number, c: number, d: number) => void;
   readonly show_status: (a: number, b: number) => void;
+  readonly load_design: (a: number, b: number) => number;
+  readonly set_units: (a: number) => void;
   readonly pick_scene: (a: number, b: number) => void;
   readonly apply_model: (a: number, b: number, c: number) => void;
   readonly resize_wall: (a: number, b: number) => void;
@@ -35,8 +39,8 @@ export interface InitOutput {
   readonly __wbindgen_export_3: (a: number, b: number, c: number) => void;
   readonly __wbindgen_export_4: WebAssembly.Table;
   readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
-  readonly __wbindgen_export_5: (a: number, b: number) => void;
-  readonly __wbindgen_export_6: (a: number, b: number, c: number) => void;
+  readonly __wbindgen_export_5: (a: number, b: number, c: number) => void;
+  readonly __wbindgen_export_6: (a: number, b: number) => void;
 }
 
 export type SyncInitInput = BufferSource | WebAssembly.Module;

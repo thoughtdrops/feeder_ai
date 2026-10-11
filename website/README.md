@@ -20,7 +20,7 @@ For editing browser styles or rendering adapters, `pnpm dev` runs the working st
 
 ## Edit and rebuild Rust
 
-The portable toolchain helpers used in this workspace require the adjacent `rust-portable/` directory, which is not included in the source download. On your own computer use a standard Rust toolchain instead:
+Use a standard Rust toolchain (the `pnpm test:rust` and `pnpm build:engine` scripts use it automatically when no portable toolchain is present):
 
 ```sh
 rustup toolchain install 1.90.0

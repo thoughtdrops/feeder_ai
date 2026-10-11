@@ -2,8 +2,12 @@ use super::*;
 
 fn table(items:&[Value])->String{
     let mut out=String::from("<div class=table-scroll><table class=materials-table><thead><tr><th>Material / specification</th><th>Net quantity</th><th>Order quantity</th><th>Retail unit price</th><th>Selected total</th></tr></thead><tbody>");
-    for i in items{out.push_str(&format!(r#"<tr><td><strong>{}</strong><details><summary>{} · Quantity &amp; price basis</summary><p>{}</p><p>{} · {}. {}</p></details></td><td data-label="Net quantity">{}<small>{}</small></td><td data-label="Order quantity">{}<small>{}</small></td><td data-label="Retail unit price"><div class=price-input><span>$</span><input type=number min=0 step=.01 max=100000 data-price="{}" aria-label="Retail unit price {}" value="{}"></div><small>Selected ${}/{} · {}% discount</small></td><td data-label="Selected line total">{}</td></tr>"#,
-        esc(s(i,"name")),esc(s(i,"status")),esc(s(i,"basis")),esc(s(&i["priceReference"],"status")),esc(s(i,"discountBasis")),esc(s(&i["priceReference"],"note")),n(i,"net"),esc(s(i,"unit")),n(i,"qty"),esc(s(i,"unit")),esc(s(i,"id")),esc(s(i,"name")),n(i,"retailPrice"),n(i,"price"),esc(s(i,"unit")),n(i,"discountPercent"),money(n(i,"total"))));}
+    for i in items{
+        // Metric: area and length rows show m² / m with the unit price per m² / m (line totals are unchanged).
+        let (unit,factor)=match units::row_unit(s(i,"unit")){Some((u,f)) if units::metric()=>(u.to_string(),f),_=>(s(i,"unit").to_string(),1.)};
+        let q=|v:f64|units::num(v*factor,2);let per=|v:f64|units::num(v/factor,2);
+        out.push_str(&format!(r#"<tr><td><strong>{}</strong><details><summary>{} · Quantity &amp; price basis</summary><p>{}</p><p>{} · {}. {}</p></details></td><td data-label="Net quantity">{}<small>{}</small></td><td data-label="Order quantity">{}<small>{}</small></td><td data-label="Retail unit price"><div class=price-input><span>$</span><input type=number min=0 step=.01 max=100000 data-price="{}" data-per="{}" aria-label="Retail unit price {}" value="{}"></div><small>Selected ${}/{} · {}% discount</small></td><td data-label="Selected line total">{}</td></tr>"#,
+        esc(s(i,"name")),esc(s(i,"status")),esc(s(i,"basis")),esc(s(&i["priceReference"],"status")),esc(s(i,"discountBasis")),esc(s(&i["priceReference"],"note")),q(n(i,"net")),esc(&unit),q(n(i,"qty")),esc(&unit),esc(s(i,"id")),factor,esc(s(i,"name")),per(n(i,"retailPrice")),per(n(i,"price")),esc(&unit),n(i,"discountPercent"),money(n(i,"total"))));}
     out.push_str("</tbody></table></div>");out
 }
 

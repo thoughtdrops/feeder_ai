@@ -7,9 +7,6 @@ allowBuilds:
   core-js: false
   esbuild: true
   fsevents: true
-  sharp: true
-  unrs-resolver: true
-  workerd: true
 storeDir: ${SITES_PNPM_SHARED_STORE:-.sites-runtime/pnpm-store}
 cacheDir: ${SITES_PNPM_SHARED_STORE:-.sites-runtime/pnpm-store}/policy-cache
 enableGlobalVirtualStore: false
@@ -19,7 +16,6 @@ packageImportMethod: auto
 verifyDepsBeforeRun: false
 optimisticRepeatInstall: false
 overrides:
-  miniflare>sharp: 0.35.4
   "@babel/core": 7.29.6
   browserslist: 4.28.7
   baseline-browser-mapping: 2.11.0

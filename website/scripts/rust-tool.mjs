@@ -1,5 +1,8 @@
 import fs from 'node:fs';import path from 'node:path';import{spawnSync}from'node:child_process';
 const root=path.resolve(process.env.UF_RUST_TOOLCHAIN||'../rust-portable/toolchain'),scratch=path.resolve('..');
+// Without the portable toolchain, use a normal rustup install (Rust 1.90 with the wasm32 target) and wasm-bindgen 0.2.104 from PATH.
+if(!fs.existsSync(root+'/bin/cargo')){const args=process.argv.slice(2);let r=spawnSync('cargo',['+1.90.0',...args,'--manifest-path','rust-app/Cargo.toml'],{stdio:'inherit'});if(r.status!==0)process.exit(r.status||1);
+ if(args.includes('build')){r=spawnSync(process.env.UF_WASM_BINDGEN||'wasm-bindgen',['rust-app/target/wasm32-unknown-unknown/release/universal_frames.wasm','--target','web','--out-dir','public/pkg'],{stdio:'inherit'});process.exit(r.status||0);}process.exit(0);}
 const env={...process.env,TMPDIR:scratch+'/rust-tmp',CARGO_HOME:scratch+'/rust-cargo',RUSTC:root+'/bin/rustc',RUSTFLAGS:'--sysroot '+root,LD_LIBRARY_PATH:root+'/lib',CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER:scratch+'/rust-portable/cc-bfd',PATH:root+'/bin:'+process.env.PATH};fs.mkdirSync(env.TMPDIR,{recursive:true});
 const args=process.argv.slice(2);let r=spawnSync(root+'/bin/cargo',[...args,'--manifest-path','rust-app/Cargo.toml'],{stdio:'inherit',env});if(r.status!==0)process.exit(r.status||1);
 if(args.includes('build')){r=spawnSync(process.env.UF_WASM_BINDGEN||scratch+'/rust-portable/wasm-bindgen-0.2.104-x86_64-unknown-linux-musl/wasm-bindgen',['rust-app/target/wasm32-unknown-unknown/release/universal_frames.wasm','--target','web','--out-dir','public/pkg'],{stdio:'inherit',env});process.exit(r.status||0);}

@@ -575,3 +575,32 @@ fn balconies_have_an_actual_upper_door_supports_and_itemized_materials(){
  // Roof posts: distinct interior support points only.
  let v=model::build(&Config::default());let posts=v["items"].as_array().unwrap().iter().find(|i|s(i,"id")=="roofposts").map(|i|n(i,"net")).unwrap_or(0.);assert!(posts<=16.,"posts {}",posts);
 }
+/// Rooms that cannot be reached from an exterior door (through doors, passages, open edges and stairs), and
+/// bedrooms without an exterior window.
+fn room_access_problems(c:&Config,m:&Value)->Vec<String>{
+ let levels:Vec<Value>=if c.stories>1{m["levels"].as_array().unwrap().clone()}else{vec![m.clone()]};let mut problems=vec![];
+ let (w,d)=(c.width,c.depth);let mut stair_rooms:Vec<(usize,String)>=vec![];let mut nodes:Vec<(usize,Room)>=vec![];
+ for(li,l)in levels.iter().enumerate(){for r in serde_json::from_value::<Vec<Room>>(l["rooms"].clone()).unwrap(){if r.kind=="stairs"{stair_rooms.push((li,r.id.clone()))}nodes.push((li,r));}}
+ let walls:Vec<Vec<Wall>>=levels.iter().map(|l|serde_json::from_value(l["walls"].clone()).unwrap()).collect();
+ // covered[] intervals along a line, and door intervals
+ let seg=|li:usize,vertical:bool,at:f64,lo:f64,hi:f64|->(f64,f64){let mut cover=0.;let mut door=0.;for wl in &walls[li]{if (wl.axis=="z")!=vertical{continue}let(line,start)=if vertical{(wl.x,wl.z)}else{(wl.z,wl.x)};if (line-at).abs()>0.3{continue}let a=start.max(lo);let b=(start+wl.length).min(hi);if b>a{cover+=b-a;}for o in &wl.openings{if o.kind=="window"{continue}let oa=(start+o.at).max(lo);let ob=(start+o.at+o.width).min(hi);if ob-oa>1.5{door=f64::max(door,ob-oa);}}}(cover,door)};
+ let n=nodes.len();let mut adj=vec![vec![];n];let mut entry=vec![false;n];
+ for i in 0..n{let(li,a)=&nodes[i];
+  // exterior entries on the ground floor
+  if *li==0{for(vertical,at,lo,hi)in[(true,0.,a.z,a.z+a.d),(true,w,a.z,a.z+a.d),(false,0.,a.x,a.x+a.w),(false,d,a.x,a.x+a.w)]{let edge=if vertical{if at==0.{a.x}else{a.x+a.w}}else{if at==0.{a.z}else{a.z+a.d}};if (edge-at).abs()<0.3{let(_,door)=seg(0,vertical,at,lo,hi);if door>0.{entry[i]=true;}}}}
+  for j in 0..n{if i==j{continue}let(lj,b)=&nodes[j];if li!=lj{continue}
+   for(vertical,at,lo,hi)in[(true,a.x+a.w,a.z.max(b.z),(a.z+a.d).min(b.z+b.d)),(false,a.z+a.d,a.x.max(b.x),(a.x+a.w).min(b.x+b.w))]{let touches=if vertical{(b.x-at).abs()<0.3}else{(b.z-at).abs()<0.3};if !touches||hi-lo<1.5{continue}let(cover,door)=seg(*li,vertical,at,lo,hi);if hi-lo-cover>2.4||door>0.{adj[i].push(j);adj[j].push(i);}}}}
+ for a in 0..stair_rooms.len(){for b in 0..stair_rooms.len(){if stair_rooms[a].0+1==stair_rooms[b].0{let i=nodes.iter().position(|(l,r)|*l==stair_rooms[a].0&&r.id==stair_rooms[a].1).unwrap();let j=nodes.iter().position(|(l,r)|*l==stair_rooms[b].0&&r.id==stair_rooms[b].1).unwrap();adj[i].push(j);adj[j].push(i);}}}
+ let mut seen=entry.clone();let mut stack:Vec<usize>=(0..n).filter(|&i|entry[i]).collect();if stack.is_empty(){problems.push("no exterior door".into());}
+ while let Some(i)=stack.pop(){for &j in &adj[i]{if !seen[j]{seen[j]=true;stack.push(j);}}}
+ for i in 0..n{if !seen[i]{problems.push(format!("unreachable L{} {} ({})",nodes[i].0,nodes[i].1.name,nodes[i].1.kind));}}
+ for(li,r)in &nodes{if r.kind=="bedroom"{let mut win=false;for(vertical,at,lo,hi,edge)in[(true,0.,r.z,r.z+r.d,r.x),(true,w,r.z,r.z+r.d,r.x+r.w),(false,0.,r.x,r.x+r.w,r.z),(false,d,r.x,r.x+r.w,r.z+r.d)]{if (edge-at).abs()>0.3{continue}for wl in &walls[*li]{if (wl.axis=="z")!=vertical||!wl.exterior{continue}let start=if vertical{wl.z}else{wl.x};for o in &wl.openings{if o.kind=="window"&&(start+o.at)<hi&&(start+o.at+o.width)>lo{win=true}}}}if !win{problems.push(format!("bedroom without window L{} {}",li,r.name));}}}
+ problems}
+#[test]fn every_room_has_a_way_in_and_bedrooms_have_windows(){let styles:Vec<String>=catalog()["homeStyles"].as_array().unwrap().iter().map(|h|s(h,"name").to_string()).collect();let mut bad=0;let mut total=0;
+ for st in &styles{for stories in 1..=3usize{let mut c=Config::default();c.home_style=st.clone();c.stories=stories;architecture::apply(&mut c,true);c.stories=stories;if validate(&c).is_err(){continue}let m=model::build(&c);total+=1;let p=room_access_problems(&c,&m);if !p.is_empty(){bad+=1;eprintln!("{} {}st {}x{}: {:?}",st,stories,c.width,c.depth,p);}}}
+ for seed in 0..40u32{let c=generator::surprise(&Config::default(),seed*313+11,false).unwrap();let m=model::build(&c);total+=1;let p=room_access_problems(&c,&m);if !p.is_empty(){bad+=1;eprintln!("GEN {} {}st {}x{}: {:?}",c.home_style,c.stories,c.width,c.depth,p);}}
+ assert_eq!(bad,0,"{} of {} designs have sealed rooms or windowless bedrooms",bad,total);}
+#[test]fn keep_my_dimensions_never_resizes_the_house(){
+ for (w,d,st) in [(26.,40.,2usize),(24.,32.,1),(30.,36.,3),(40.,48.,2)]{let mut c=Config::default();c.stories=st;c.width=w;c.depth=d;
+  for seed in (100..4000).step_by(487){if let Ok(g)=generator::surprise(&c,seed,true){assert!(near(g.width,w)&&near(g.depth,d),"{}x{} st{} seed {} -> {}x{}",w,d,st,seed,g.width,g.depth);assert_eq!(g.stories,st);}}}
+}

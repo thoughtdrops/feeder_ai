@@ -3,8 +3,21 @@ try{const saved=localStorage.getItem('uf-theme');if(saved==='dark'||saved==='lig
 (() => {
 'use strict';
 const $ = s => document.querySelector(s);
-const setStatus = t => { const el = $('#status'); if (el) el.textContent = t; };
-const announce = t => { const el = $('#live'); if (el) el.textContent = t; };
+// Display units: the simulation runs in feet and inches; metric visitors see converted text and fields.
+const UU = window.ufUnits, METRIC = !!(UU && UU.metric());
+const mt = (t) => (UU && typeof t === 'string' ? UU.text(t) : t);
+const showFt = (ft) => (METRIC ? String(Math.round(ft * 0.3048 * 100) / 100) : String(ft));
+const readFt = (text) => (METRIC ? parseFloat(text) / 0.3048 : parseFloat(text));
+const setStatus = t => { const el = $('#status'); if (el) el.textContent = mt(t); };
+const announce = t => { const el = $('#live'); if (el) el.textContent = mt(t); };
+// Building a design hides the intro card, so input errors and milestones show as a short toast under Back home.
+let toastTimer = 0;
+const notice = t => {
+  setStatus(t);
+  if (!document.body.classList.contains('build-mode')) return;
+  let el = $('#toast'); if (!el) { el = document.createElement('p'); el.id = 'toast'; el.className = 'toast'; el.setAttribute('role', 'status'); const back = $('.intro .back'); (back ? back.parentElement : document.body).appendChild(el); }
+  el.textContent = mt(t); el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 7000);
+};
 if (typeof THREE === 'undefined') { setStatus('The 3D library could not load, so the simulation cannot start. Reload the page to try again.'); return; }
 
 const PI = Math.PI;
@@ -87,6 +100,7 @@ function torqueAt(d, f) {
 // grid from a typed spacing: piers at 0, S, 2S... and always one at 32 ft; end piers sit under the wall centers
 const GRID = { spacingFt: 16, posFt: [0, 16, 32], posZ: [0, 16, 32], PX: [], RZ: [], auto: true };
 function parseSpacing(txt) {
+  if (METRIC) { const v = parseFloat(String(txt || '').replace(/m$/i, '')); return Number.isFinite(v) ? v / 0.3048 : NaN; }
   const s = String(txt || '').trim().replace(/[″”]/g, '"').replace(/[′’]/g, "'");
   let m = s.match(/^(\d+(?:\.\d+)?)\s*'\s*(?:(\d+(?:\.\d+)?)\s*"?)?$/);
   if (m) return parseFloat(m[1]) + (m[2] ? parseFloat(m[2]) / 12 : 0);
@@ -109,7 +123,7 @@ function setGrid(S) {
   GRID.RZ = GRID.posZ.map(toHouse).reverse();                // rows run from the back wall to the front
 }
 // automatic layouts that keep a pier line under each wall and under the 16 ft floor seam
-const LAYOUTS = [[3, 3], [4, 3], [3, 5], [4, 5]];           // [piers per row, rows]
+const LAYOUTS = [[3, 3], [4, 3], [3, 5], [4, 5], [4, 6], [4, 7]]; // [piers per row, rows]; rows close up to ~5 ft for heavy loads
 function setGridAuto(perRow, rows) {
   GRID.posFt = Array.from({ length: perRow }, (_, i) => +(32 * i / (perRow - 1)).toFixed(4));
   GRID.posZ = Array.from({ length: rows }, (_, i) => +(32 * i / (rows - 1)).toFixed(4));
@@ -126,6 +140,8 @@ function torqueBase(d) {
 // allowable per pier at a depth: torque x 9 / 2, using 95% of the average soil and capped by the shaft rating
 const pierKips = (dIn) => Math.min(T_MAX, 0.95 * torqueBase(dIn)) * KT / 2 / 1000;
 function piersNeeded(stories, dIn) { return Math.ceil(HOUSE_KIPS[stories] / pierKips(dIn)); }
+// The shallowest whole-foot depth at which the densest automatic layout carries the house.
+function minDepthFor(stories) { const most = LAYOUTS.reduce((m, [a, b]) => Math.max(m, a * b), 0); for (let ft = 10; ft <= 34; ft++) if (piersNeeded(stories, ft * 12) <= most) return ft; return 0; }
 function autoGrid(stories, dIn) {
   const need = piersNeeded(stories, dIn);
   const pick = LAYOUTS.find(([a, b]) => a * b >= need) || LAYOUTS[LAYOUTS.length - 1];
@@ -314,7 +330,13 @@ function stepHeads(d) {
 }
 // the beam sits on the current setup, slides toward the next one while moving, and backs off the last one when clearing
 const clearing = () => P.phase === 'clear' || P.phase === 'done';
-const rigZ = () => (clearing() ? SET().z - 72 * P.slide : lerp(SET().z, NEXT().z, P.slide)) - PZ;
+// Clearing slides the beam 6 ft off the last row; once the job is done it backs out past the studio house's
+// front (porch and steps included), so it never parks inside them.
+const rigZ = () => {
+  if (!clearing()) return lerp(SET().z, NEXT().z, P.slide) - PZ;
+  const off = SET().z - 72 * P.slide - PZ;
+  return P.phase === 'done' && STUDIO.front != null ? Math.min(off, STUDIO.front - 96) : off;
+};
 const rigX = () => (clearing() ? SET().cx : lerp(SET().cx, NEXT().cx, P.slide));
 function initPier() {
   P.treq = Math.min(T_MAX, 0.95 * torqueBase(P.depthIn));
@@ -1686,6 +1708,7 @@ function attachStudio(model) {
   });
   scene.add(house); scene.add(grade);
   STUDIO.root = house; STUDIO.site = grade;
+  { const all = new THREE.Box3().setFromObject(house).union(new THREE.Box3().setFromObject(grade)); STUDIO.front = all.min.z; }
   // The studio house carries its own glass, so the simulator's window toggle has nothing to add.
   const win = $('#windows'); if (win && win.closest('label')) win.closest('label').style.display = 'none';
   assignStudio();
@@ -3552,6 +3575,8 @@ function setView(name, instant) {
   if (!VIEWS[name]) name = 'site';
   curView = name;
   const v = VIEWS[name]();
+  // Portrait screens see less width: pull the camera back so the whole site still fits.
+  { const asp = canvas.clientWidth / Math.max(1, canvas.clientHeight); if (asp < 1.4 && name !== 'plan') v.r *= Math.min(2.6, Math.pow(1.4 / asp, 0.85)); }
   want.r = v.r; want.th = v.th; want.ph = v.ph; want.target.set(v.t[0], v.t[1], v.t[2]); cam.under = !!v.under;
   while (want.th - cam.th > PI) want.th -= 2 * PI;
   while (want.th - cam.th < -PI) want.th += 2 * PI;
@@ -3635,7 +3660,9 @@ canvas.addEventListener('dblclick', (e) => {
 });
 // Keyboard: arrows / WASD pan, + and - zoom, so the view never depends on a mouse wheel.
 window.addEventListener('keydown', (e) => {
-  if (e.target && /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(e.target.tagName)) return;
+  // Leave browser shortcuts (zoom, save) alone, and typing in fields; buttons and checkboxes don't use these keys.
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target; if (t && (/^(SELECT|TEXTAREA)$/.test(t.tagName) || (t.tagName === 'INPUT' && !/^(checkbox|radio|button)$/.test(t.type)))) return;
   const step = 40, k = e.key.toLowerCase();
   if (k === 'arrowleft' || k === 'a') pan(step, 0); else if (k === 'arrowright' || k === 'd') pan(-step, 0);
   else if (k === 'arrowup' || k === 'w') pan(0, step); else if (k === 'arrowdown' || k === 's') pan(0, -step);
@@ -3653,8 +3680,10 @@ function syncPier() {
 
 /* ---------- HUD ---------- */
 const btn = { start: $('#btnStart'), next: $('#btnNext'), end: $('#btnEnd'), reset: $('#btnReset') };
+// Phones: the job setup row folds behind a Settings button so playback, views and toggles fit on screen.
+{ const t = $('#btnSettings'), c = $('.controls'); if (t && c) t.addEventListener('click', () => { const open = c.classList.toggle('show-setup'); t.setAttribute('aria-expanded', String(open)); }); }
 const PANELS = () => ELEMS.filter((e) => e.fab > 0).length;
-function txt(id, v) { const el = $(id); if (el && el.textContent !== v) el.textContent = v; }
+function txt(id, v) { const el = $(id); v = mt(v); if (el && el.textContent !== v) el.textContent = v; }
 function bar(id, p) { const el = $(id); if (el) el.style.width = (clamp(p, 0, 1) * 100).toFixed(1) + '%'; }
 const KIND_WORD = { floor: 'floor panel', ext: 'wall panel', int: 'interior wall', gable: 'gable', roof: 'roof panel', girder: 'girder', beam: 'beam', ridge: 'ridge beam' };
 function nowLine(done, total) {
@@ -3707,7 +3736,8 @@ function updateHud(force) {
   const key = [SITE.started, SITE.running, SITE.t >= PLAN.total].join('|');
   if (key !== lastKey || force) {
     lastKey = key;
-    btn.start.textContent = !SITE.started ? 'Start' : SITE.t >= PLAN.total ? 'Done' : SITE.running ? 'Pause' : 'Resume';
+    btn.start.textContent = !SITE.started ? 'Start' : SITE.t >= PLAN.total ? '✓ Shell done' : SITE.running ? 'Pause' : 'Resume';
+    btn.start.classList.toggle('complete', SITE.started && SITE.t >= PLAN.total);
     btn.start.disabled = SITE.t >= PLAN.total;
     btn.start.classList.toggle('go', !SITE.running && SITE.t < PLAN.total);
     btn.next.disabled = !SITE.started || SITE.t >= PLAN.total; btn.end.disabled = !SITE.started || SITE.t >= PLAN.total;
@@ -3775,18 +3805,20 @@ function plan(msg) {
   if (!PLAN.seamOk) notes.push(`No pier row sits under the 16 ft floor panel seam at this spacing; your engineer would add a beam or pier line there.`);
   const cap = PLAN.piers * PLAN.kips;
   if (DESIGN && DESIGN.foundation && DESIGN.foundation.type && DESIGN.foundation.type !== 'Helical piers') notes.push(`Your design is set to a ${DESIGN.foundation.type.toLowerCase()} foundation; this shows our helical pier process for the same house.`);
-  if (cap < PLAN.load) notes.push(`${PLAN.piers} piers at ${fmtFtIn(P.depthIn)} hold about ${Math.round(cap)} kips, short of the house's roughly ${PLAN.load} kips. Drive deeper or add piers (${PLAN.need} needed).`);
+  if (cap < PLAN.load) notes.push(`${PLAN.piers} piers at ${fmtFtIn(P.depthIn)} hold about ${Math.round(cap)} kips, short of the house's roughly ${PLAN.load} kips. ${PLAN.need} piers would be needed; ${minDepthFor(SITE.stories) ? `drive them to at least ${minDepthFor(SITE.stories)} ft` : 'drive them deeper'}${DESIGN ? '' : ' or tighten the spacing'}.`);
   w.hidden = !notes.length; w.textContent = notes.join(' ');
-  const sp = $('#spacing'); if (sp && GRID.auto) sp.value = Math.abs(GRID.spacingFt - Math.round(GRID.spacingFt)) < 0.01 ? String(Math.round(GRID.spacingFt)) : fmtFtIn(GRID.spacingFt * 12).replace(' ', '');
+  const sp = $('#spacing'); if (sp && GRID.auto) sp.value = METRIC ? showFt(GRID.spacingFt) : Math.abs(GRID.spacingFt - Math.round(GRID.spacingFt)) < 0.01 ? String(Math.round(GRID.spacingFt)) : fmtFtIn(GRID.spacingFt * 12).replace(' ', '');
   if (!msg && DESIGN) msg = `${DESIGN.label}: about ${PLAN.load} kips. At ${fmtFtIn(P.depthIn)} each pier holds about ${PLAN.kips.toFixed(1)} kips, so it needs ${PLAN.need}: ${DG.lines} girder lines × ${DG.rows} rows = ${PLAN.piers} piers${SETUPS.length > DG.rows ? ` in ${SETUPS.length} Pier Beam setups` : ''}. Foundation about ${fmtHM(PLAN.pierEnd)}, shell closed in about ${fmtClockMin(PLAN.total)}.`;
   setStatus(msg || `${SITE.stories === 1 ? 'One story' : SITE.stories === 2 ? 'Two stories' : 'Three stories'} (about ${PLAN.load} kips). At ${fmtFtIn(P.depthIn)} each pier holds about ${PLAN.kips.toFixed(1)} kips, so it needs ${PLAN.need}: ${GRID.PX.length} per row × ${GRID.RZ.length} rows = ${PLAN.piers} piers. Foundation about ${fmtHM(PLAN.pierEnd)}, shell closed in about ${fmtClockMin(PLAN.total)}.`);
   updateHud(true);
 }
 function applySpacing() {
   const v = parseSpacing($('#spacing').value);
+  // Applying the spacing already shown keeps the current layout (rows may sit farther apart than the piers in a row).
+  if (isFinite(v) && Math.abs(v - GRID.spacingFt) < 0.05) return;
   if (!isFinite(v) || v < 32 / 3 - 0.01 || v > 32) {
     const m = 'Type a spacing between 10\' 8" (four piers per row, one per head) and 32 ft, for example 16, 12 or 10\'8".';
-    setStatus(m); announce(m); return;
+    $('#spacing').value = METRIC ? showFt(GRID.spacingFt) : fmtFtIn(GRID.spacingFt * 12); notice(m); announce(m); return;
   }
   setGrid(v); P.nHeads = GRID.PX.length;
   plan();
@@ -3847,13 +3879,14 @@ document.querySelectorAll('[data-stories]').forEach((b) => b.addEventListener('c
 }));
 function applyDepth() {
   if (SITE.started) return;
-  const el = $('#depth'), v = parseFloat(el.value);
-  if (!isFinite(v) || v < 10 || v > 34) { el.value = String(P.depthIn / 12); setStatus('Pier depth must be between 10 and 34 ft: the 7 ft lead plus extensions, within the soil the rig is modeled for.'); return; }
+  const el = $('#depth'), v = readFt(el.value);
+  if (!isFinite(v) || v < 10 - 0.02 || v > 34 + 0.02) { el.value = showFt(P.depthIn / 12); notice('Pier depth must be between 10 and 34 ft: the 7 ft lead plus extensions, within the soil the rig is modeled for.'); return; }
   if (Math.abs(v * 12 - P.depthIn) < 0.01 && GRID.auto) return;
-  P.depthIn = v * 12;
-  if (!DESIGN) autoGrid(SITE.stories, P.depthIn);
+  P.depthIn = Math.round(v * 2) / 2 * 12;
+  // A spacing the visitor typed stays; only the automatic layout re-fits the new depth.
+  if (!DESIGN && GRID.auto) autoGrid(SITE.stories, P.depthIn);
   plan();
-  announce(`Pier depth ${v} ft: ${PLAN.piers} piers.`);
+  announce(`Pier depth ${P.depthIn / 12} ft: ${PLAN.piers} piers.`);
 }
 $('#depth').addEventListener('change', applyDepth);
 $('#depth').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); applyDepth(); } });
@@ -3863,12 +3896,12 @@ $('#btnSpacing').addEventListener('click', applySpacing);
   const el = $(id);
   const apply = () => {
     if (SITE.started) return;
-    const v = parseFloat(el.value);
-    if (!isFinite(v) || v < 1 || v > 240) { el.value = TIMES[kind]; setStatus('Panel times must be between 1 and 240 minutes.'); return; }
+    const raw = el.value.trim(), v = /^\d{1,3}$/.test(raw) ? Number(raw) : NaN;
+    if (!isFinite(v) || v < 1 || v > 120) { el.value = TIMES[kind]; notice('Panel times must be whole minutes from 1 to 120.'); return; }
     if (v === TIMES[kind]) return;
     TIMES[kind] = v;
     plan();
-    setStatus(`${word} panels now take ${v} min on the line plus ${SET_MIN} min to crane in. Shell done about ${fmtClockMin(PLAN.total)}.`);
+    notice(`${word} panels now take ${v} min on the line plus ${SET_MIN} min to crane in. Shell done about ${fmtClockMin(PLAN.total)}.`);
   };
   el.addEventListener('change', apply);
   el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); apply(); } });
@@ -3908,7 +3941,7 @@ function frame(now) {
   if (SITE.started && SITE.t >= PLAN.total && lastSetIdx !== 9999) {
     lastSetIdx = 9999;
     const m = `Shell closed in at ${fmtClockMin(PLAN.total)}: ${PLAN.piers} piers, ${PANELS()} panels and ${ELEMS.length - PANELS()} beams in ${fmtHM(PLAN.total)}. ${STUDIO.root ? 'Turn on See-through to look at the framing inside.' : 'Turn on Windows or See-through to look inside.'}`;
-    setStatus(m); announce(m);
+    notice(m); announce(m);
   }
   updateCamera(dt);
   if (wallClock - hudT > 0.1) { hudT = wallClock; updateHud(false); }
@@ -3928,13 +3961,20 @@ setCutaway(false);
     $('#ttl').textContent = `Your ${DESIGN.style || 'home'}: piers to framed shell`;
     sub.textContent = `Built from your design: ${DESIGN.label}. The Pier Beam drives its piers while the trailer line builds every floor, wall and roof panel, and the crane sets each one as it comes off the line.`;
     document.querySelectorAll('[data-stories]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.stories) === SITE.stories)));
-    $('#depth').value = String(P.depthIn / 12);
+    $('#depth').value = showFt(P.depthIn / 12);
     swap.href = '?example=1'; swap.textContent = 'Watch the example house instead';
   } else if (STORED_DESIGN) { swap.href = './'; swap.textContent = `Build my design instead: ${STORED_DESIGN.label}`; }
   else return;
   sub.after(swap);
 })();
 if (!DESIGN) autoGrid(SITE.stories, P.depthIn);
+// Metric visitors: convert the page's fixed labels once, and show the depth field in metres.
+if (METRIC) {
+  const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n = walk.nextNode(); n; n = walk.nextNode()) if (!n.parentElement.closest('script,style')) n.nodeValue = mt(n.nodeValue);
+  const d = $('#depth'); if (d) { d.min = '3.05'; d.max = '10.36'; d.step = '0.01'; d.value = showFt(P.depthIn / 12); }
+  const help = $('#spHelp'); if (help) help.textContent = 'Metres, for example 4.88, 3.66 or 3.25. Smallest is 3.25 m with four heads.';
+}
 plan();
 loadStudioModel();
 setView('site', true);
