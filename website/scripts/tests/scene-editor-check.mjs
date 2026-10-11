@@ -117,7 +117,7 @@ let nextFrame;globalThis.requestAnimationFrame=callback=>{nextFrame=callback;ret
 for(const view of ['exterior','dollhouse','walk','framing','dollhouse','walk']){
  const check=renderHouse(mobileEl,{config,model,view});
  for(let i=0;i<100;i++){const ids=new Set();rendered.scene.traverse(o=>{if(o.userData.editTarget?.kind==='furniture')ids.add(o.userData.editTarget.id);});if(view==='framing'||model.furniture.every(f=>ids.has(f.id)))break;await new Promise(r=>setTimeout(r,20));}
- assert.equal(rendered.renderer.options.antialias,false);assert.equal(rendered.renderer.pixelRatio,1.25);assert.equal(globalThis.rendererCreations,2,'iPhone mode reuses one context through every switch');
+ assert.equal(rendered.renderer.options.antialias,true);assert.equal(rendered.renderer.pixelRatio,2,"Phones render at their real density (capped at 2x) for crisp edges");assert.equal(globalThis.rendererCreations,2,'iPhone mode reuses one context through every switch');
  const urls=new Set();rendered.scene.traverse(o=>{if(o instanceof T.Mesh)for(const mat of Array.isArray(o.material)?o.material:[o.material])for(const map of Object.values(mat))if(map instanceof T.Texture&&map.userData.url)urls.add(map.userData.url);});assert.ok([...urls].every(url=>url.startsWith('/mobile/')),'Mobile wall, floor and grass maps use bounded assets');
  if(view==='walk'){
   const walkCanvas=mobileEl.querySelector('canvas'),before=rendered.camera.position.clone(),touch=(name,points)=>{const e=new dom.window.Event(name,{bubbles:true,cancelable:true});Object.defineProperty(e,'touches',{value:points.map(([clientX,clientY])=>({clientX,clientY}))});walkCanvas.dispatchEvent(e);return e;};
