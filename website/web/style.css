@@ -214,7 +214,7 @@ details.framing-tools[open]>summary::after{content:" ▾"}
 /* Comfortable touch targets for checkboxes on phones. */
 @media (max-width:850px){input[type=checkbox]{width:22px;height:22px}}
 /* American / metric units switch (top of Layout). */
-.units-switch{display:flex;align-items:center;gap:.4rem;margin:0 0 1rem;flex-wrap:wrap}
+.units-switch{display:flex;align-items:center;gap:.4rem;margin:.9rem 0 1rem;flex-wrap:wrap}
 .units-switch span{font-size:.75rem;font-weight:650;color:var(--muted);margin-right:.2rem}
 .units-switch button{flex:1 1 auto;min-height:40px;padding:.45rem .7rem;border:1px solid var(--line-strong);border-radius:9px;background:transparent;color:var(--ink);font-weight:600;font-size:.8125rem;cursor:pointer}
 .units-switch button[aria-pressed=true]{background:var(--accent-soft);border-color:var(--green);color:var(--green)}
