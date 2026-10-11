@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Engine, studio and build checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Rust 1.90
+        run: |
+          rustup toolchain install 1.90.0 --profile minimal
+          rustup default 1.90.0
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            website/rust-app/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('website/rust-app/Cargo.lock') }}
+
+      - name: Install site dependencies
+        run: npx pnpm@11.25.0 install --frozen-lockfile
+
+      - name: Engine tests
+        working-directory: website/rust-app
+        run: cargo test --locked
+
+      - name: Engine build matches the committed WebAssembly
+        run: node scripts/rust-release.mjs verify
+
+      - name: Type check
+        run: node scripts/check-web.mjs
+
+      - name: Studio feature tests
+        run: npm run -s test:features
+
+      - name: Production build
+        run: node scripts/build-rust-site.mjs

@@ -1,3 +1,9 @@
 # Secrets stay out of git.
 .env
 .env.*
+# Build output, dependencies and local tool folders.
+node_modules/
+dist/
+rust-tmp/
+*.tsbuildinfo
+.DS_Store

@@ -191,3 +191,22 @@ details.framing-tools>summary::-webkit-details-marker{display:none}
 details.framing-tools>summary::after{content:" ▴";color:var(--muted)}
 details.framing-tools[open]>summary{padding:0 0 .5rem}
 details.framing-tools[open]>summary::after{content:" ▾"}
+/* The 3D view travels with the visitor down the design controls, so every change stays in sight, and stops
+   where the materials & budget section begins (the end of the studio grid). */
+@media (min-width:851px){
+ .visual-panel:not(.expanded){position:sticky;top:96px;z-index:5}
+ .studio .control-body{max-height:none;overflow:visible}
+ .visual-panel:not(.expanded) .stage{height:clamp(340px,calc(100dvh - 360px),660px);min-height:0}
+}
+@media (max-width:850px){
+ .visual-panel:not(.expanded){position:sticky;top:0;z-index:5;box-shadow:0 10px 24px #0003}
+ .visual-panel:not(.expanded) .stage{height:38dvh;min-height:230px;max-height:none}
+ .visual-panel:not(.expanded) .home-stats{display:none}
+}
+/* Overlay panels inside the 3D view take their own clicks (the overlay layer itself lets drags reach the model). */
+#scene-ui details,#scene-ui summary,#scene-ui .framing-tools{pointer-events:auto}
+.scope-note{margin:.35rem 0 0;font-size:.8125rem;color:var(--muted);letter-spacing:.01em}
+/* AA contrast for the active floor button in light mode (4.5:1 on its tinted background). */
+:root:not([data-theme=dark]) [data-floor].active{color:#05663f}
+/* Comfortable touch targets for checkboxes on phones. */
+@media (max-width:850px){input[type=checkbox]{width:22px;height:22px}}

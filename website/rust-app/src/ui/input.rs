@@ -37,6 +37,9 @@ fn finish(source: Source,id: i32,x: i32,y: i32,e: &Event) {
     LAST_TOUCH.with(|v|*v.borrow_mut()=Some(Activation{time:js_sys::Date::now(),x,y,key:key(&p.target)}));
     if e.cancelable(){e.prevent_default()}
     action(p.target);
+    // The browser's compatibility click follows the tap once this handler (and any redraw it caused) is done,
+    // so the duplicate window starts now; a slow phone redraw can't let it through as a second tap.
+    LAST_TOUCH.with(|v|if let Some(a)=v.borrow_mut().as_mut(){a.time=js_sys::Date::now();});
 }
 fn cancel() {
     let had_press=PRESS.with(|v|v.borrow_mut().take().is_some());
