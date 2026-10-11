@@ -24,8 +24,33 @@ const fmtClockMin = m => { const t = 7 * 60 + Math.round(m), day = Math.floor(t 
 const L = 384;
 // The visitor's design, saved by the studio's "See our process" button: walls, openings, rooms,
 // stairwell, roof planes and pier layout, in feet. Without one (or with ?example=1) the example house is built.
+// Stored data is checked field by field (finite, in range, bounded arrays), so a damaged or tampered
+// entry falls back to the example house instead of hanging the page; a bad entry is also removed.
+const saneDesign = (d) => {
+  const num = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+  const list = (v, max) => Array.isArray(v) && v.length <= max;
+  const pt = (p) => list(p, 3) && p.length === 3 && p.every((v) => num(v, -60, 260));
+  const str = (v) => v == null || (typeof v === 'string' && v.length <= 200);
+  const opening = (o) => o && typeof o === 'object' && str(o.kind) && ['at', 'width', 'bottom', 'height'].every((k) => num(o[k], 0, 100));
+  const wall = (w) => w && typeof w === 'object' && (w.axis === 'x' || w.axis === 'z') && num(w.x, -1, 101) && num(w.z, -1, 101) && num(w.length, 0, 101) && list(w.openings || [], 32) && (w.openings || []).every(opening);
+  const room = (r) => r && typeof r === 'object' && str(r.name) && str(r.type) && ['x', 'z', 'w', 'd'].every((k) => num(r[k], -1, 101));
+  const level = (l) => l && typeof l === 'object' && list(l.walls || [], 400) && (l.walls || []).every(wall) && list(l.rooms || [], 200) && (l.rooms || []).every(room);
+  const roof = d.roof || {};
+  const facet = (f) => list(f, 64) && f.every(pt);
+  const edge = (e) => e && typeof e === 'object' && str(e.kind) && pt(e.a) && pt(e.b);
+  const profile = (p) => p && typeof p === 'object' && (p.axis === 'x' || p.axis === 'z') && num(p.x, -1, 101) && num(p.z, -1, 101) && list(p.points, 64) && p.points.every((q) => list(q, 2) && q.length === 2 && num(q[0], -10, 110) && num(q[1], 0, 100));
+  const f = d.foundation;
+  return d && typeof d === 'object' && d.version === 1 && num(d.width, 8, 100) && num(d.depth, 8, 100) && [1, 2, 3].includes(d.stories)
+    && num(d.wallHeight, 7, 12) && (d.floorGap == null || num(d.floorGap, 0, 4)) && (d.pitch == null || num(d.pitch, 0, 24)) && str(d.label) && str(d.style)
+    && list(d.levels, 3) && d.levels.length >= 1 && d.levels.every(level)
+    && list(roof.facets || [], 600) && (roof.facets || []).every(facet) && list(roof.edges || [], 3000) && (roof.edges || []).every(edge)
+    && list(roof.profiles || [], 16) && (roof.profiles || []).every(profile)
+    && (d.stair == null || (typeof d.stair === 'object' && ['x', 'z', 'w', 'd'].every((k) => num(d.stair[k], -1, 101))))
+    && (f == null || (typeof f === 'object' && str(f.type) && (f.depthFeet == null || num(f.depthFeet, 0, 100))));
+};
 const STORED_DESIGN = (() => {
-  try { const d = JSON.parse(localStorage.getItem('uf-process-design') || 'null'); return d && d.version === 1 && Array.isArray(d.levels) && d.levels.length && d.width > 0 && d.depth > 0 ? d : null; } catch (e) { return null; }
+  try { const d = JSON.parse(localStorage.getItem('uf-process-design') || 'null'); if (d == null) return null; if (saneDesign(d)) return d; localStorage.removeItem('uf-process-design'); } catch (e) { try { localStorage.removeItem('uf-process-design'); } catch (_) { /* storage unavailable */ } }
+  return null;
 })();
 const DESIGN = /[?&]example=1\b/.test(location.search) ? null : STORED_DESIGN;
 const HW = DESIGN ? DESIGN.width * 12 : L, HD = DESIGN ? DESIGN.depth * 12 : L;   // house width (x) and depth (z)
