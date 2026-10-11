@@ -26,17 +26,24 @@ export function addDormers(root:T.Object3D,m:any,framing:boolean,wood:T.MeshStan
   const side=siding.clone();side.side=T.DoubleSide;for(const cheek of d.cheeks)polygon(group,cheek,m,side,d.id+' sloped cheek');
   const local=new T.Group();local.position.set(d.origin[0]-m.w/2,d.baseY,d.origin[1]-m.d/2);local.rotation.y=Math.atan2(-d.tangent[1],d.tangent[0]);group.add(local);
   const box=(x:number,y:number,z:number,w:number,h:number,dep:number,mat:T.Material,name:string)=>{if(w<=0||h<=0)return;const object=new T.Mesh(new T.BoxGeometry(w,h,dep),mat);object.position.set(x,y,z);object.castShadow=object.receiveShadow=true;object.name=name;local.add(object);return object;};
-  let cursor=0;for(const o of d.openings){box((cursor+o.at)/2,d.height/2,0,o.at-cursor,d.height,.42,siding,d.id+' front wall');box(o.at+o.width/2,o.bottom/2,0,o.width,o.bottom,.42,siding,d.id+' wall below window');box(o.at+o.width/2,(o.bottom+o.height+d.height)/2,0,o.width,d.height-o.bottom-o.height,.42,siding,d.id+' wall above window');box(o.at+o.width/2,o.bottom+o.height/2,-.03,o.width-.14,o.height-.14,.04,glass,d.id+' glazed window');
+  // Arched and eyebrow dormers: the front follows a segmental arch (radius r, centre dropped c below the springing line).
+  const arc=d.arch?(u:number)=>Math.sqrt(Math.max(0,d.arch.radius**2-(u-d.width/2)**2))-d.arch.drop:null;
+  const archShape=(lift:number,inset:number,bottom:number)=>{const shape=new T.Shape();const steps=24,from=inset,to=d.width-inset;shape.moveTo(from,lift+bottom);for(let i=0;i<=steps;i++){const u=from+(to-from)*i/steps;shape.lineTo(u,lift+Math.max(bottom,arc!(u)-inset));}shape.lineTo(to,lift+bottom);shape.closePath();return shape;};
+  const archTrim=(lift:number)=>{for(let i=0;i<16;i++){const u0=d.width*i/16,u1=d.width*(i+1)/16;beam(local,new T.Vector3(u0,lift+arc!(u0),-.27),new T.Vector3(u1,lift+arc!(u1),-.27),.22,.2,wood,d.id+' arched trim');}};
+  if(d.kind==='Eyebrow'){const face=new T.Mesh(new T.ShapeGeometry(archShape(0,0,0)),side);face.name=d.id+' eyebrow face';local.add(face);const pane=new T.Mesh(new T.ShapeGeometry(archShape(0,.3,.12)),glass);pane.position.z=-.06;pane.name=d.id+' eyebrow glazing';local.add(pane);archTrim(0);for(let u=d.width/4;u<d.width-.5;u+=d.width/4){const top=arc!(u)-.3;if(top>.4)box(u,(top+.12)/2,-.1,.07,top-.12,.1,wood,d.id+' eyebrow muntin');}}
+  else{let cursor=0;for(const o of d.openings){box((cursor+o.at)/2,d.height/2,0,o.at-cursor,d.height,.42,siding,d.id+' front wall');box(o.at+o.width/2,o.bottom/2,0,o.width,o.bottom,.42,siding,d.id+' wall below window');box(o.at+o.width/2,(o.bottom+o.height+d.height)/2,0,o.width,d.height-o.bottom-o.height,.42,siding,d.id+' wall above window');box(o.at+o.width/2,o.bottom+o.height/2,-.03,o.width-.14,o.height-.14,.04,glass,d.id+' glazed window');
    const outward=new T.Vector3(0,0,-1);for(const at of [o.at-.13,o.at+o.width+.13])addTrimSegment(local,new T.Vector3(at,o.bottom-.12,-.25),new T.Vector3(at,o.bottom+o.height+.12,-.25),.26,.14,outward,m.trimPackage?.profile??3,wood,undefined);
    for(const yy of [o.bottom-.13,o.bottom+o.height+.13])addTrimSegment(local,new T.Vector3(o.at-.26,yy,-.25),new T.Vector3(o.at+o.width+.26,yy,-.25),.26,.17,outward,m.trimPackage?.profile??3,wood,undefined);
    if(d.width>2.){box(o.at+o.width/2,o.bottom+o.height/2,-.10,.065,o.height,.10,wood,d.id+' window mullion');box(o.at+o.width/2,o.bottom+o.height/2,-.10,o.width,.065,.10,wood,d.id+' window meeting rail');}
    cursor=o.at+o.width;
-  }box((cursor+d.width)/2,d.height/2,0,d.width-cursor,d.height,.42,siding,d.id+' front wall');
-  if(d.gableRise>0.){
+  }box((cursor+d.width)/2,d.height/2,0,d.width-cursor,d.height,.42,siding,d.id+' front wall');}
+  if(d.kind==='Arched'){const infill=new T.Mesh(new T.ShapeGeometry(archShape(d.height,0,0)),side);infill.name=d.id+' arched infill';local.add(infill);const fan=new T.Mesh(new T.ShapeGeometry(archShape(d.height,.45,.15)),glass);fan.position.z=-.08;fan.name=d.id+' fanlight';local.add(fan);archTrim(d.height);}
+  else if(d.gableRise>0.){
    const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute([0,d.height,0,d.width,d.height,0,d.width/2,d.height+d.gableRise,0],3));g.setAttribute('uv',new T.Float32BufferAttribute([0,0,d.width/3,0,d.width/6,d.gableRise/3],2));g.computeVertexNormals();const object=new T.Mesh(g,side);object.name=d.id+' gable infill';local.add(object);
    beam(local,new T.Vector3(0,d.height,-.27),new T.Vector3(d.width/2,d.height+d.gableRise,-.27),.2,.2,wood,d.id+' gable rake');beam(local,new T.Vector3(d.width/2,d.height+d.gableRise,-.27),new T.Vector3(d.width,d.height,-.27),.2,.2,wood,d.id+' gable rake');
   }
-  for(const facet of d.facets)for(let i=0;i<facet.points.length;i++){const a=point(facet.points[i],m),b=point(facet.points[(i+1)%facet.points.length],m);beam(group,a,b,.14,.14,wood,d.id+' roof edge / flashing');}
+  // Curved dormers are tessellated; only flat-faced dormers show their facet edges as flashing.
+  if(!d.arch)for(const facet of d.facets)for(let i=0;i<facet.points.length;i++){const a=point(facet.points[i],m),b=point(facet.points[(i+1)%facet.points.length],m);beam(group,a,b,.14,.14,wood,d.id+' roof edge / flashing');}
  }
 }
 
@@ -66,6 +73,11 @@ export function addBalcony(root:T.Object3D,m:any,framing:boolean,wood:T.MeshStan
 export function addRoofAccents(root:T.Object3D,m:any,wood:T.MeshStandardMaterial){
  const data=m.roofAccents;if(!data)return;const group=new T.Group();group.name='Style-coordinated roof accents';root.add(group);
  for(const edge of data.edges){const a=point(edge.a,m),b=point(edge.b,m),normal=new T.Vector3(...edge.normal as [number,number,number]);const direction=b.clone().sub(a);if(direction.clone().cross(normal).y<0){const temp=a.clone();a.copy(b);b.copy(temp);}addTrimSegment(group,a,b,edge.width,edge.projection,normal,edge.profile,wood,undefined);}
+ for(const o of data.ornaments){
+  if(o.kind==='tail')beam(group,point(o.a,m),point(o.b,m),.15*o.size,.42*o.size,wood,'Exposed rafter tail');
+  else if(o.kind==='box'){const mesh=new T.Mesh(new T.BoxGeometry(o.size[0],o.size[1],o.size[2]),wood);mesh.position.copy(point(o.center,m));mesh.castShadow=mesh.receiveShadow=true;mesh.name=o.role||'Cornice return';group.add(mesh);}
+  else if(o.kind==='knee'){const top=point(o.position,m),out=new T.Vector3(...o.normal as [number,number,number]),down=new T.Vector3(0,-o.drop,0);const t=.3*o.size;beam(group,top,top.clone().add(out.clone().multiplyScalar(o.reach)),t,t,wood,'Knee brace arm');beam(group,top,top.clone().add(down),t,t,wood,'Knee brace post');beam(group,top.clone().add(down.clone().multiplyScalar(.85)),top.clone().add(out.clone().multiplyScalar(o.reach*.85)),t*.85,t*.85,wood,'Knee brace strut');}
+ }
  for(const kind of ['dentil','bracket','fret']){
   const items=data.ornaments.filter((o:any)=>o.kind===kind);if(!items.length)continue;
   let geometry:T.BufferGeometry;if(kind==='dentil')geometry=new T.BoxGeometry(.23,.3,.38);else if(kind==='fret')geometry=new T.TorusGeometry(.27,.045,7,20);else{const shape=new T.Shape();shape.moveTo(-.35,.6);shape.lineTo(.35,.6);shape.lineTo(.35,-.4);shape.quadraticCurveTo(.15,.05,-.35,.6);geometry=new T.ExtrudeGeometry(shape,{depth:.22,bevelEnabled:true,bevelSize:.025,bevelThickness:.025,bevelSegments:1});}
