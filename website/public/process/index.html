@@ -60,6 +60,10 @@ body{height:100%;margin:0;background:var(--paper);color:var(--ink);font:400 15px
 .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
 .card{pointer-events:auto;background:var(--panel);border:1px solid var(--edge);border-radius:10px;box-shadow:var(--shadow);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .intro{max-width:410px;padding:13px 15px 12px}
+.build-mode .intro{background:none;border:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;padding:0;max-width:none}
+.build-mode .intro>*:not(.back):not(.warn){display:none}
+.build-mode .intro .back{margin:0;background:var(--panel);box-shadow:var(--shadow);border:1px solid var(--edge)}
+.build-mode .intro .warn{margin-top:8px;max-width:360px;background:var(--panel);padding:8px 10px;border-radius:8px}
 h1{margin:0;font:700 27px/1.02 var(--font-head);letter-spacing:.003em}
 .sub{margin:5px 0 0;color:var(--ink-soft);font-size:14px;max-width:48ch}
 .status{margin:10px 0 0;padding:8px 10px;border-left:3px solid var(--accent);border-radius:0 6px 6px 0;background:var(--accent-wash);font-size:14px;line-height:1.38;min-height:3.1em}
@@ -165,7 +169,7 @@ a.btn{text-decoration:none}
         <p class="sub">The Pier Beam drives the foundation while the trailer line starts building panels. The crane sets girders as soon as each pier row is done, then every panel as it comes off the line.</p>
         <p id="status" class="status">Choose the house size and pier spacing, then press Start.</p>
         <p id="warn" class="warn" hidden></p>
-        <p class="hint">Drag to orbit. Right-drag or two fingers to pan. Scroll or pinch to zoom.</p>
+        <p class="hint">Drag to orbit. Right-drag or two fingers to pan. Scroll or pinch to zoom toward the pointer; double-click to center. Arrow keys pan, + / − zoom.</p>
       </section>
       <section class="card power" aria-label="Schedule">
         <h2>Site clock, start 7:00 AM</h2>

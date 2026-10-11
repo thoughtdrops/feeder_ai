@@ -85,11 +85,14 @@ fn generate_once(current: &Config, mode: &str, seed: u32, keep_size: bool, grow:
             };
             let (w,d) = dimensions[random.pick(dimensions.len())]; c.width = w + grow; c.depth = d + grow;
         }
-        c.home_style = if c.stories >= 2 {"Colonial"} else {"Ranch"}.into();
-        c.pitch = 4.; c.wall_height = 8.09375; c.stud_type = "Sawn lumber".into();
+        // Budget-friendly styles with simple roofs and economical cladding; never the same style twice in a row.
+        let pool: &[&str] = if c.stories >= 2 {&["Colonial","Modern farmhouse","Scandinavian","Contemporary","Coastal"]} else {&["Ranch","Craftsman","Mid-century","Contemporary","Industrial","Modern farmhouse"]};
+        let choices: Vec<&str> = pool.iter().copied().filter(|p| *p != current.home_style).collect();
+        c.home_style = choices[random.pick(choices.len())].into();
+        c.pitch = architecture::preset(&c.home_style).2; c.wall_height = 8.09375; c.stud_type = "Sawn lumber".into();
         c.trim_package = "Minimal shadow line".into(); c.trim_size = "Normal".into();
         c.wallpaper = "None".into(); c.bedroom_wallpaper = "None".into();
-        c.siding = "Corrugated metal".into();
+        c.siding = s(&lookup("homeStyles",&c.home_style),"cladding").into();
         scheme(&mut c, ["Modern · Stone & oak","Natural · Linen house","Modern · Clay & linen","Modern · Olive daylight"][random.pick(4)]);
         c.floor = "Natural oak".into(); c.drywall = "Smooth finish".into();
         let palettes = [("#72817b","#343b3d","#d3cbbc"),("#555f68","#293138","#d5c9b5"),("#8d9c92","#3b4440","#dad4c4")];

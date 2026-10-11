@@ -370,9 +370,9 @@ fn reference_porches_and_carved_surrounds_match_their_live_takeoff(){
  c.category_budgets.insert(category,f64::NAN);assert!(validate(&c).is_err());
 }
 #[test]fn bulk_pricing_obeys_quantity_tiers_and_never_stacks_discounts(){
- let mut c=fixture();c.width=100.;c.depth=100.;c.county=s(&rules::locate(25.77,-80.19).unwrap(),"id").into();c.pricing_mode="Wholesale estimate".into();let m=model::build(&c);let row=|m:&Value|m["items"].as_array().unwrap().iter().find(|i|s(i,"id")=="zipwall").unwrap().clone();let z=row(&m);assert!(n(&z,"qty")>=80.);assert_eq!(n(&z,"retailPrice"),29.49);assert_eq!(n(&z,"price"),26.54);
+ let mut c=fixture();c.width=100.;c.depth=100.;c.county=s(&rules::locate(25.77,-80.19).unwrap(),"id").into();c.pricing_mode="Wholesale estimate".into();let m=model::build(&c);let row=|m:&Value|m["items"].as_array().unwrap().iter().find(|i|s(i,"id")=="zipwall").unwrap().clone();let z=row(&m);assert!(n(&z,"qty")>=80.);assert_eq!(n(&z,"retailPrice"),29.49);assert!(n(&z,"discountPercent")>=20.,"A whole-house ZIP order gets the 20–25% volume scenario, above the 80-sheet tier");assert_eq!(n(&z,"price"),round(29.49*(1.-n(&z,"discountPercent")/100.)));
  c.bulk_discounts.insert("ZIP envelope".into(),20.);let override_row=row(&model::build(&c));assert_eq!(n(&override_row,"price"),round(29.49*0.8));assert_eq!(n(&override_row,"discountPercent"),20.);c.prices.insert("zipwall".into(),40.);assert_eq!(n(&row(&model::build(&c)),"price"),32.);
- c.pricing_mode="Retail".into();let retail=model::build(&c);assert_eq!(n(&row(&retail),"price"),40.);assert_eq!(n(&retail,"volumeSavings"),0.);c.pricing_mode="Wholesale estimate".into();c.bulk_discounts.clear();c.width=8.;c.depth=8.;c.prices.clear();let tiny=row(&model::build(&c));assert!(n(&tiny,"qty")<80.);assert_eq!(n(&tiny,"discountPercent"),0.);c.bulk_discounts.insert("Roof".into(),81.);assert!(validate(&c).is_err());
+ c.pricing_mode="Retail".into();let retail=model::build(&c);assert_eq!(n(&row(&retail),"price"),40.);assert_eq!(n(&retail,"volumeSavings"),0.);c.pricing_mode="Wholesale estimate".into();c.bulk_discounts.clear();c.width=8.;c.depth=8.;c.prices.clear();let tiny=row(&model::build(&c));assert!(n(&tiny,"qty")<80.);assert!(n(&tiny,"discountPercent")<20.);c.bulk_discounts.insert("Roof".into(),81.);assert!(validate(&c).is_err());
 }
 #[test]fn rear_additions_windows_and_insulation_scale_from_live_geometry(){
  let mut c=fixture();c.home_style="Ranch".into();c.width=40.;c.depth=48.;c.rear_outdoor="Deck".into();c.window_size="Large".into();c.window_style="Picture".into();let m=model::build(&c);let p=&m["rearOutdoor"];assert!(s(p,"access").starts_with("Connected"));assert_eq!(p["roofs"],json!([]));let rect=&p["rectangles"][0];assert_eq!(n(rect,"w"),16.);assert_eq!(n(rect,"d"),8.);assert!(n(&m["siteBounds"],"maxZ")>=56.);assert!(n(&m,"interiorCavityArea")<n(&m,"partitionLength")*c.wall_height);
@@ -550,4 +550,10 @@ fn balconies_have_an_actual_upper_door_supports_and_itemized_materials(){
   let screens=m["items"].as_array().unwrap().iter().find(|i|s(i,"id")=="ventscreen").map(|i|n(i,"net")).unwrap_or(0.);assert!(near(screens,n(v,"intakeVentCount")));}
  let mut g=Config::default();g.garage="Attached".into();let m=model::build(&g);
  assert!(!m["structural"]["issues"].as_array().unwrap().iter().any(|v|v.as_str().unwrap().contains("exterior wall section is removed")),"A garage is not a removed house wall");
+}
+#[test]fn wholesale_scenario_tracks_category_size_and_affordable_varies_style(){
+ assert_eq!(pricing::scenario_discount(25000.),25.);assert_eq!(pricing::scenario_discount(5000.),20.);assert_eq!(pricing::scenario_discount(500.),10.);
+ let mut c=Config::default();c.stories=2;c.home_style="Colonial".into();let mut styles=std::collections::BTreeSet::new();
+ for seed in (1000..10000).step_by(911){let g=generator::generate(&c,"Affordable",seed,false).unwrap();assert_ne!(g.home_style,"Colonial","Affordable always moves to a different style");styles.insert(g.home_style);}
+ assert!(styles.len()>=3,"Affordable homes vary: {:?}",styles);
 }

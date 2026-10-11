@@ -3593,7 +3593,7 @@ canvas.addEventListener('pointermove', (e) => {
   } else if (ptrs.size === 2) {
     const [a, b] = Array.from(ptrs.values());
     const d = Math.hypot(a.x - b.x, a.y - b.y), m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-    if (pinch > 0 && d > 0) want.r = clamp(want.r * (pinch / d), 60, 7000);
+    if (pinch > 0 && d > 0) zoomAt(pinch / d, m.x, m.y);
     if (mid) pan(m.x - mid.x, m.y - mid.y);
     pinch = d; mid = m;
   }
@@ -3602,7 +3602,47 @@ const endPtr = (e) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) { pinch = 0
 canvas.addEventListener('pointerup', endPtr);
 canvas.addEventListener('pointercancel', endPtr);
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-canvas.addEventListener('wheel', (e) => { e.preventDefault(); want.r = clamp(want.r * Math.exp(e.deltaY * 0.0012), 60, 7000); }, { passive: false });
+// Where the pointer is on the work plane (the height the camera is looking at), for zooming and focusing.
+const _ray = new THREE.Raycaster(), _ndc = new THREE.Vector2(), _plane = new THREE.Plane(), _hit = new THREE.Vector3();
+function pointOnPlane(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  _ndc.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+  camera.updateMatrixWorld(); _ray.setFromCamera(_ndc, camera);
+  _plane.set(new THREE.Vector3(0, 1, 0), -cam.target.y);
+  if (!_ray.ray.intersectPlane(_plane, _hit)) return null;
+  return _hit.distanceTo(camera.position) > 12000 ? null : _hit.clone();
+}
+// Scroll zooms toward the spot under the pointer (not just the middle of the screen), so any part of the
+// site can be brought close; zooming out eases back the same way.
+function zoomAt(factor, clientX, clientY) {
+  const before = want.r, after = clamp(before * factor, 60, 7000), move = 1 - after / before;
+  const p = clientX == null ? null : pointOnPlane(clientX, clientY);
+  if (p && move > 0) { want.target.addScaledVector(p.sub(want.target), move); want.target.y = clamp(want.target.y, cam.under ? -400 : 0, 800); }
+  want.r = after;
+  if (curView === 'pier') curView = 'free';
+}
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const delta = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
+  // Trackpad two-finger scroll sideways pans; pinch (ctrl + wheel) and vertical scroll zoom.
+  if (!e.ctrlKey && Math.abs(e.deltaX) > Math.abs(e.deltaY)) { pan(-e.deltaX, 0); return; }
+  zoomAt(Math.exp(clamp(delta, -120, 120) * (e.ctrlKey ? 0.006 : 0.0012)), e.clientX, e.clientY);
+}, { passive: false });
+// Double-click (or double-tap) a spot to center the view on it.
+canvas.addEventListener('dblclick', (e) => {
+  const p = pointOnPlane(e.clientX, e.clientY); if (!p) return;
+  want.target.set(p.x, cam.target.y, p.z); want.r = clamp(want.r * 0.6, 60, 7000); if (curView === 'pier') curView = 'free';
+});
+// Keyboard: arrows / WASD pan, + and - zoom, so the view never depends on a mouse wheel.
+window.addEventListener('keydown', (e) => {
+  if (e.target && /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(e.target.tagName)) return;
+  const step = 40, k = e.key.toLowerCase();
+  if (k === 'arrowleft' || k === 'a') pan(step, 0); else if (k === 'arrowright' || k === 'd') pan(-step, 0);
+  else if (k === 'arrowup' || k === 'w') pan(0, step); else if (k === 'arrowdown' || k === 's') pan(0, -step);
+  else if (k === '+' || k === '=') zoomAt(0.85); else if (k === '-' || k === '_') zoomAt(1 / 0.85);
+  else return;
+  e.preventDefault();
+});
 
 /* ---------- Clock: keep the Pier Beam's fixed steps in line with the site clock ---------- */
 function syncPier() {
@@ -3882,6 +3922,9 @@ setCutaway(false);
   const sub = $('.sub'), swap = document.createElement('a');
   swap.className = 'swap';
   if (DESIGN) {
+    // Building the visitor's design: the live clock card says what is happening, so the intro card steps
+    // aside and only Back home (and any warning) stays on screen.
+    document.body.classList.add('build-mode');
     $('#ttl').textContent = `Your ${DESIGN.style || 'home'}: piers to framed shell`;
     sub.textContent = `Built from your design: ${DESIGN.label}. The Pier Beam drives its piers while the trailer line builds every floor, wall and roof panel, and the crane sets each one as it comes off the line.`;
     document.querySelectorAll('[data-stories]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.stories) === SITE.stories)));
