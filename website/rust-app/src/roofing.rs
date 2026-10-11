@@ -51,7 +51,7 @@ pub fn apply(c:&Config,mut m:Value)->Value{
  let mut t=model::Takeoff{items:vec![],c};
  macro_rules! add{($id:expr,$name:expr,$net:expr,$unit:expr,$price:expr,$basis:expr,$whole:expr)=>{t.add($id,"Roof",$name,$net as f64,$unit,$price as f64,$basis,"Roof covering estimate",true,$whole)};}
  if k!=METAL{
-  m["items"].as_array_mut().unwrap().retain(|i|!["roofmetal","roofclips","ridge","metalclosure","roof-purlins","underlay","roof-snowguards"].contains(&s(i,"id")));
+  m["items"].as_array_mut().unwrap().retain(|i|!["roofmetal","roofclips","ridge","metalclosure","roof-purlins","underlay","roof-snowguards","rake"].contains(&s(i,"id")));
   let double=k==ASPHALT&&c.pitch<4.;
   add!("underlay",&format!("Synthetic roofing underlayment · 10-square roll{}",if double{" · two layers"}else{""}),((area-ice).max(0.)*if double{2.}else{1.}+shallow_asphalt)/1000.,"rolls",125.,if double{"Roof area outside the ice-barrier strips. Two layers below 4:12 per IRC R905.1.1 for asphalt shingles."}else{"Roof area outside the ice-barrier strips; laps, fastening and the shingle maker's requirements govern."},true);
   add!("roof-dripedge",&format!("{} drip edge · 10 ft",if k==SLATE{"16 oz copper"}else{"Aluminum"}),(eave+rake)/10.,"pieces",if k==SLATE{48.}else{11.},"Every eave and rake; drip edge goes under the underlayment at eaves and over it at rakes.",true);

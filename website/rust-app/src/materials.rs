@@ -3,6 +3,8 @@ use model::Takeoff;
 // Every allowance states its estimating basis; local selections are not inferred.
 pub fn extend(t:&mut Takeoff,c:&Config,rs:&[Room],ws:&[Wall],fs:&[staging::Furniture],area:f64,perimeter:f64,roof_area:f64,cladding:f64,partition:f64,electrical:&Value)->Value{
  let modeled=|kind:&str|fs.iter().filter(|f|f.kind==kind).count()as f64;
+ // Whole-house equipment and exterior/service extras are counted once, on the main floor.
+ let ground=c.active_floor==0;let systems=if ground{(c.width*c.depth*c.stories as f64/1800.).ceil().max(1.)}else{0.};let once=|n:f64|if ground{n}else{0.};
  let kitchens=modeled("kitchen");let baths=rs.iter().filter(|r|r.kind=="bath").count()as f64;
  let toilets=modeled("toilet");let basins=modeled("vanity")+modeled("double-vanity")*2.;let showers=modeled("shower")+modeled("bathtub");let laundry=modeled("laundry");let cabinet_lf:f64=fs.iter().filter(|f|f.kind=="kitchen"||f.kind=="island").map(|f|f.local_width).sum();
  macro_rules! allow{($id:expr,$cat:expr,$name:expr,$n:expr,$unit:expr,$price:expr,$basis:expr,$whole:expr)=>{t.add($id,$cat,$name,$n as f64,$unit,$price,$basis,"Allowance",true,$whole)}}
@@ -67,18 +69,18 @@ pub fn extend(t:&mut Takeoff,c:&Config,rs:&[Room],ws:&[Wall],fs:&[staging::Furni
  allow!("pipefittings","Plumbing","Pipe fittings / clamps / supports",wet.connections*6.,"sets",5.,"Six concept fitting/support sets per fixture; exact fittings require routed drawings.",true);
  count!("servicepanel","Electrical distribution","Load center / main disconnect",1.,450.,"One concept panel; service rating and load calculation pending.");
  count!("grounding","Electrical distribution","Grounding / bonding material kit",1.,160.,"One system allowance; electrode type and conductor sizing require electrical design.");
- count!("circuitbreakers","Electrical distribution","Branch breaker / protection allowance",((area/150.).ceil()+wet.connections+4.).max(6.),38.,"Area branch allowance plus fixture/appliance groups; final circuits/protection pending.");
+ count!("circuitbreakers","Electrical distribution","Branch breaker / protection allowance",((area/150.).ceil()+wet.connections+once(4.)).max(once(6.)),38.,"Area branch allowance plus fixture/appliance groups; final circuits/protection pending.");
  allow!("branchwire","Electrical distribution","Branch cable / raceway allowance",area*0.7+n(electrical,"total")*8.,"linear ft",0.75,"0.7 ft/sq ft plus 8 ft/planned receptacle; routed circuits and conductor sizes pending.",false);
- count!("deviceboxes","Electrical distribution","Device / fixture boxes",n(electrical,"total")+rs.len()as f64+2.+rs.iter().filter(|r|r.kind!="hall").count()as f64+2.,3.,"Planned receptacles + switches + lights; service equipment boxes excluded.");
- count!("coverplates","Electrical distribution","Device cover plates",n(electrical,"total")+rs.len()as f64+2.,1.8,"Planned receptacles + switches; fixture trims included in lighting allowance.");
- count!("applianceoutlets","Electrical distribution","Dedicated appliance receptacle / disconnect allowance",kitchens*2.+modeled("fridge")+laundry*2.+1.,28.,"Cooking/dishwasher provision, refrigerator, laundry and water-heater provision; actual loads pending.");
+ count!("deviceboxes","Electrical distribution","Device / fixture boxes",n(electrical,"total")+rs.len()as f64+once(2.)+rs.iter().filter(|r|r.kind!="hall").count()as f64+once(2.),3.,"Planned receptacles + switches + lights; service equipment boxes excluded.");
+ count!("coverplates","Electrical distribution","Device cover plates",n(electrical,"total")+rs.len()as f64+once(2.),1.8,"Planned receptacles + switches; fixture trims included in lighting allowance.");
+ count!("applianceoutlets","Electrical distribution","Dedicated appliance receptacle / disconnect allowance",kitchens*2.+modeled("fridge")+laundry*2.+once(1.),28.,"Cooking/dishwasher provision, refrigerator, laundry and water-heater provision; actual loads pending.");
  let supply_rooms=rs.iter().filter(|r|r.kind!="hall"&&r.kind!="bath").count()as f64;
- count!("hvacequipment","HVAC","Heating / cooling equipment allowance",(area/1800.).ceil().max(1.),2800.,"One provisional system/1,800 sq ft; not a capacity or Manual J/S result.");
+ count!("hvacequipment","HVAC","Heating / cooling equipment allowance",systems,2800.,"One provisional system per 1,800 sq ft of the whole house; not a capacity or Manual J/S result.");
  count!("hvacsupply","HVAC","Supply registers / boots",supply_rooms,30.,"One register per non-hall/non-bath room; airflow/room loads pending.");
  count!("hvacreturns","HVAC","Return grilles / filter boxes",(supply_rooms/4.).ceil().max(1.),65.,"One return allowance/four served rooms; pressure balance and layout pending.");
  allow!("hvacduct","HVAC","Supply duct / insulation / fittings",supply_rooms*(c.width.min(c.depth)/3.+5.),"linear ft",8.,"Served-room count times concept route length; Manual D and actual routing pending.",false);
- count!("thermostats","HVAC","Thermostats / controls",(area/1800.).ceil().max(1.),110.,"One per provisional equipment system.");
- allow!("hvacrefrigerant","HVAC","Refrigerant / condensate line sets",(area/1800.).ceil().max(1.)*(c.width.min(c.depth)/2.+8.),"linear ft",7.,"System count times concept outdoor-unit route; equipment/condensate details pending.",false);
+ count!("thermostats","HVAC","Thermostats / controls",systems,110.,"One per provisional equipment system.");
+ allow!("hvacrefrigerant","HVAC","Refrigerant / condensate line sets",systems*(c.width.min(c.depth)/2.+8.),"linear ft",7.,"System count times concept outdoor-unit route; equipment/condensate details pending.",false);
  count!("wholehousevent","Mechanical ventilation","Whole-house ventilation equipment allowance",1.,650.,"One system allowance; selected method, required airflow and controls pending.");
  count!("closetshelving","Interior","Closet storage / rail kits",rs.iter().filter(|r|r.kind=="bedroom").count(),125.,"One storage allowance per bedroom; location and closet walls pending.");
  json!({"ratio":150,"requiredNfaSquareInches":required,"ridgeLength":ridge_length,"ridgeNfa":ridge_nfa,"boxVentCount":boxes,"exhaustNfa":exhaust,"intakeVentCount":intake_units,"intakeNfa":intake,"totalNfa":exhaust+intake,"passesArea":exhaust+intake+1e-8>=required,"passesBalance":intake+1e-8>=exhaust,"cathedral":cathedral,"basis":if cathedral{"Vented cathedral ceiling: each rafter bay breathes from soffit to ridge vent (box vents cannot reach the bays). IRC R806.2 1:150 basis; a short ridge may need an unvented (closed-cell foam) roof assembly instead."}else{"IRC R806.2 1:150 vented attic; no 1:300 exception assumed. Product NFA ratings and installation must be confirmed."},"source":"https://codes.iccsafe.org/s/IRC2021P3/chapter-8-roof-ceiling-construction/IRC2021P3-Pt03-Ch08-SecR806.2","roofArea":roof_area})

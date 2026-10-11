@@ -562,3 +562,16 @@ fn balconies_have_an_actual_upper_door_supports_and_itemized_materials(){
  for seed in (1000..10000).step_by(911){let g=generator::generate(&c,"Affordable",seed,false).unwrap();assert_ne!(g.home_style,"Colonial","Affordable always moves to a different style");styles.insert(g.home_style);}
  assert!(styles.len()>=3,"Affordable homes vary: {:?}",styles);
 }
+#[test]fn framing_cut_lists_share_stock_and_whole_house_items_are_counted_once(){
+ assert_eq!(model::stock_boards(&[7.72;5],8.),5,"Full studs need a board each");assert_eq!(model::stock_boards(&[2.;8],8.),3,"Short cripples share boards (kerf)");assert_eq!(model::stock_boards(&[5.,3.,5.,3.],8.),3);
+ // Two-story 24 × 32: one HVAC system for 1,536 sq ft, downspouts kept, two exterior lights in total.
+ let mut c=Config::default();c.home_style="Colonial".into();c.stories=2;architecture::apply(&mut c,true);c.width=24.;c.depth=32.;
+ let m=model::build(&c);let q=|id:&str|m["items"].as_array().unwrap().iter().find(|i|s(i,"id")==id).map(|i|n(i,"net")).unwrap_or(0.);
+ assert_eq!(q("hvacequipment"),1.);assert_eq!(q("thermostats"),1.);assert!(q("downspouts")>0.,"Downspouts survive the story merge");
+ let rooms:usize=m["levels"].as_array().unwrap().iter().map(|l|l["rooms"].as_array().unwrap().iter().filter(|r|s(r,"type")!="hall").count()).sum();assert!(near(q("lights"),rooms as f64+2.));
+ assert_eq!(q("cornerbead"),0.,"Pre-painted panels with wood corner trim need no corner bead");
+ // Shingle roofs: the drip edge replaces the metal roof's rake & eave trim.
+ let mut sh=Config::default();sh.roofing=roofing::ASPHALT.into();sh.pitch=8.;let m=model::build(&sh);assert!(!m["items"].as_array().unwrap().iter().any(|i|s(i,"id")=="rake"));
+ // Roof posts: distinct interior support points only.
+ let v=model::build(&Config::default());let posts=v["items"].as_array().unwrap().iter().find(|i|s(i,"id")=="roofposts").map(|i|n(i,"net")).unwrap_or(0.);assert!(posts<=16.,"posts {}",posts);
+}
