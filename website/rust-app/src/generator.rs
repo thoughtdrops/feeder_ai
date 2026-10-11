@@ -53,7 +53,7 @@ pub fn generate(current: &Config, mode: &str, seed: u32, keep_size: bool) -> Res
     if !["Affordable","Premium"].contains(&mode) { return Err("Choose Affordable or Premium.".into()); }
     if mode == "Affordable" {
         if !keep_size {
-            let dimensions: &[(f64,f64)] = if c.stories == 2 {
+            let dimensions: &[(f64,f64)] = if c.stories >= 2 {
                 match c.bedrooms {
                     0..=3 => &[(24.,32.),(24.,36.),(28.,36.)],
                     4 => &[(24.,40.),(28.,40.),(32.,40.)],
@@ -71,7 +71,7 @@ pub fn generate(current: &Config, mode: &str, seed: u32, keep_size: bool) -> Res
             };
             let (w,d) = dimensions[random.pick(dimensions.len())]; c.width = w; c.depth = d;
         }
-        c.home_style = if c.stories == 2 {"Colonial"} else {"Ranch"}.into();
+        c.home_style = if c.stories >= 2 {"Colonial"} else {"Ranch"}.into();
         c.pitch = 4.; c.wall_height = 8.09375; c.stud_type = "Sawn lumber".into();
         c.trim_package = "Minimal shadow line".into(); c.trim_size = "Normal".into();
         c.wallpaper = "None".into(); c.bedroom_wallpaper = "None".into();

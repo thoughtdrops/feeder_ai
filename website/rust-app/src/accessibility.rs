@@ -19,7 +19,7 @@ pub fn zones(c:&Config,rs:&[Room])->Vec<Clearance>{
  out
 }
 pub fn wall_error(w:&Wall,c:&Config)->Option<String>{
- if c.stories!=2||(c.design_mode=="Blank slate"&&stairs::custom(c).is_none()){return None}
+ if c.stories<2||(c.design_mode=="Blank slate"&&stairs::custom(c).is_none()){return None}
  let(rs,_)=layout(c);let bounds=if w.axis=="x"{[w.x,w.z-0.27,w.x+w.length,w.z+0.27]}else{[w.x-0.27,w.z,w.x+0.27,w.z+w.length]};
  zones(c,&rs).iter().filter(|z|["stairwell","landing"].contains(&z.kind.as_str())).find(|z|edit::overlap(bounds,z.rect())).map(|z|format!("Keep {} free of walls. Move the wall outside the blue clearance area.",z.name))
 }
@@ -35,6 +35,6 @@ pub fn report(c:&Config,rs:&[Room],ws:&[Wall],fs:&[staging::Furniture])->Value{
   if fs.iter().any(|f|edit::item_intersects_rect(f,z.rect())){issues.push(format!("{} is obstructed by a modeled item.",z.name));}
   if ws.iter().any(|w|{let b=if w.axis=="x"{[w.x,w.z-0.27,w.x+w.length,w.z+0.27]}else{[w.x-0.27,w.z,w.x+0.27,w.z+w.length]};edit::overlap(b,z.rect())}){issues.push(format!("{} crosses a wall; review the opening and approach.",z.name));}
  }
- if c.stories==2{issues.push("Stairs do not provide wheelchair access upstairs. A lift/elevator or an accessible ground-floor program requires separate design.".into());}
+ if c.stories>=2{issues.push("Stairs do not provide wheelchair access upstairs. A lift/elevator or an accessible ground-floor program requires separate design.".into());}
  json!({"routeTargetInches":36,"turningTargetInches":60,"stairApproachTargetFeet":5,"zones":zones,"issues":issues,"status":"Circulation planning targets · full accessibility review pending","sources":["https://www.access-board.gov/ada/chapter/ch03/","https://www.access-board.gov/ada/chapter/ch04/"],"note":"Protects modeled circulation and stair approaches. Door hardware, actual clear openings, maneuvering direction, bathroom fixture clearances, thresholds and step-free access need project-specific verification; this is not an ADA certification."})
 }
