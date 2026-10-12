@@ -8,6 +8,10 @@ import {layoutEditor} from './context-menu';
 import {createSceneController} from './scene-controller';
 import {releaseRenderer} from './graphics';
 import {initAccounts,prepareSplash,saveBuild,openBuilds} from './account';
+import {cycleViewStyle,markViewStyle,viewStyleLabel} from './view-styles';
+// The graphics-style button lives in the Rust-rendered viewer overlay; its label comes from <html data-view-style>.
+markViewStyle();
+document.addEventListener('click',event=>{const button=(event.target as Element|null)?.closest?.('.view-style-toggle');if(!button)return;const id=cycleViewStyle();stage?.refresh();app?.show_status(`Graphics style: ${viewStyleLabel(id)}. Tap the style button again for the next look.`);});
 let unbindTextures:undefined|(()=>void);
 let unbindAccessibility:undefined|(()=>void);
 let reportBusy=false;

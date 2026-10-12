@@ -2,6 +2,7 @@ import * as T from 'three';
 import {addRoof} from './architecture';
 import {addPorch} from './porch';
 import {addTrimSegment} from './trim';
+import {addColumn,addGuard} from './railings';
 
 const point=(p:number[],m:any)=>new T.Vector3(p[0]-m.w/2,p[1],p[2]-m.d/2);
 function beam(root:T.Object3D,a:T.Vector3,b:T.Vector3,w:number,h:number,mat:T.Material,name:string){
@@ -61,11 +62,9 @@ export function addBalcony(root:T.Object3D,m:any,framing:boolean,wood:T.MeshStan
  for(const z of[p.z,p.z+p.d])box(p.x+p.w/2,p.deckY-.33,z,p.w,7.25/12,.125,'Balcony rim / ledger');
  for(const x of[p.x,p.x+p.w])box(x,p.deckY-.33,p.z+p.d/2,.125,7.25/12,p.d,'Balcony rim');
  beam(group,pt([p.x,p.deckY-.67,p.z+p.d]),pt([p.x+p.w,p.deckY-.67,p.z+p.d]),.25,.75,wood,'Balcony doubled beam');
- if(whole)for(const post of p.posts)box(post.x,post.height/2,post.z,.5,post.height,.5,'Balcony support post');
+ if(whole)for(const post of p.posts){if(framing)box(post.x,post.height/2,post.z,.5,post.height,.5,'Balcony support post');else{const column=new T.Group();column.name='Balcony support post';group.add(column);addColumn(column,m.character?.column||'square',post.x-m.w/2,0,post.z-m.d/2,post.height,'x',wood,wood);}}
  if(!framing){for(let z=p.z+.22;z<p.z+p.d;z+=.47)box(p.x+p.w/2,p.deckY-.04,z,p.w,.08,Math.min(.455,p.z+p.d-z+.22),'Sealed balcony decking');
-  for(const r of p.rails){beam(group,pt(r.a),pt(r.b),.17,.16,wood,'Balcony guard cap');const a=[...r.a],b=[...r.b];a[1]=b[1]=p.deckY+.25;beam(group,pt(a),pt(b),.15,.12,wood,'Balcony guard lower rail');
-   for(let i=1;i<=r.balusters;i++){const t=i/(r.balusters+1);box(r.a[0]+(r.b[0]-r.a[0])*t,p.deckY+1.84,r.a[2]+(r.b[2]-r.a[2])*t,.08,3.10,.08,'Balcony baluster');}
-  }
+  for(const r of p.rails)addGuard(group,pt(r.a),pt(r.b),p.deckY+.25+offset,r.balusters,m.character?.railing||'square',wood,'Balcony');
   for(const [x,z]of[[p.x,p.z],[p.x+p.w,p.z],[p.x,p.z+p.d],[p.x+p.w,p.z+p.d]])box(x,p.deckY+1.75,z,.3,3.5,.3,'Balcony guard post');
  }
 }
@@ -75,9 +74,21 @@ export function addRoofAccents(root:T.Object3D,m:any,wood:T.MeshStandardMaterial
  for(const edge of data.edges){const a=point(edge.a,m),b=point(edge.b,m),normal=new T.Vector3(...edge.normal as [number,number,number]);const direction=b.clone().sub(a);if(direction.clone().cross(normal).y<0){const temp=a.clone();a.copy(b);b.copy(temp);}addTrimSegment(group,a,b,edge.width,edge.projection,normal,edge.profile,wood,undefined);}
  for(const o of data.ornaments){
   if(o.kind==='tail')beam(group,point(o.a,m),point(o.b,m),.15*o.size,.42*o.size,wood,'Exposed rafter tail');
+  else if(o.kind==='beam')beam(group,point(o.a,m),point(o.b,m),.33*o.size,.6*o.size,wood,'Exposed beam end');
+  else if(o.kind==='frieze'){const mesh=new T.Mesh(new T.BoxGeometry(o.size[0],o.size[1],o.size[2]),wood);mesh.position.copy(point(o.center,m));mesh.castShadow=mesh.receiveShadow=true;mesh.name='Frieze board';group.add(mesh);}
   else if(o.kind==='box'){const mesh=new T.Mesh(new T.BoxGeometry(o.size[0],o.size[1],o.size[2]),wood);mesh.position.copy(point(o.center,m));mesh.castShadow=mesh.receiveShadow=true;mesh.name=o.role||'Cornice return';group.add(mesh);}
   else if(o.kind==='knee'){const top=point(o.position,m),out=new T.Vector3(...o.normal as [number,number,number]),down=new T.Vector3(0,-o.drop,0);const t=.3*o.size;beam(group,top,top.clone().add(out.clone().multiplyScalar(o.reach)),t,t,wood,'Knee brace arm');beam(group,top,top.clone().add(down),t,t,wood,'Knee brace post');beam(group,top.clone().add(down.clone().multiplyScalar(.85)),top.clone().add(out.clone().multiplyScalar(o.reach*.85)),t*.85,t*.85,wood,'Knee brace strut');}
  }
+ // Eave corbels and modillions: a scrolled side profile reaching from the wall out under the soffit.
+ const profiles=new Map<string,{geometry:T.BufferGeometry,items:any[]}>();
+ for(const o of data.ornaments.filter((o:any)=>o.kind==='corbel'||o.kind==='modillion')){const key=o.kind+o.reach.toFixed(2)+o.drop.toFixed(2)+o.size;let entry=profiles.get(key);
+  if(!entry){const r=o.reach*o.size,dr=o.drop*o.size,shape=new T.Shape();shape.moveTo(0,0);shape.lineTo(r,0);
+   if(o.kind==='modillion'){shape.lineTo(r,-dr*.55);shape.quadraticCurveTo(r*.55,-dr*.5,r*.35,-dr);shape.lineTo(0,-dr);}else{shape.lineTo(r,-.2);shape.bezierCurveTo(r*.45,-.2,r*.55,-dr,0,-dr);}
+   shape.closePath();const geometry=new T.ExtrudeGeometry(shape,{depth:o.kind==='modillion'?.32:.24,bevelEnabled:true,bevelSize:.02,bevelThickness:.02,bevelSegments:1});geometry.translate(0,0,o.kind==='modillion'?-.16:-.12);entry={geometry,items:[]};profiles.set(key,entry);}
+  entry.items.push(o);}
+ for(const [key,{geometry,items}] of profiles){const im=new T.InstancedMesh(geometry,wood,items.length);im.name=key.startsWith('corbel')?'Scrolled eave corbel':'Modillion block';const basis=new T.Matrix4(),up=new T.Vector3(0,1,0);
+  items.forEach((o:any,i:number)=>{const nrm=new T.Vector3(...o.normal as [number,number,number]);basis.makeBasis(nrm,up,nrm.clone().cross(up));basis.setPosition(point(o.position,m));im.setMatrixAt(i,basis);});
+  im.instanceMatrix.needsUpdate=true;im.computeBoundingSphere();im.castShadow=im.receiveShadow=true;group.add(im);}
  for(const kind of ['dentil','bracket','fret']){
   const items=data.ornaments.filter((o:any)=>o.kind===kind);if(!items.length)continue;
   let geometry:T.BufferGeometry;if(kind==='dentil')geometry=new T.BoxGeometry(.23,.3,.38);else if(kind==='fret')geometry=new T.TorusGeometry(.27,.045,7,20);else{const shape=new T.Shape();shape.moveTo(-.35,.6);shape.lineTo(.35,.6);shape.lineTo(.35,-.4);shape.quadraticCurveTo(.15,.05,-.35,.6);geometry=new T.ExtrudeGeometry(shape,{depth:.22,bevelEnabled:true,bevelSize:.025,bevelThickness:.025,bevelSegments:1});}

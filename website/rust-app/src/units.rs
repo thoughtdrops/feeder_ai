@@ -27,7 +27,7 @@ fn millimeters(inches:f64)->String{let mm=inches*IN_MM;if mm.abs()>=1000.{format
 
 /// A quantity's unit and the factor to convert one of it to metric, for takeoff rows.
 pub fn row_unit(unit:&str)->Option<(&'static str,f64)>{
- match unit{"sq ft"=>Some(("m²",SQFT)),"sq ft of batts"=>Some(("m² of batts",SQFT)),"linear ft"=>Some(("m",FT)),"ply linear ft"=>Some(("ply m",FT)),"assembly linear ft"=>Some(("assembly m",FT)),"lb"=>Some(("kg",LB_KG)),"gallons"=>Some(("litres",GAL_L)),_=>None}
+ match unit{"sq ft"=>Some(("m²",SQFT)),"sq ft of batts"=>Some(("m² of batts",SQFT)),"linear ft"=>Some(("m",FT)),"ply linear ft"=>Some(("ply m",FT)),"assembly linear ft"=>Some(("assembly m",FT)),"lb"=>Some(("kg",LB_KG)),"gallons"=>Some(("litres",GAL_L)),"gal"=>Some(("L",GAL_L)),"cu yd"=>Some(("m³",0.764555)),_=>None}
 }
 
 fn is_word(c:char)->bool{c.is_alphanumeric()||c=='_'}
@@ -108,7 +108,7 @@ fn convert_text(text:&str,out:&mut String){
    let label=(u.to)(value);let suffix=label.rsplit(' ').next().unwrap_or("").to_string();
    // keep each separator as written (× for sizes, – or "to" for ranges)
    let mut seps=vec![];{let mut q=start;for _ in &chain{let h=&text[..q];let sep=[" × "," x ","×"," – ","–"," to "].iter().find(|s|h.ends_with(*s)).copied().unwrap_or(" × ");seps.push(sep);let p2=number_before(text,q-sep.len()).map(|(s2,_)|s2).unwrap_or(q);q=p2;}}
-   for (k,v) in chain.iter().enumerate().rev(){let t=(u.to)(*v);out.push_str(t.trim_end_matches(&suffix).trim_end());out.push_str(seps[k]);}
+   for (k,v) in chain.iter().enumerate().rev(){let t=(u.to)(*v);let end=format!(" {}",suffix);out.push_str(t.strip_suffix(end.as_str()).unwrap_or(&t));out.push_str(seps[k]);}
    out.push_str(&label);i+=u.word.len();copied=i;continue}
   if text[..i].ends_with('/'){if let Some((start,price))=number_before(text,i-1){if start>0&&text[..start].ends_with('$'){let factor=match u.label{"m²"=>SQFT,"m"=>FT,"kg"=>LB_KG,"L"=>GAL_L,_=>1.};out.push_str(&text[copied..start]);out.push_str(&format!("{}/{}",num(price/factor,2),u.label));i+=u.word.len();copied=i;continue}}}
   if text[copied..i].trim().is_empty()&&!u.needs_number{
@@ -190,6 +190,8 @@ mod tests{
   assert_eq!(m("2x6 SPF #2 · 92-5/8 in precut"),"2x6 SPF #2 · 2.35 m precut");
   assert_eq!(m("8–100 ft, on a 2 ft grid."),"2.44–30.48 m, on a 0.61 m grid.");
   assert_eq!(m("American · f&#116;, in"),"American · f&#116;, in");
+  assert_eq!(m("Garage 36 × 80 in exterior service door"),"Garage 914 mm × 2.03 m exterior service door");
+  assert_eq!(row_unit("cu yd").unwrap().0,"m³");assert_eq!(row_unit("gal").unwrap().0,"L");
  }
  #[test]fn inputs_round_trip(){
   let html=m("<label class=field>Width · ft<input id=\"width\" type=number min=8 max=100 step=0.01 value=\"26\"></label>");

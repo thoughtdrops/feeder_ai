@@ -12,9 +12,9 @@ export function fullPixelRatio(){return Math.min(globalThis.devicePixelRatio||1,
 /** Keeps the view sharp and smooth: every still frame is drawn at full resolution; while the camera moves,
  * a device that can't keep ~30 fps steps its moving resolution down (never below 1x) and the next still
  * frame snaps back to full. */
-export function adaptiveResolution(renderer:T.WebGLRenderer){
+export function adaptiveResolution(renderer:T.WebGLRenderer,onChange?:()=>void){
  const full=fullPixelRatio();let moving=full,current=full,slow=0,last=0;
- const use=(ratio:number)=>{if(Math.abs(current-ratio)>.01){current=ratio;renderer.setPixelRatio(ratio);}};
+ const use=(ratio:number)=>{if(Math.abs(current-ratio)>.01){current=ratio;renderer.setPixelRatio(ratio);onChange?.();}};
  return {
   frame(now:number){
    const dt=now-last;last=now;

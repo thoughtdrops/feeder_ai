@@ -40,7 +40,7 @@ fn controls(a:&State)->String{let c=&a.c;let mut out=String::from("<div class=pa
  out.push_str("<p class=muted>8–100 ft, on a 2 ft grid.</p>");
  out.push_str(&select("homeStyle","Home architectural style",&choices("homeStyle"),&c.home_style));
  out.push_str(&select("stories","Stories",&strings(&["1","2","3"]),&c.stories.to_string()));
- if c.design_mode!="Blank slate"{out.push_str(&select("bedrooms","Preferred bedrooms",&(0..7).map(|i|i.to_string()).collect::<Vec<_>>(),&c.bedrooms.to_string()));}
+ if c.design_mode!="Blank slate"{out.push_str(&select("bedrooms","Preferred bedrooms",&(if c.stories>=2{1}else{0}..7).map(|i|i.to_string()).collect::<Vec<_>>(),&c.bedrooms.to_string()));}
  else{out.push_str("<div class=notice><strong>Empty shell</strong><p>Draw walls on the 2-foot grid and click to place items. Each floor keeps its edits.</p></div>");}
  out.push_str("<details class=control-group data-section=roof><summary>Wall height &amp; roof pitch</summary><div class=two-fields>");
  out.push_str(&select("wallHeight","Wall height",&strings(&["8.09375","8","9","10"]),&c.wall_height.to_string()).replace(">8.09375</option>",">Standard panel · 97-1/8 in plates</option>"));
@@ -76,7 +76,8 @@ fn scene_help(a:&State)->String{
   "walk"=>&["Hold the arrow pad to walk.","Drag to look around.","Keyboard: arrow keys or W A S D.","Go to room jumps to any room.","Change stories with the floor buttons above the view."],
   _=>&["Drag to orbit around the house.","Pinch or scroll to zoom.","Two-finger drag or right-drag to move the view.","Reset view returns to the starting angle; Expand fills the screen."],
  };
- let mut o=format!("<button type=button class=scene-help-toggle data-action=scene-help aria-label=\"How to use the 3D view\" aria-expanded={} aria-controls=scene-help-panel>?</button>",a.help);
+ let style=if a.view=="plan"{""}else{"<button type=button class=view-style-toggle title=\"Change graphics style\"><span aria-hidden=true class=view-style-icon></span><span class=sr-only>Graphics style: </span><span class=view-style-name></span></button>"};
+ let mut o=format!("{}<button type=button class=scene-help-toggle data-action=scene-help aria-label=\"How to use the 3D view\" aria-expanded={} aria-controls=scene-help-panel>?</button>",style,a.help);
  if a.help{o.push_str("<div id=scene-help-panel class=scene-help-panel role=note><strong>How to use this view</strong><ul>");for t in tips{o.push_str(&format!("<li>{}</li>",t));}o.push_str("</ul></div>");}
  o
 }

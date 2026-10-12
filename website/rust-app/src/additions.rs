@@ -2,6 +2,7 @@ use crate::*;
 mod dormers;
 mod outdoor;
 mod accents;
+pub mod character;
 pub mod balconies;
 
 pub fn validate(c:&Config)->Result<(),String>{
@@ -12,10 +13,11 @@ pub fn validate(c:&Config)->Result<(),String>{
         (&c.rear_outdoor,vec!["Style matched","None","Deck","Covered porch"],"rear outdoor space"),
         (&c.window_style,vec!["Style matched","Double hung","Casement","Picture"],"window style"),
         (&c.window_size,vec!["Style matched","Medium","Large"],"window size"),
-        (&c.roof_edge_style,vec!["Style matched","Plain fascia","Stepped cornice","Ogee cornice","Dentil cornice","Craftsman brackets","Victorian fretwork"],"roof edge"),
+        (&c.roof_edge_style,vec!["Style matched","Plain fascia","Crown fascia","Stepped cornice","Ogee cornice","Dentil cornice","Modillion cornice","Scrolled corbels","Craftsman brackets","Exposed beam ends","Boxed eave & frieze","Victorian fretwork"],"roof edge"),
         (&c.gable_accent,vec!["Style matched","None","Shingle panel","Board and batten","Tudor timber"],"gable accent"),
         (&c.finials,vec!["Style matched","None","Turned finials","Roof spire"],"roof ornament"),
     ]{if !allowed.contains(&value.as_str()){return Err(format!("Choose a listed {} option.",label));}}
+    character::validate(c)?;
     if ![2.,4.,8.,16.].contains(&c.dormer_width)||![2.,4.,8.,16.].contains(&c.dormer_depth)||c.dormer_count>6{return Err("Dormers use 2, 4, 8 or 16 ft modules, with up to six dormers.".into());}
     if ![c.rear_width,c.rear_depth].iter().all(|v|v.is_finite()&&*v>=2.&&*v<=32.&&near(*v/2.,(*v/2.).round())){return Err("Rear decks and porches use 2 ft increments from 2 to 32 ft.".into());}
     Ok(())
@@ -36,16 +38,18 @@ pub fn apply(c:&Config,mut m:Value)->Value{
     outdoor::apply(c,&mut m,&mut t);
     balconies::apply(c,&mut m,&mut t);
     accents::apply(c,&mut m,&mut t);
+    character::apply(c,&mut m,&mut t);
     // Window prices scale with actual opening size and selected operating type.
     m["items"].as_array_mut().unwrap().retain(|i|s(i,"id")!="windows");
     let escape_ids= m["openingChecks"]["schedule"].as_array().unwrap().iter().filter(|o|o["bedroomEscapeCandidate"]==true).map(|o|s(o,"id").to_string()).collect::<std::collections::BTreeSet<_>>();
     let mut schedule=vec![];
     let mut windows:BTreeMap<String,(f64,f64,f64,String)>=BTreeMap::new();
     let walls=m.get("allWalls").and_then(Value::as_array).unwrap_or_else(||m["walls"].as_array().unwrap());
-    for wall in walls.iter().filter(|w|w["exterior"]==true){for o in wall["openings"].as_array().unwrap().iter().filter(|o|s(o,"kind")=="window"){
+    for wall in walls.iter().filter(|w|w["exterior"]==true){for o in wall["openings"].as_array().unwrap().iter().filter(|o|s(o,"kind")=="window"&&!s(o,"id").starts_with("G-")){
         let (w,h)=(n(o,"width"),n(o,"height"));let kind=if window_type(c)=="Picture"&&escape_ids.contains(s(o,"id")){"Casement"}else{window_type(c)};
         schedule.push(json!({"id":o["id"],"wallId":wall["id"],"width":w,"height":h,"type":kind,"bedroomEscapeCandidate":escape_ids.contains(s(o,"id"))}));
-        let key=format!("windows-{}-{}-{}",kind,w,h);let entry=windows.entry(key).or_insert((0.,w,h,kind.into()));entry.0+=1.;
+        // Price-editable id: no spaces or dots (sizes in whole inches, so 4.5 × 4 and 4 × 5.4 cannot collide).
+        let key=security::item_id(&format!("windows-{}-{}x{}in",kind,(w*12.).round(),(h*12.).round()));let entry=windows.entry(key).or_insert((0.,w,h,kind.into()));entry.0+=1.;
     }}
     for(id,(count,w,h,kind))in windows{t.add(&id,"Openings",&format!("{} window · {} × {} ft rough opening",kind,w,h),count,"units",(w*h*if kind=="Casement"{65.}else if kind=="Picture"{48.}else{55.}).max(220.),"Actual modeled opening size; retail allowance. Confirm product U-factor, design pressure, rough opening and bedroom escape dimensions.","Size-based retail allowance",false,true);}
     if c.stories>=2{

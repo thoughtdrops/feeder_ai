@@ -46,8 +46,8 @@ pub fn practical(c: &Config, m: &Value) -> bool {
 /// another draw, then with a slightly larger footprint, so the buttons give a home instead of an error.
 pub fn generate(current: &Config, mode: &str, seed: u32, keep_size: bool) -> Result<Config,String> {
     let mut last = Err("No design fit.".to_string());
-    for grow in [0., 4., 8.] {
-        if grow > 0. && (keep_size || mode != "Affordable") { break }
+    for grow in [0., 4., 8., 12., 16., 24.] {
+        if grow > 0. && keep_size { break }
         for attempt in 0..12u32 {
             last = generate_once(current, mode, seed.wrapping_add(attempt.wrapping_mul(7919)), keep_size, grow);
             if last.is_ok() || mode == "Blank slate" || last.as_ref().is_err_and(|e| !e.starts_with("These dimensions")) { return last }
@@ -62,6 +62,7 @@ fn generate_once(current: &Config, mode: &str, seed: u32, keep_size: bool, grow:
     c.catalog_plan = true; c.trim_overrides.clear();
     c.seed = seed;
     architecture::reset_edits(&mut c);
+    additions::character::match_style(&mut c);
     let mut random = Random(seed);
     if mode == "Blank slate" { validate(&c)?; return Ok(c); }
     if !["Affordable","Premium"].contains(&mode) { return Err("Choose Affordable or Premium.".into()); }
@@ -83,7 +84,7 @@ fn generate_once(current: &Config, mode: &str, seed: u32, keep_size: bool, grow:
                     _ => &[(40.,52.),(44.,52.),(48.,56.)]
                 }
             };
-            let (w,d) = dimensions[random.pick(dimensions.len())]; c.width = w + grow; c.depth = d + grow;
+            let (w,d) = dimensions[random.pick(dimensions.len())]; c.width = (w + grow).min(100.); c.depth = (d + grow).min(100.);
         }
         // Budget-friendly styles with simple roofs and economical cladding; never the same style twice in a row.
         let pool: &[&str] = if c.stories >= 2 {&["Colonial","Modern farmhouse","Scandinavian","Contemporary","Coastal"]} else {&["Ranch","Craftsman","Mid-century","Contemporary","Industrial","Modern farmhouse"]};
@@ -101,6 +102,7 @@ fn generate_once(current: &Config, mode: &str, seed: u32, keep_size: bool, grow:
     } else {
         c.home_style = ["Victorian","Georgian","French country","Tudor","Craftsman"][random.pick(5)].into();
         architecture::apply(&mut c,!keep_size);
+        if !keep_size && grow > 0. { c.width = (c.width + grow).min(100.); c.depth = (c.depth + grow).min(100.); }
         let home = lookup("homeStyles",&c.home_style);
         c.siding = s(&home,"cladding").into();
         for (key,source) in [("siding","siding"),("roof","roof"),("trim","exteriorTrim")] { c.colors.insert(key.into(),s(&home,source).into()); }
@@ -112,6 +114,8 @@ fn generate_once(current: &Config, mode: &str, seed: u32, keep_size: bool, grow:
         c.bedroom_wallpaper = wallpapers[random.pick(wallpapers.len())].into();
         c.wallpaper = wallpapers[random.pick(wallpapers.len())].into();
     }
+    // A low-slope style can't carry the visitor's steep-roof covering; fall back to the style's own roofing.
+    if c.roofing != "Style matched" && c.pitch + 1e-9 < roofing::min_pitch(roofing::kind(&c)) { c.roofing = "Style matched".into(); }
     validate(&c)?;
     c.layout=heritage::plan_name(&c.home_style);
     if practical(&c,&model::build(&c)){Ok(c)}else{Err("These dimensions do not fit the selected source-based room program and fixtures. Increase the footprint or reduce bedrooms, or use Blank slate to create your own layout.".into())}
@@ -131,7 +135,7 @@ pub fn surprise(current:&Config, seed:u32, keep_size:bool) -> Result<Config,Stri
     let mut last=String::new();
     for attempt in 0..40u32 {
         let mut r=Random(seed.wrapping_add(attempt.wrapping_mul(7919)));
-        let mut c=current.clone();c.design_mode=mode.clone();c.seed=seed;c.active_floor=0;c.catalog_plan=true;c.trim_overrides.clear();architecture::reset_edits(&mut c);
+        let mut c=current.clone();c.design_mode=mode.clone();c.seed=seed;c.active_floor=0;c.catalog_plan=true;c.trim_overrides.clear();architecture::reset_edits(&mut c);additions::character::match_style(&mut c);
         let style=loop{let pick=pool[r.pick(pool.len())];if pick!=current.home_style||attempt>20{break pick}};c.home_style=style.into();
         let home=lookup("homeStyles",style);c.siding=s(&home,"cladding").into();c.trim_package=s(&home,"trim").into();
         for(key,src)in[("siding","siding"),("roof","roof"),("trim","exteriorTrim")]{c.colors.insert(key.into(),s(&home,src).into());}
