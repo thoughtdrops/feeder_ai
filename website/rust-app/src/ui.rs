@@ -76,7 +76,7 @@ fn scene_help(a:&State)->String{
   "walk"=>&["Hold the arrow pad to walk.","Drag to look around.","Keyboard: arrow keys or W A S D.","Go to room jumps to any room.","Change stories with the floor buttons above the view."],
   _=>&["Drag to orbit around the house.","Pinch or scroll to zoom.","Two-finger drag or right-drag to move the view.","Reset view returns to the starting angle; Expand fills the screen."],
  };
- let style=if a.view=="plan"{""}else{"<button type=button class=view-style-toggle title=\"Change graphics style\"><span aria-hidden=true class=view-style-icon></span><span class=sr-only>Graphics style: </span><span class=view-style-name></span></button>"};
+ let style=if a.view=="plan"{""}else{"<button type=button class=view-style-toggle title=\"Change graphics style\" aria-haspopup=menu aria-expanded=false><span aria-hidden=true class=view-style-icon></span><span class=sr-only>Graphics style: </span><span class=view-style-name></span></button>"};
  let mut o=format!("{}<button type=button class=scene-help-toggle data-action=scene-help aria-label=\"How to use the 3D view\" aria-expanded={} aria-controls=scene-help-panel>?</button>",style,a.help);
  if a.help{o.push_str("<div id=scene-help-panel class=scene-help-panel role=note><strong>How to use this view</strong><ul>");for t in tips{o.push_str(&format!("<li>{}</li>",t));}o.push_str("</ul></div>");}
  o
