@@ -1,12 +1,11 @@
 {
-  "image": "building-lot.jpg",
-  "mobileImage": "building-lot.jpg",
+  "image": "neighborhood-lawn.jpg",
+  "mobileImage": "neighborhood-lawn-2k.jpg",
   "height": 5.5,
-  "radius": 220,
-  "rotation": 0,
-  "ground": "photo",
-  "credit": "Generated 360° panorama of a graded building lot in a suburban neighborhood (Skybox AI), supplied by Universal Frames.",
-  "about": "Set image to a 360-degree equirectangular photo in this folder (8192 x 4096 JPG recommended; mobileImage 4096 x 2048). height is the camera height of the photo in feet, radius how far its ground reaches in feet, rotation turns the photo in degrees. ground \"photo\" keeps the photo's own ground under the house (shadows only); \"lawn\" lays a soft lawn over it. groundTexture is an optional tiling texture of the same ground (groundTile = its size in feet) laid over the lot so the ground stays sharp close to the house.",
-  "groundTexture": "lot-dirt.jpg",
-  "groundTile": 16
+  "radius": 300,
+  "rotation": 90,
+  "ground": "lawn",
+  "credit": "360° panorama of a suburban street (Skybox AI), ground repainted as lawn; supplied by Universal Frames.",
+  "about": "Set image to a 360-degree equirectangular photo in this folder (8192 x 4096 JPG recommended; mobileImage 4096 x 2048). height is the camera height of the photo in feet, radius how far its ground reaches in feet, rotation turns the photo in degrees (90 puts the photo's centre, here the street, in front of the house). ground \"lawn\" lays a real lawn over the photo's ground (groundRadius sets how far it reaches before fading into the photo); \"photo\" keeps the photograph's own ground (optionally covered by groundTexture, tiled every groundTile feet).",
+  "groundRadius": 285
 }
