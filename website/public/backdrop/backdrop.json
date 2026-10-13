@@ -2,10 +2,10 @@
   "image": "neighborhood-lawn.jpg",
   "mobileImage": "neighborhood-lawn-2k.jpg",
   "height": 5.5,
-  "radius": 300,
+  "radius": 150,
   "rotation": 90,
   "ground": "lawn",
   "credit": "360° panorama of a suburban street (Skybox AI), ground repainted as lawn; supplied by Universal Frames.",
-  "about": "Set image to a 360-degree equirectangular photo in this folder (8192 x 4096 JPG recommended; mobileImage 4096 x 2048). height is the camera height of the photo in feet, radius how far its ground reaches in feet, rotation turns the photo in degrees (90 puts the photo's centre, here the street, in front of the house). ground \"lawn\" lays a real lawn over the photo's ground (groundRadius sets how far it reaches before fading into the photo); \"photo\" keeps the photograph's own ground (optionally covered by groundTexture, tiled every groundTile feet).",
-  "groundRadius": 285
+  "about": "Set image to a 360-degree equirectangular photo in this folder (8192 x 4096 JPG recommended; mobileImage 4096 x 2048). height is the camera height of the photo in feet, radius how far its ground reaches in feet, rotation turns the photo in degrees (90 puts the photo's centre, here the street, in front of the house). ground \"lawn\" lays a real lawn over the photo's ground (groundRadius sets how far it reaches before fading into the photo); \"photo\" keeps the photograph's own ground (optionally covered by groundTexture, tiled every groundTile feet). radius also sets how big the photo's houses look next to the model: about the distance they were from the camera (150 ft here) keeps them life-size.",
+  "groundRadius": 140
 }

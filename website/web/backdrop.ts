@@ -79,8 +79,11 @@ export function addSurroundings(scene:T.Scene,root:T.Object3D,o:{site:{minX:numb
  // Photograph: projected sky-and-ground panorama, its lighting used for reflections, and a soft lawn
  // under the lot that fades into the photo's own ground.
  const usePhoto=(photo:{spec:Photo,texture:T.Texture,sun:T.Vector3|null})=>{if(!o.alive())return;
-  const box=new GroundedSkybox(photo.texture,photo.spec.height,photo.spec.radius,o.mobile?64:128);box.position.y=gy+photo.spec.height-.01;box.rotation.y=photo.spec.rotation*Math.PI/180;box.name='Photo surroundings';box.userData.backdrop=true;(box.material as T.MeshBasicMaterial).fog=false;group.add(box);
-  const {minX,minZ,maxX,maxZ}=o.site,wide=photo.spec.groundRadius,cx=wide?0:(minX+maxX)/2,cz=wide?0:(minZ+maxZ)/2,radius=wide??Math.hypot(maxX-minX,maxZ-minZ)/2+60;
+  // Neighbouring houses in the photo look life-size when its sphere is about as far away as they were from the
+  // camera; a very large design pushes the sphere out (and the lawn with it) so the lot never looks crowded.
+  const lot=o.site,sphere=Math.max(photo.spec.radius,Math.hypot(lot.maxX-lot.minX,lot.maxZ-lot.minZ)/2*2.2),grow=sphere/photo.spec.radius;
+  const box=new GroundedSkybox(photo.texture,photo.spec.height,sphere,o.mobile?64:128);box.position.y=gy+photo.spec.height-.01;box.rotation.y=photo.spec.rotation*Math.PI/180;box.name='Photo surroundings';box.userData.backdrop=true;(box.material as T.MeshBasicMaterial).fog=false;group.add(box);
+  const {minX,minZ,maxX,maxZ}=o.site,wide=photo.spec.groundRadius&&Math.min(photo.spec.groundRadius*grow,sphere*.95),cx=wide?0:(minX+maxX)/2,cz=wide?0:(minZ+maxZ)/2,radius=wide??Math.hypot(maxX-minX,maxZ-minZ)/2+60;
   // The lot itself: the photo's ground stretches into a blur close to the camera, so a tiling texture of the
   // same ground (or a lawn) covers the lot and fades into the photograph; shadows fall on it either way.
   let pad:T.Material;
@@ -97,7 +100,7 @@ export function addSurroundings(scene:T.Scene,root:T.Object3D,o:{site:{minX:numb
   const disc=new T.Mesh(discGeometry,pad);disc.position.set(cx,gy+.01,cz);disc.receiveShadow=true;disc.name='Lot lawn';group.add(disc);
   painted.visible=false;o.sky.visible=false;scene.fog=null;
   let env=environments.get(o.renderer);if(!env){const pm=new T.PMREMGenerator(o.renderer);env=pm.fromEquirectangular(photo.texture);pm.dispose();env.texture.userData.persistent=true;environments.set(o.renderer,env);}
-  scene.environment=env.texture;scene.environmentIntensity=.9;scene.userData.photoEnvironment=true;scene.userData.photoBackdrop=true;scene.userData.photoSun=photo.sun;scene.userData.photoRadius=photo.spec.radius;o.onPhoto?.(photo.sun,photo.spec.radius);o.wake(true);};
+  scene.environment=env.texture;scene.environmentIntensity=.9;scene.userData.photoEnvironment=true;scene.userData.photoBackdrop=true;scene.userData.photoSun=photo.sun;scene.userData.photoRadius=sphere;o.onPhoto?.(photo.sun,sphere);o.wake(true);};
  if(loadedPhoto)usePhoto(loadedPhoto);else requestPhoto(o.mobile).then(p=>{if(p)usePhoto(p);});
  return group;
 }
