@@ -30,30 +30,42 @@ if(d.y<0.)sky=horizon;gl_FragColor=vec4(sky,1.);
 
 
 // The photograph is described by /backdrop/backdrop.json:
-// {"image":"street-8k.jpg","mobileImage":"street-4k.jpg","height":5.5,"radius":320,"rotation":0,"credit":"…"}
-// height = camera height of the photo in feet, radius = how far its ground reaches, rotation in degrees.
-type Photo={image:string,mobileImage?:string,height:number,radius:number,rotation:number,credit:string};
-let photoRequest:Promise<{spec:Photo,texture:T.Texture}|null>|null=null;
-let loadedPhoto:{spec:Photo,texture:T.Texture}|null=null;
+// {"image":"street-8k.jpg","mobileImage":"street-4k.jpg","height":5.5,"radius":320,"rotation":0,"ground":"lawn","credit":"…"}
+// height = camera height of the photo in feet, radius = how far its ground reaches, rotation in degrees;
+// ground "photo" keeps the photograph's own ground under the house (shadows only), "lawn" lays sod over it.
+type Photo={image:string,mobileImage?:string,height:number,radius:number,rotation:number,ground:'lawn'|'photo',groundTexture?:string,groundTile:number,credit:string};
+let photoRequest:Promise<{spec:Photo,texture:T.Texture,sun:T.Vector3|null}|null>|null=null;
+let loadedPhoto:{spec:Photo,texture:T.Texture,sun:T.Vector3|null}|null=null;
 const environments=new WeakMap<T.WebGLRenderer,T.WebGLRenderTarget>();
 function parsePhoto(raw:any):Photo|null{
  const file=(v:unknown)=>typeof v==='string'&&/^[\w.-]{1,80}\.(jpe?g|webp|png)$/i.test(v);
  const num=(v:unknown,lo:number,hi:number,fallback:number)=>typeof v==='number'&&Number.isFinite(v)&&v>=lo&&v<=hi?v:fallback;
  if(!raw||typeof raw!=='object'||!file(raw.image))return null;
- return {image:raw.image,mobileImage:file(raw.mobileImage)?raw.mobileImage:undefined,height:num(raw.height,1,40,5.5),radius:num(raw.radius,60,900,320),rotation:num(raw.rotation,-360,360,0),credit:typeof raw.credit==='string'?raw.credit.slice(0,200):''};
+ return {image:raw.image,mobileImage:file(raw.mobileImage)?raw.mobileImage:undefined,height:num(raw.height,1,40,5.5),radius:num(raw.radius,60,900,320),rotation:num(raw.rotation,-360,360,0),ground:raw.ground==='photo'?'photo':'lawn',groundTexture:file(raw.groundTexture)?raw.groundTexture:undefined,groundTile:num(raw.groundTile,1,100,14),credit:typeof raw.credit==='string'?raw.credit.slice(0,200):''};
 }
 function requestPhoto(mobile:boolean){
  photoRequest??=fetch('/backdrop/backdrop.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(async raw=>{const spec=parsePhoto(raw);if(!spec)return null;
   const texture=await new T.TextureLoader().loadAsync('/backdrop/'+(mobile&&spec.mobileImage?spec.mobileImage:spec.image));
   // One upload for the whole visit: scene rebuilds reuse this texture instead of disposing it.
   texture.mapping=T.EquirectangularReflectionMapping;texture.colorSpace=T.SRGBColorSpace;texture.userData.persistent=true;
-  loadedPhoto={spec,texture};return loadedPhoto;}).catch(()=>null);
+  loadedPhoto={spec,texture,sun:photoSun(texture,spec.rotation)};return loadedPhoto;}).catch(()=>null);
  return photoRequest;
+}
+/** Where the sun is in the photograph (its brightest patch above the horizon), as a world direction. */
+function photoSun(texture:T.Texture,rotation:number):T.Vector3|null{
+ try{const image=texture.image as CanvasImageSource&{width:number,height:number};const W=256,H=128,c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d',{willReadFrequently:true});if(!g)return null;g.drawImage(image,0,0,W,H);
+  const px=g.getImageData(0,0,W,H/2).data;let best=0;for(let i=0;i<px.length;i+=4)best=Math.max(best,px[i]!+px[i+1]!+px[i+2]!);if(best<600)return null;
+  let su=0,sv=0,n=0;for(let y=0;y<H/2;y++)for(let x=0;x<W;x++){const i=(y*W+x)*4;if(px[i]!+px[i+1]!+px[i+2]!>=best-6){su+=x+.5;sv+=y+.5;n++;}}
+  if(!n||n>W*H*.02)return null;
+  // GroundedSkybox maps image u to the angle 2πu around a sphere whose z is mirrored: x=-cos, z=-sin.
+  const u=su/n/W,elevation=(.5-sv/n/H)*Math.PI,phi=u*Math.PI*2;
+  return new T.Vector3(-Math.cos(phi)*Math.cos(elevation),Math.sin(elevation),-Math.sin(phi)*Math.cos(elevation)).applyAxisAngle(new T.Vector3(0,1,0),rotation*Math.PI/180).normalize();
+ }catch{return null;}
 }
 function fadeMap(textures:T.Texture[]){const cvs=document.createElement('canvas');cvs.width=cvs.height=256;const ctx=cvs.getContext('2d')!;const g=ctx.createRadialGradient(128,128,40,128,128,128);g.addColorStop(0,'#fff');g.addColorStop(.55,'#fff');g.addColorStop(1,'#000');ctx.fillStyle=g;ctx.fillRect(0,0,256,256);const t=new T.CanvasTexture(cvs);textures.push(t);return t;}
 
 /** Lawn, hills and, once available, the installed photograph. `site` is the lot in world feet. */
-export function addSurroundings(scene:T.Scene,root:T.Object3D,o:{site:{minX:number,minZ:number,maxX:number,maxZ:number},groundY:number,mobile:boolean,textures:T.Texture[],grass:T.MeshStandardMaterial,renderer:T.WebGLRenderer,sky:T.Object3D,alive:()=>boolean,wake:(content?:boolean)=>void}){
+export function addSurroundings(scene:T.Scene,root:T.Object3D,o:{site:{minX:number,minZ:number,maxX:number,maxZ:number},groundY:number,mobile:boolean,textures:T.Texture[],grass:T.MeshStandardMaterial,renderer:T.WebGLRenderer,sky:T.Object3D,alive:()=>boolean,wake:(content?:boolean)=>void,onPhoto?:(sun:T.Vector3|null,radius:number)=>void}){
  const {groundY:gy,textures}=o;const group=new T.Group();group.name='Surroundings';root.add(group);
  const grassRepeat=(mat:T.MeshStandardMaterial,size:number)=>{for(const key of ['map','normalMap','roughnessMap'] as const){const t=(o.grass as any)[key] as T.Texture|null;if(t){const c=t.clone();c.repeat.set(size/4.59,size/4.59);textures.push(c);(mat as any)[key]=c;}}return mat;};
  // Painted fallback: a broad lawn with gentle color variation and smooth hills lost in the haze.
@@ -66,13 +78,19 @@ export function addSurroundings(scene:T.Scene,root:T.Object3D,o:{site:{minX:numb
  const hills=new T.BufferGeometry();hills.setAttribute('position',new T.Float32BufferAttribute(hp,3));hills.computeVertexNormals();const ridge=new T.Mesh(hills,new T.MeshStandardMaterial({color:'#5d7b55',roughness:1,side:T.DoubleSide}));ridge.name='Distant hills';painted.add(ridge);
  // Photograph: projected sky-and-ground panorama, its lighting used for reflections, and a soft lawn
  // under the lot that fades into the photo's own ground.
- const usePhoto=(photo:{spec:Photo,texture:T.Texture})=>{if(!o.alive())return;
-  const box=new GroundedSkybox(photo.texture,photo.spec.height,photo.spec.radius,o.mobile?64:128);box.position.y=gy+photo.spec.height-.01;box.rotation.y=photo.spec.rotation*Math.PI/180;box.name='Photo surroundings';(box.material as T.MeshBasicMaterial).fog=false;group.add(box);
+ const usePhoto=(photo:{spec:Photo,texture:T.Texture,sun:T.Vector3|null})=>{if(!o.alive())return;
+  const box=new GroundedSkybox(photo.texture,photo.spec.height,photo.spec.radius,o.mobile?64:128);box.position.y=gy+photo.spec.height-.01;box.rotation.y=photo.spec.rotation*Math.PI/180;box.name='Photo surroundings';box.userData.backdrop=true;(box.material as T.MeshBasicMaterial).fog=false;group.add(box);
   const {minX,minZ,maxX,maxZ}=o.site,cx=(minX+maxX)/2,cz=(minZ+maxZ)/2,radius=Math.hypot(maxX-minX,maxZ-minZ)/2+60;
-  const pad=grassRepeat(o.grass.clone(),radius*2);pad.alphaMap=fadeMap(textures);pad.transparent=true;pad.depthWrite=false;const disc=new T.Mesh(new T.CircleGeometry(radius,64).rotateX(-Math.PI/2),pad);disc.position.set(cx,gy+.01,cz);disc.receiveShadow=true;disc.name='Lot lawn';group.add(disc);
+  // The lot itself: the photo's ground stretches into a blur close to the camera, so a tiling texture of the
+  // same ground (or a lawn) covers the lot and fades into the photograph; shadows fall on it either way.
+  let pad:T.Material;
+  if(photo.spec.ground==='photo'&&!photo.spec.groundTexture)pad=new T.ShadowMaterial({opacity:.42,depthWrite:false});
+  else{const mat=photo.spec.ground==='photo'?new T.MeshStandardMaterial({color:'#ffffff',roughness:1}):grassRepeat(o.grass.clone(),radius*2);
+   if(photo.spec.ground==='photo'){const tile=new T.TextureLoader().load('/backdrop/'+photo.spec.groundTexture,()=>o.wake(true));tile.colorSpace=T.SRGBColorSpace;tile.wrapS=tile.wrapT=T.RepeatWrapping;tile.anisotropy=8;tile.repeat.set(radius*2/photo.spec.groundTile,radius*2/photo.spec.groundTile);textures.push(tile);mat.map=tile;}
+   mat.alphaMap=fadeMap(textures);mat.transparent=true;mat.depthWrite=false;pad=mat;}const disc=new T.Mesh(new T.CircleGeometry(radius,64).rotateX(-Math.PI/2),pad);disc.position.set(cx,gy+.01,cz);disc.receiveShadow=true;disc.name='Lot lawn';group.add(disc);
   painted.visible=false;o.sky.visible=false;scene.fog=null;
   let env=environments.get(o.renderer);if(!env){const pm=new T.PMREMGenerator(o.renderer);env=pm.fromEquirectangular(photo.texture);pm.dispose();env.texture.userData.persistent=true;environments.set(o.renderer,env);}
-  scene.environment=env.texture;scene.environmentIntensity=.9;scene.userData.photoEnvironment=true;o.wake(true);};
+  scene.environment=env.texture;scene.environmentIntensity=.9;scene.userData.photoEnvironment=true;scene.userData.photoBackdrop=true;scene.userData.photoSun=photo.sun;scene.userData.photoRadius=photo.spec.radius;o.onPhoto?.(photo.sun,photo.spec.radius);o.wake(true);};
  if(loadedPhoto)usePhoto(loadedPhoto);else requestPhoto(o.mobile).then(p=>{if(p)usePhoto(p);});
  return group;
 }

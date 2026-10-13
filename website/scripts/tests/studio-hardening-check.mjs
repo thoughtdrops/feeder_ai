@@ -14,7 +14,7 @@ for(const name of ['studio-accessibility','report'])fs.writeFileSync(path.join(w
 const {bindStudioAccessibility}=await import(path.join(work,'studio-accessibility.mjs'));const dispose=bindStudioAccessibility();
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 const q=s=>{const e=document.querySelector(s);assert.ok(e,s);return e;};
-assert.equal(q('.brand-wordmark').alt,'Universal Frame');assert.ok(fs.existsSync('public'+q('.brand-wordmark').getAttribute('src')));assert.equal(q('.brand-icon').getAttribute('src'),'/brand/universal-frames-icon.png');
+assert.equal(q('.brand-logo').alt,'Universal Frames');assert.equal(q('.brand-logo').getAttribute('src'),'/brand/universal-frames-logo.webp');assert.ok(fs.existsSync('public'+q('.brand-logo').getAttribute('src')),'Header logo asset exists');
 assert.equal(document.querySelector('[onclick]'),null);
 const trigger=q('.legal-link');trigger.focus();trigger.click();await flush();
 assert.match(q('[role="dialog"]').textContent,/consumer rights/i);assert.ok(q('main').hasAttribute('inert'));assert.equal(document.activeElement,q('#report-title'));

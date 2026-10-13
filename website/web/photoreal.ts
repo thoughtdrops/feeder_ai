@@ -21,6 +21,8 @@ export function createPhotoreal(o:Options):PhotorealHandle{
  const frameTarget=rt(W,H),accumulation=rt(W,H);
  const composer=new EffectComposer(renderer,frameTarget);composer.renderToScreen=false;composer.addPass(new RenderPass(scene,camera));
  const ao=new GTAOPass(scene,camera,W,H);ao.blendIntensity=.85;ao.updateGtaoMaterial({radius:o.mobile?1:1.4,distanceExponent:1.5,thickness:1.2,scale:1,samples:o.mobile?8:12});ao.updatePdMaterial({lumaPhi:10,depthPhi:2,normalPhi:3,radius:4,rings:2,samples:o.mobile?8:12});composer.addPass(ao);
+ // The backdrop photograph is a sky sphere, not geometry: keep it out of the contact-shadow pass.
+ const aoAny=ao as any,hide=aoAny._overrideVisibility.bind(ao);aoAny._overrideVisibility=()=>{hide();scene.traverse(obj=>{if(obj.userData.backdrop&&obj.visible){obj.visible=false;aoAny._visibilityCache.push(obj);}});};
  // Running average: acc = acc·(1−a) + frame·a with a = 1/(n+1).
  const blend=new FullScreenQuad(new T.ShaderMaterial({uniforms:{tFrame:{value:null},alpha:{value:1}},transparent:true,depthTest:false,depthWrite:false,blending:T.NormalBlending,toneMapped:false,
   vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',

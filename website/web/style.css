@@ -307,3 +307,11 @@ html[data-view-style=mockup] .view-style-name::after{content:"Scale model"}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 
 html.account-modal-open,html.account-modal-open body{overflow:hidden}
+
+/* The gold Universal Frames logo from the loading screen, sized to the header at every width. */
+.brand .brand-logo{display:block;height:70px;width:auto;filter:drop-shadow(0 1px 1.5px rgba(48,32,0,.3))}
+:root[data-theme=dark] .brand .brand-logo{filter:drop-shadow(0 0 12px rgba(240,190,80,.16))}
+@media(max-width:850px){.brand .brand-logo{height:56px}}
+@media(max-width:560px){.brand .brand-logo{height:50px}}
+@media(max-width:420px){.brand .brand-logo{height:46px}}
+@media(max-width:359px){.brand .brand-logo{height:40px}}

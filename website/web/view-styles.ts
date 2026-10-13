@@ -44,6 +44,8 @@ export function applyLook(style:ViewStyle,o:Look){
   if(o.indoor){hemi.intensity=.2;return 1.7;}
   // Image-based light from this exact sky and a lawn-coloured ground, so ambient light and reflections match
   // the sun and sky the house sits under (the generic studio environment reads as indoor light).
+  // A real backdrop photograph already lights the scene with its own sky and ground.
+  if(scene.userData.photoBackdrop)return 1/(scene.environmentIntensity||1);
   const pmrem=new T.PMREMGenerator(renderer),envScene=new T.Scene(),dome=new T.Mesh(new T.SphereGeometry(100,48,24),(sky.material as T.ShaderMaterial).clone());(dome.material as T.ShaderMaterial).side=T.BackSide;envScene.add(dome);
   const lawn=new T.Mesh(new T.CircleGeometry(99,48).rotateX(-Math.PI/2),new T.MeshBasicMaterial({color:'#5b6f42'}));lawn.position.y=-2;envScene.add(lawn);
   const env=pmrem.fromScene(envScene,.02);scene.environment=env.texture;scene.userData.styleEnv=env;scene.userData.photoEnvironment=true;
