@@ -33,6 +33,7 @@ const wallpapers=catalog.wallpapers;
 export function renderHouse(el:HTMLElement,payload:any){const {config,model:m,view,jump,frameRoof,frameOpening}=payload;const keys={current:new Set<string>()};let editTarget:any=null;
  const w=m.w,d=m.d,h=m.h,walk=view==='walk',cut=view==='dollhouse',frame=view==='framing',interior=m.interior,trimPackage=m.trimPackage,homeStyle=m.homeStyle;const walls:T.Box3[]=[];
  let renderer:T.WebGLRenderer;try{renderer=acquireRenderer(el);}catch{el.innerHTML='<div class="webgl-error">WebGL is unavailable in this browser. Use the floor plan and reports to continue.</div>';return;}T.Cache.enabled=false;renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;renderer.setClearColor('#8abfe4');el.appendChild(renderer.domElement);
+ let aimAtPhotoSun:((dir:T.Vector3|null)=>void)|null=null,limitOrbit:((radius:number)=>void)|null=null;
  const scene=new T.Scene();const skyDome=addSky(scene);
  // Render on demand: draw while the camera, keys or loads change something, then go idle. Shadows are
  // recomputed only when the scene's content changes, not every frame.
@@ -73,7 +74,7 @@ export function renderHouse(el:HTMLElement,payload:any){const {config,model:m,vi
  // A true entry stoop and walkway, grounded by real-time shadows.
  const character=m.character,shutterTone=shutterColor(config.colors.siding||'#cccccc');
  const front=m.walls.find((wall:any)=>wall.exterior&&wall.axis==='x'&&wall.z===0&&wall.openings.some((o:any)=>o.kind==='door'));const hasEntry=!!front;const frontDoor=front?.openings.find((o:any)=>o.kind==='door');const entry={at:frontDoor?front.x+frontDoor.at:w/2-1.5};if(hasEntry){box(entry.at+1.5,-.32,-2.5,Math.min(8,w*.65),.6,5,material('#a3a494',.85));box(entry.at+1.5,-.53,-10,4,.15,8,material('#8d9488',.95));}
- if(groundHere){const site=bounds||{minX:0,minZ:0,maxX:w,maxZ:d};addSurroundings(mainScene,scene,{site:{minX:site.minX-w/2,minZ:site.minZ-d/2,maxX:site.maxX-w/2,maxZ:site.maxZ-d/2},groundY:frame?-1.85:-.55,mobile:mobileGraphics(),textures,grass:ground,renderer,sky:skyDome,alive:()=>active,wake:(content=false)=>wake(content)});}
+ if(groundHere){const site=bounds||{minX:0,minZ:0,maxX:w,maxZ:d};addSurroundings(mainScene,scene,{site:{minX:site.minX-w/2,minZ:site.minZ-d/2,maxX:site.maxX-w/2,maxZ:site.maxZ-d/2},groundY:frame?-1.85:-.55,mobile:mobileGraphics(),textures,grass:ground,renderer,sky:skyDome,alive:()=>active,wake:(content=false)=>wake(content),onPhoto:(dir,radius)=>{aimAtPhotoSun?.(dir);limitOrbit?.(radius);}});}
  const thickness=5.5/12,wh=cut?4.1:h;const tiledMaterial=(base:T.MeshStandardMaterial,length:number,height:number,start:number,bottom:number,tile:number)=>{const mat=base.clone();for(const key of ['map','normalMap','roughnessMap','bumpMap'] as const){const tx=base[key]?.clone();if(tx){tx.repeat.set(length/tile,height/tile);tx.offset.set(start/tile,bottom/tile);if((tx.image as any)?.width)tx.needsUpdate=true;mat[key]=tx;textures.push(tx)}}return mat;};const wallPaint=(length:number,height:number,start:number,bottom:number)=>tiledMaterial(paint,length,height,start,bottom,3.28);
 
  function wallBox(wall:Wall,start:number,length:number,bottom:number,height:number){
@@ -207,7 +208,12 @@ export function renderHouse(el:HTMLElement,payload:any){const {config,model:m,vi
  for(const child of [...mainScene.children])if(child.type==='Group')batchStatic(child);
  // Viewer graphics style (Studio, Realistic, Twilight, Architect model): light, sky and tone only.
  const style=payload.exportOnly?'studio':viewStyle();const site=m.siteBounds||{minX:0,minZ:0,maxX:w,maxZ:d};
+ // With a real photograph behind the house, the sun comes from where it is in the photo (shadows agree with it).
+ aimAtPhotoSun=(dir:T.Vector3|null)=>{if(!dir||!['studio','photoreal','sketch'].includes(style)||walk)return;const r=sun.position.distanceTo(sun.target.position);sun.position.copy(sun.target.position).addScaledVector(dir,r);sun.updateMatrixWorld();wake(true);};
  envScale=applyLook(style,{scene,renderer,sun,hemi,ambient,sky:skyDome,glass,span,h,groundY:frame?-1.85:-.55,indoor:walk,site:{minX:site.minX-w/2,minZ:site.minZ-d/2,maxX:site.maxX-w/2,maxZ:site.maxZ-d/2}});scene.environmentIntensity*=envScale;
+ if(mainScene.userData.photoSun)aimAtPhotoSun(mainScene.userData.photoSun);
+ // The camera stays inside the photograph's sphere (outside it there is no backdrop to see).
+ limitOrbit=(radius:number)=>{if(walk||!radius)return;const max=radius*.82;orbit.maxDistance=Math.min(orbit.maxDistance,max);const offset=camera.position.clone().sub(orbit.target);if(offset.length()>max){camera.position.copy(orbit.target).addScaledVector(offset.normalize(),max);orbit.update();}wake();};
  const fx=payload.exportOnly?null:createPostFX(style,renderer,scene,camera,mobileGraphics());const raster=()=>{if(fx)fx.render();else renderer.render(scene,camera);};
  // Photoreal: a short burst of jittered frames (soft sun, anti-aliasing, contact shadows) blended when the
  // camera rests; the normal view is drawn while it moves.
@@ -217,7 +223,7 @@ export function renderHouse(el:HTMLElement,payload:any){const {config,model:m,vi
  let firstContent=true;
  const draw=()=>{if(contentDirty){refreshLook(style,scene);if(photo&&!firstContent)photo.contentChanged();firstContent=false;}contentDirty=false;
   if(photo){camera.updateMatrixWorld();if(!camera.matrixWorld.equals(lastView)){lastView.copy(camera.matrixWorld);photo.cameraMoved();raster();wake();return;}if(photo.render())wake();}else raster();};
- let firstFit=!walk&&!payload.cameraPose&&!frameOpening;const resize=()=>{if(!el.clientWidth||!el.clientHeight)return;renderer.setSize(el.clientWidth,el.clientHeight);fx?.setSize(el.clientWidth,el.clientHeight);photo?.setSize();camera.aspect=el.clientWidth/el.clientHeight;camera.updateProjectionMatrix();if(firstFit){fitHouseCamera(camera,orbit,m,config,view,el.clientWidth,el.clientHeight);firstFit=false;}};const ro=new ResizeObserver(()=>{resize();wake();});orbit.addEventListener('change',()=>wake());
+ let firstFit=!walk&&!payload.cameraPose&&!frameOpening;const resize=()=>{if(!el.clientWidth||!el.clientHeight)return;renderer.setSize(el.clientWidth,el.clientHeight);fx?.setSize(el.clientWidth,el.clientHeight);photo?.setSize();camera.aspect=el.clientWidth/el.clientHeight;camera.updateProjectionMatrix();if(firstFit){fitHouseCamera(camera,orbit,m,config,view,el.clientWidth,el.clientHeight);firstFit=false;if(mainScene.userData.photoRadius)limitOrbit?.(mainScene.userData.photoRadius);}};const ro=new ResizeObserver(()=>{resize();wake();});orbit.addEventListener('change',()=>wake());
  // Wheel zoom only after the visitor clicks into the 3D view (or holds Ctrl/⌘), so the page keeps scrolling.
  const hint=document.createElement('div');hint.className='scene-zoom-hint';hint.textContent='Click the model to zoom and pan with scroll · or hold Ctrl / ⌘';el.appendChild(hint);let hintTimer=0;orbit.enableZoom=walk;
  const engage=()=>{orbit.enableZoom=true;},disengage=()=>{orbit.enableZoom=false;},wheelGate=(e:WheelEvent)=>{if(e.ctrlKey||e.metaKey){orbit.enableZoom=true;return;}if(!orbit.enableZoom){hint.classList.add('show');clearTimeout(hintTimer);hintTimer=window.setTimeout(()=>hint.classList.remove('show'),1400);return;}

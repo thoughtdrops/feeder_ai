@@ -1,9 +1,12 @@
 {
-  "image": null,
-  "mobileImage": null,
+  "image": "building-lot.jpg",
+  "mobileImage": "building-lot.jpg",
   "height": 5.5,
-  "radius": 320,
+  "radius": 220,
   "rotation": 0,
-  "credit": "",
-  "about": "Set image to a 360-degree equirectangular photo in this folder (8192 x 4096 JPG recommended; mobileImage 4096 x 2048). height is the camera height of the photo in feet, radius how far its ground reaches in feet, rotation turns the photo in degrees."
+  "ground": "photo",
+  "credit": "Generated 360° panorama of a graded building lot in a suburban neighborhood (Skybox AI), supplied by Universal Frames.",
+  "about": "Set image to a 360-degree equirectangular photo in this folder (8192 x 4096 JPG recommended; mobileImage 4096 x 2048). height is the camera height of the photo in feet, radius how far its ground reaches in feet, rotation turns the photo in degrees. ground \"photo\" keeps the photo's own ground under the house (shadows only); \"lawn\" lays a soft lawn over it. groundTexture is an optional tiling texture of the same ground (groundTile = its size in feet) laid over the lot so the ground stays sharp close to the house.",
+  "groundTexture": "lot-dirt.jpg",
+  "groundTile": 16
 }
