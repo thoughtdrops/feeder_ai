@@ -208,7 +208,7 @@ pub fn apply(c:&Config,m:&mut Value,t:&mut model::Takeoff){
         let mut buckets:BTreeMap<(String,usize),usize>=BTreeMap::new();
         for member in d["members"].as_array().unwrap(){*buckets.entry((s(member,"material").into(),n(member,"stockLength")as usize)).or_default()+=1;}
         for((material,stock),count)in buckets{let rate=if material=="LSL 2x6"{1.8}else if material=="2x8"{1.6}else{1.1};
-            t.add(&format!("{}-frame-{}-{}",s(d,"id"),material,stock),"Roof features",&format!("Dormer {} × {} ft stock blanks",material,stock),count as f64,"boards",stock as f64*rate,"One stock blank per enumerated member, no offcut reuse. Window header sizes are provisional; LSL selection applies to studs only.","Modeled members",true,true);
+            t.add(&security::item_id(&format!("{}-frame-{}-{}",s(d,"id"),material,stock)),"Roof features",&format!("Dormer {} × {} ft stock blanks",material,stock),count as f64,"boards",stock as f64*rate,"One stock blank per enumerated member, no offcut reuse. Window header sizes are provisional; LSL selection applies to studs only.","Modeled members",true,true);
         }
         let dk=s(d,"kind");
         if dk=="Arched"{let lf:f64=d["rafters"].as_array().unwrap().iter().map(|r|n(r,"length")).sum();t.add(&format!("{}-ribs",s(d,"id")),"Roof features","Barrel dormer laminated curved roof ribs",lf,"linear ft",9.,"Ribs at 16 in stations following the modeled arch back to the main roof; glue-laminated or plywood-built, sized by the engineer.","Modeled members",true,false);

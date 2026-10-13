@@ -11,6 +11,11 @@
   const meters = (ft) => { const m = ft * FT; return num(m, Math.abs(m) < 100 ? 2 : 1); };
   const mm = (inch) => { const v = inch * IN_MM; return Math.abs(v) >= 1000 ? num(v / 1000, 2) + ' m' : num(v, 0) + ' mm'; };
   const UNITS = [
+    ['cu yd', (v) => num(v * 0.764555, 2) + ' m³', 'm³', false],
+    ['ply linear ft', (v) => meters(v) + ' ply m', 'ply m', false],
+    ['assembly linear ft', (v) => meters(v) + ' assembly m', 'assembly m', false],
+    ['in²', (v) => num(v * 6.4516, v * 6.4516 < 100 ? 1 : 0) + ' cm²', 'cm²', true],
+    ['ft²', (v) => num(v * SQFT, v * SQFT < 10 ? 2 : 1) + ' m²', 'm²', false],
     ['square feet', (v) => num(v * SQFT, v * SQFT < 10 ? 2 : 1) + ' m²', 'm²', false],
     ['sq ft', (v) => num(v * SQFT, v * SQFT < 10 ? 2 : 1) + ' m²', 'm²', false],
     ['linear ft', (v) => meters(v) + ' m', 'm', false],
@@ -72,7 +77,7 @@
         }
         out += src.slice(copied, chainStart);
         const unitLabel = to(nb[1]).split(' ').pop();
-        for (let k = chain.length - 1; k >= 0; k--) out += to(chain[k]).replace(' ' + unitLabel, '') + seps[k];
+        for (let k = chain.length - 1; k >= 0; k--) { const t = to(chain[k]); out += (t.endsWith(' ' + unitLabel) ? t.slice(0, -(unitLabel.length + 1)) : t) + seps[k]; }
         out += to(nb[1]); i += word.length; copied = i; continue;
       }
       if (!needsNumber) { out += src.slice(copied, i) + label; i += word.length; copied = i; continue; }
@@ -80,7 +85,10 @@
     }
     return out + src.slice(copied);
   }
+  // Order-row units and their factor from the US unit (quantity × factor, unit price ÷ factor); mirrors units.rs.
+  const ROWS = { 'sq ft': ['m²', SQFT], 'sq ft of batts': ['m² of batts', SQFT], 'linear ft': ['m', FT], 'ply linear ft': ['ply m', FT], 'assembly linear ft': ['assembly m', FT], lb: ['kg', LB_KG], gallons: ['litres', GAL_L], gal: ['L', GAL_L], 'cu yd': ['m³', 0.764555] };
   window.ufUnits = {
+    row: (unit) => (metric && ROWS[unit] ? ROWS[unit] : null),
     metric: () => metric,
     set(on) { metric = !!on; try { localStorage.setItem('uf-units', metric ? 'metric' : 'imperial'); } catch (e) { /* not saved */ } },
     text,

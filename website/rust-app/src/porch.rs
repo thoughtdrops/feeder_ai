@@ -66,7 +66,7 @@ pub fn design(c: &Config, ground: &Value) -> Value {
         }
     }
     posts.sort_by(|a,b|n(a,"x").total_cmp(&n(b,"x")).then(n(a,"z").total_cmp(&n(b,"z"))));posts.dedup_by(|a,b|near(n(a,"x"),n(b,"x"))&&near(n(a,"z"),n(b,"z")));
-    json!({"form":form,"columnStyle":column,"rectangles":rectangles,"roofs":roofs,"area":area,"deckArea":deck_area,"rimLF":rim_lf,"roofArea":roof_area,"posts":posts,"rails":rails,"deckJoists":deck_joists,"deckY":0.2,"steps":{"x":step_x,"z":-depth,"w":step_width,"risers":2,"tread":1.},"basis":"Source-informed porch proportion and column type. Wood structure, connection, footing, snow/wind loads and coating details require final design."})
+    json!({"form":form,"columnStyle":additions::character::column(c),"sourceColumnStyle":column,"rectangles":rectangles,"roofs":roofs,"area":area,"deckArea":deck_area,"rimLF":rim_lf,"roofArea":roof_area,"posts":posts,"rails":rails,"deckJoists":deck_joists,"deckY":0.2,"steps":{"x":step_x,"z":-depth,"w":step_width,"risers":2,"tread":1.},"basis":"Source-informed porch proportion and column type. Wood structure, connection, footing, snow/wind loads and coating details require final design."})
 }
 
 pub fn apply(c:&Config,mut m:Value)->Value{
@@ -90,7 +90,7 @@ pub fn apply(c:&Config,mut m:Value)->Value{
         ("porch-deck","Sealed wood porch decking · 5/4 × 6",deck_area/ (5.5/12.),"linear ft",2.2,true,false),
         ("porch-joists","Porch deck joists · treated 2 × 8",deck_joist_lf,"linear ft",2.4,true,false),
         ("porch-rim","Porch deck rim / ledger · treated 2 × 8",perimeter,"linear ft",2.4,true,false),
-        ("porch-columns","Porch columns · source-matched sealed wood",posts,"pieces",if s(&porch,"columnStyle")=="turned"{260.}else{180.},false,true),
+        ("porch-columns",&format!("Porch columns · {} · sealed wood",additions::character::column_name(s(&porch,"columnStyle"))),posts,"pieces",additions::character::column_price(s(&porch,"columnStyle")),false,true),
         ("porch-footings","Porch column footing concrete · 24 × 24 × 12 in allowance",posts*4./27.,"cu yd",180.,true,false),
         ("porch-postbases","Porch post bases / anchors / top connectors",posts,"sets",65.,false,true),
         ("porch-rafters","Porch roof I-joists · protected roof assembly",rafter_lf,"linear ft",6.5,true,false),

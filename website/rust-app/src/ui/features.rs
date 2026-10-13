@@ -18,13 +18,16 @@ pub fn roof(a:&State)->String{
         out.push_str(&format!("<p class=muted>{} dormers fit the current roof. Dormers form centered, evenly spaced rows, with clear eaves, ridges, hips and valleys. Depth is the module envelope; roofs stop at their actual intersection.</p>",a.m["dormers"].as_array().map_or(0,Vec::len)));
         for note in a.m["dormerNotes"].as_array().into_iter().flatten(){out.push_str(&format!("<p class=feature-note>{}</p>",esc(note.as_str().unwrap_or(""))));}
     }
-    out.push_str(&select("roofEdgeStyle","Roof edge molding",&strings(&["Style matched","Plain fascia","Stepped cornice","Ogee cornice","Dentil cornice","Craftsman brackets","Victorian fretwork"]),&c.roof_edge_style));
+    out.push_str(&select("roofEdgeStyle","Roof edge molding",&strings(&["Style matched","Plain fascia","Crown fascia","Stepped cornice","Ogee cornice","Dentil cornice","Modillion cornice","Scrolled corbels","Craftsman brackets","Exposed beam ends","Boxed eave & frieze","Victorian fretwork"]),&c.roof_edge_style));
+    out.push_str(&select("eaveOverhang","Roof overhang · eave depth",&strings(&additions::character::OVERHANGS),&c.eave_overhang));
     out.push_str(&select("gableAccent","Gable trim accent",&strings(&["Style matched","None","Shingle panel","Board and batten","Tudor timber"]),&c.gable_accent));
     out.push_str(&select("finials","Roof-peak ornaments",&strings(&["Style matched","None","Turned finials","Roof spire"]),&c.finials));
     out.push_str("<p class=muted>Sealed wood facade trim with real profile depth. Accent panels stay inside gables. Dormer openings and roof ornaments need final structural and weather detailing.</p></details>");out
 }
 pub fn outdoor(a:&State)->String{
-    let c=&a.c;let mut out=String::from("<details class=control-group data-section=outdoor><summary>Rear deck or porch</summary>");
+    let c=&a.c;let mut out=String::from("<details class=control-group data-section=outdoor><summary>Porches, decks &amp; balcony</summary>");
+    out.push_str(&select("columnStyle","Porch column style",&strings(&additions::character::COLUMNS),&c.column_style));
+    out.push_str(&select("railingStyle","Railing style · porch, deck and balcony",&strings(&additions::character::RAILINGS),&c.railing_style));
     out.push_str(&select("rearOutdoor","Rear outdoor space",&strings(&["Style matched","None","Deck","Covered porch"]),&c.rear_outdoor));
     if additions::rear_kind(c)!="None"{
         out.push_str("<div class=two-fields>");out.push_str(&field_num("rearWidth","Width · ft",c.rear_width,4.,32.).replace("step=0.01","step=2"));out.push_str(&field_num("rearDepth","Depth · ft",c.rear_depth,2.,32.).replace("step=0.01","step=2"));out.push_str("</div>");
@@ -36,8 +39,12 @@ pub fn outdoor(a:&State)->String{
     out.push_str("<p class=muted>The source-informed front porch is retained. Rear additions coordinate with the selected style and appear in the takeoff.</p></details>");out
 }
 pub fn windows(a:&State)->String{
-    let c=&a.c;let mut out=String::from("<details class=control-group data-section=windows><summary>Window type &amp; size</summary>");
+    let c=&a.c;let mut out=String::from("<details class=control-group data-section=windows><summary>Windows, shutters &amp; front door</summary>");
     out.push_str(&select("windowStyle","Window operating style",&strings(&["Style matched","Double hung","Casement","Picture"]),&c.window_style));
     out.push_str(&select("windowSize","Main window size",&strings(&["Style matched","Medium","Large"]),&c.window_size));
+    out.push_str(&select("windowGrilles","Window grille pattern",&strings(&additions::character::GRILLES),&c.window_grilles));
+    out.push_str(&select("shutters","Window shutters",&strings(&additions::character::SHUTTERS),&c.shutters));
+    out.push_str(&select("entryDoor","Front door style",&strings(&additions::character::DOORS),&c.entry_door));
+    out.push_str(&select("entrySurround","Front door surround",&strings(&additions::character::SURROUNDS),&c.entry_surround));
     out.push_str("<p class=muted>Medium: 3 × 4 ft. Large: 4 × 4 ft. Bath windows remain compact. Custom 3D openings are preserved. Bedrooms retain an operable escape candidate; product clear dimensions require verification.</p></details>");out
 }

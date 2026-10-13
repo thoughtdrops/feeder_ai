@@ -626,3 +626,58 @@ fn room_access_problems(c:&Config,m:&Value)->Vec<String>{
  for (w,d,st) in [(26.,40.,2usize),(24.,32.,1),(30.,36.,3),(40.,48.,2)]{let mut c=Config::default();c.stories=st;c.width=w;c.depth=d;
   for seed in (100..4000).step_by(487){if let Ok(g)=generator::surprise(&c,seed,true){assert!(near(g.width,w)&&near(g.depth,d),"{}x{} st{} seed {} -> {}x{}",w,d,st,seed,g.width,g.depth);assert_eq!(g.stories,st);}}}
 }
+
+#[test]
+fn every_item_price_is_editable_and_the_garage_window_is_counted_once(){
+ for (garage,stud,dormer) in [("Detached","Sawn lumber","None"),("Attached","LSL studs","Gable")]{
+  let mut c=Config::default();c.stories=1;c.garage=garage.into();c.stud_type=stud.into();c.dormer_style=dormer.into();let m=model::build(&c);
+  let items=m["items"].as_array().unwrap();
+  assert_eq!(items.iter().filter(|i|s(i,"id")=="garage-window").count(),1);
+  let house_windows:f64=items.iter().filter(|i|s(i,"id").starts_with("windows-")).map(|i|n(i,"qty")).sum();
+  let modeled=m["walls"].as_array().unwrap().iter().filter(|w|w["exterior"]==true).flat_map(|w|w["openings"].as_array().unwrap()).filter(|o|s(o,"kind")=="window").count() as f64;
+  assert_eq!(house_windows,modeled,"house window lines cover the house's own windows only");
+  // Every line in the estimate can take a typed price.
+  for i in items{let mut t=c.clone();t.prices.insert(s(i,"id").into(),n(i,"price")+1.);assert!(validate(&t).is_ok(),"price edit refused for {}",s(i,"id"));}
+ }
+}
+
+#[test]
+fn generated_homes_fit_roofing_and_large_single_story_programs(){
+ let mut c=Config::default();c.roofing="Natural slate".into();
+ for seed in 0..12{let g=generator::generate(&c,"Affordable",seed,false);assert!(g.is_ok(),"seed {} {:?}",seed,g.err());}
+ let mut big=Config::default();big.stories=1;big.bedrooms=5;
+ for seed in 0..4{let g=generator::generate(&big,"Premium",seed,false);assert!(g.is_ok(),"premium seed {} {:?}",seed,g.err());}
+}
+
+#[test]
+fn every_kitchen_has_a_refrigerator_and_facade_packages_are_whole(){
+ let mut c=Config::default();c.width=32.;c.depth=40.;c.stories=2;let m=model::build(&c);
+ let items=m["items"].as_array().unwrap();let qty=|id:&str|items.iter().find(|i|s(i,"id")==id).map(|i|n(i,"qty")).unwrap_or(0.);
+ assert!(qty("fridge")>=qty("sink")&&qty("fridge")>=1.);
+ let f=qty("facade");assert_eq!(f,f.round());
+}
+
+#[test]
+fn facade_character_options_render_data_and_price_once(){
+ use crate::additions::character as ch;
+ let mut c=Config::default();c.home_style="Craftsman".into();
+ for (field,list) in [("columnStyle",&ch::COLUMNS[..]),("railingStyle",&ch::RAILINGS[..]),("shutters",&ch::SHUTTERS[..]),("windowGrilles",&ch::GRILLES[..]),("entryDoor",&ch::DOORS[..]),("entrySurround",&ch::SURROUNDS[..]),("eaveOverhang",&ch::OVERHANGS[..])]{
+  for v in list{let mut t=serde_json::to_value(&c).unwrap();t[field]=json!(v);let t:Config=serde_json::from_value(t).unwrap();assert!(validate(&t).is_ok(),"{} {}",field,v);let m=model::build(&t);assert!(m["character"].is_object());let total=n(&m,"subtotal");assert!(total.is_finite()&&total>0.);}
+  let mut t=serde_json::to_value(&c).unwrap();t[field]=json!("Not an option");assert!(validate(&serde_json::from_value::<Config>(t).unwrap()).is_err());
+ }
+ // Columns: the porch price follows the chosen column.
+ let price=|style:&str|{let mut t=c.clone();t.column_style=style.into();let m=model::build(&t);m["items"].as_array().unwrap().iter().find(|i|s(i,"id")=="porch-columns").map(|i|n(i,"price")).unwrap()};
+ assert!(price("Fluted Doric")>price("Square post"));assert_eq!(model::build(&{let mut t=c.clone();t.column_style="Stone pier & post".into();t})["porch"]["columnStyle"],"stone");
+ // Shutters and grilles are priced on the house windows; "None" removes them.
+ let mut t=c.clone();t.shutters="Louvered".into();t.window_grilles="Prairie".into();let m=model::build(&t);let ids:Vec<&str>=m["items"].as_array().unwrap().iter().map(|i|s(i,"id")).collect();
+ assert!(ids.contains(&"character-shutters")&&ids.contains(&"character-grilles"));
+ t.shutters="None".into();t.window_grilles="None".into();let m=model::build(&t);assert!(!m["items"].as_array().unwrap().iter().any(|i|["character-shutters","character-grilles"].contains(&s(i,"id"))));
+ // Overhang depth drives the actual roof.
+ let mut deep=c.clone();deep.eave_overhang="Extra deep · 36 in".into();let mut tight=c.clone();tight.eave_overhang="Tight · 6 in".into();
+ let (a,b)=(model::build(&deep),model::build(&tight));assert!(n(&a["roof"],"area")>n(&b["roof"],"area"));
+ // New roof-edge moldings place real ornaments and price them.
+ for (style,kind) in [("Modillion cornice","modillion"),("Scrolled corbels","corbel"),("Exposed beam ends","beam"),("Boxed eave & frieze","frieze")]{
+  let mut t=c.clone();t.roof_edge_style=style.into();assert!(validate(&t).is_ok());let m=model::build(&t);
+  assert!(m["roofAccents"]["ornaments"].as_array().unwrap().iter().any(|o|s(o,"kind")==kind),"{} has no {}",style,kind);
+ }
+}

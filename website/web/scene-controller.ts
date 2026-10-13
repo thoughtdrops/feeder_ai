@@ -30,5 +30,5 @@ export function createSceneController({host,render,onError,schedule=requestAnima
   }catch(error){stop();host.replaceChildren();const message=document.createElement('div');message.className='webgl-error';message.textContent='The 3D view could not load. You can switch views or use Reset view to retry.';host.appendChild(message);report(error);}
  }
  function update(data:any){if(disposed)return;pending=data;selection=data.selection??null;if(frame)cancel(frame);frame=schedule(flush);}
- return {update,select(target:any){selection=target;handle?.select?.(target)},setMode(next:any){mode=next;handle?.setMode?.(next)},navigate(direction:string){handle?.navigate?.(direction)},dispose(){disposed=true;if(frame)cancel(frame);pending=undefined;stop();unbindContext();},getPose(){return handle?.getPose?.()},liveScene(view:string){return !pending&&last?.view===view?(handle as any)?.scene:undefined}};
+ return {update,select(target:any){selection=target;handle?.select?.(target)},setMode(next:any){mode=next;handle?.setMode?.(next)},navigate(direction:string){handle?.navigate?.(direction)},dispose(){disposed=true;if(frame)cancel(frame);pending=undefined;stop();unbindContext();},getPose(){return handle?.getPose?.()},refresh(){if(last&&!pending)update(last);},liveScene(view:string){return !pending&&last?.view===view?(handle as any)?.scene:undefined}};
 }

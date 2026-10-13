@@ -1,5 +1,6 @@
 import * as T from 'three';
 import {addRoof} from './architecture';
+import {addColumn,addGuard} from './railings';
 
 /** Display exactly the porch schedule supplied by the Rust takeoff. */
 export function addPorch(scene:T.Object3D,m:any,frame:boolean,wood:T.MeshStandardMaterial,roof:T.MeshStandardMaterial,siding:T.MeshStandardMaterial){
@@ -17,22 +18,16 @@ export function addPorch(scene:T.Object3D,m:any,frame:boolean,wood:T.MeshStandar
  }
  for(const j of p.deckJoists)beam(j.a,j.b,.125,7.25/12,'Porch deck joist');
  for(const post of p.posts){
-  const height=post.height-p.deckY;
-  if(!frame&&p.columnStyle==='turned'){
-   const profile=[new T.Vector2(.19,0),new T.Vector2(.19,.65),new T.Vector2(.15,.68),new T.Vector2(.18,.76),new T.Vector2(.14,.84),new T.Vector2(.105,1.05),new T.Vector2(.14,1.2),new T.Vector2(.105,1.4),new T.Vector2(.11,height-.45),new T.Vector2(.19,height-.3),new T.Vector2(.19,height)];
-   const mesh=new T.Mesh(new T.LatheGeometry(profile,16),wood);mesh.position.set(post.x-m.w/2,p.deckY,post.z-m.d/2);mesh.name='Turned porch column';mesh.castShadow=mesh.receiveShadow=true;group.add(mesh);
-  }else if(!frame&&p.columnStyle==='tapered'){
-   box(post.x,1.05,post.z,1.3,1.7,1.3,siding,'Craftsman column pedestal');const mesh=new T.Mesh(new T.CylinderGeometry(.27,.5,height-1.7,4),wood);mesh.rotation.y=Math.PI/4;mesh.position.set(post.x-m.w/2,1.9+(height-1.7)/2,post.z-m.d/2);mesh.name='Tapered Craftsman porch column';mesh.castShadow=mesh.receiveShadow=true;group.add(mesh);
-  }else if(!frame&&p.columnStyle==='classical'){
-   const mesh=new T.Mesh(new T.CylinderGeometry(.18,.23,height,24),wood);mesh.position.set(post.x-m.w/2,p.deckY+height/2,post.z-m.d/2);mesh.name='Classical porch column';mesh.castShadow=mesh.receiveShadow=true;group.add(mesh);
-  }else box(post.x,p.deckY+height/2,post.z,.5,height,.5,wood,'Porch structural column');
+  const height=post.height-p.deckY,returnPost=post.x<0||post.x>m.w;
+  if(frame)box(post.x,p.deckY+height/2,post.z,.5,height,.5,wood,'Porch structural column');
+  else addColumn(group,p.columnStyle,post.x-m.w/2,p.deckY,post.z-m.d/2,height,returnPost?'z':'x',wood,siding);
   box(post.x,p.deckY+.09,post.z,.64,.18,.64,wood,'Porch column plinth');box(post.x,post.height-.08,post.z,.65,.16,.65,wood,'Porch column capital');
   if(frame)box(post.x,-.5,post.z,2.,.5,2.,concrete,'Porch footing allowance');
  }
- if(!frame)for(const rail of p.rails){
-  beam(rail.a,rail.b,.17,.16,'Porch upper rail');const aa=[...rail.a],bb=[...rail.b],deck=Math.max(...p.rectangles.flatMap((r:any)=>r.deckYs||[p.deckY]).filter((y:number)=>y<rail.a[1]-1));aa[1]=bb[1]=deck+.25;beam(aa,bb,.15,.12,'Porch lower rail');
-  for(let i=1;i<=rail.balusters;i++){const t=i/(rail.balusters+1),x=rail.a[0]+(rail.b[0]-rail.a[0])*t,z=rail.a[2]+(rail.b[2]-rail.a[2])*t;box(x,(rail.a[1]+deck+.25)/2,z,.07,rail.a[1]-deck-.42,.07,wood,'Porch baluster');}
- }
+ if(!frame){const style=m.character?.railing||'square';for(const rail of p.rails){
+  const deck=Math.max(...p.rectangles.flatMap((r:any)=>r.deckYs||[p.deckY]).filter((y:number)=>y<rail.a[1]-1));
+  addGuard(group,new T.Vector3(rail.a[0]-m.w/2,rail.a[1],rail.a[2]-m.d/2),new T.Vector3(rail.b[0]-m.w/2,rail.b[1],rail.b[2]-m.d/2),deck+.25,rail.balusters,style,wood,'Porch');
+ }}
  for(const r of p.roofs){
   const roofGroup=new T.Group();roofGroup.position.set(r.x+r.w/2-m.w/2,0,r.z+r.d/2-m.d/2);roofGroup.name='Porch roof';group.add(roofGroup);
   const local={...r,roof:r.roof};
