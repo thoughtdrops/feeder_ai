@@ -334,6 +334,10 @@ let firstId;
   check('logout -> 204 and clears cookie', r.status === 204 && /^uf_session=;/.test(sc) && /Max-Age=0/.test(sc) && /HttpOnly/.test(sc) && /Path=\//.test(sc), { status: r.status, sc });
   const r2 = await call(logout.POST, req('POST', '/api/auth/logout'));
   check('logout without session -> 401', r2.status === 401, r2);
+  const stale = await call(me.GET, req('GET', '/api/auth/me', { cookie }));
+  check('signed-out cookie no longer works -> 401', stale.status === 401, stale);
+  const staleBuilds = await call(builds.GET, req('GET', '/api/builds', { cookie }));
+  check('signed-out cookie cannot read builds -> 401', staleBuilds.status === 401, staleBuilds);
 }
 
 // Redis REST client shape (stubbed fetch)

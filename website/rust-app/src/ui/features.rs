@@ -48,3 +48,16 @@ pub fn windows(a:&State)->String{
     out.push_str(&select("entrySurround","Front door surround",&strings(&additions::character::SURROUNDS),&c.entry_surround));
     out.push_str("<p class=muted>Medium: 3 × 4 ft. Large: 4 × 4 ft. Bath windows remain compact. Custom 3D openings are preserved. Bedrooms retain an operable escape candidate; product clear dimensions require verification.</p></details>");out
 }
+pub fn interiors(a:&State)->String{
+    let c=&a.c;let picked=crate::interior_design::resolved(c);let fields=crate::interior_design::fields(c);
+    let mut out=String::new();
+    for(section,title,range,note)in[("kitchen","Kitchen design",0..11,"Real product sizes: 36 in counters, 30 in uppers, 24 in dishwasher, 30 to 48 in ranges. Style matched follows the interior design scheme. Upgrades over the standard kitchen are priced in the estimate."),("living","Living room design",11..15,"Wraparound and L sectionals take the room only where they keep doors, walkways and windows clear; otherwise the sofa stays. Fireplaces and built-ins are priced on the media wall.")]{
+        out.push_str(&format!("<details class=control-group data-section={}-design><summary>{}</summary>",section,title));
+        for(key,label,options,value)in fields[range].iter(){
+            let current=picked.get(key).copied().unwrap_or("");
+            out.push_str(&select(key,&if *value=="Style matched"{format!("{} · {}",label,current)}else{label.to_string()},&strings(options),value));
+        }
+        out.push_str(&format!("<p class=muted>{}</p></details>",note));
+    }
+    out
+}

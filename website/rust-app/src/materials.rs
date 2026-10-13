@@ -41,8 +41,8 @@ pub fn extend(t:&mut Takeoff,c:&Config,rs:&[Room],ws:&[Wall],fs:&[staging::Furni
  allow!("trimsealant","Interior","Trim caulk / wood filler",(perimeter+2.*partition)/80.,"tubes",6.,"One tube per 80 ft of trim; field-joint allowance.",true);
  allow!("floorleveler","Interior","Floor patch / leveling compound",area/200.,"bags",34.,"One bag per 200 sq ft concept allowance; actual slab condition determines usage.",true);
  allow!("floortransitions","Interior","Floor transition / threshold strips",doors.iter().map(|(_,o)|o.width).sum::<f64>(),"linear ft",4.,"One strip across each modeled door opening.",false);
- allow!("cabinetpulls","Kitchen & bath","Cabinet pulls / hinges allowance",(cabinet_lf/2.).ceil()*2.,"sets",10.,"Two hardware sets per nominal 2 ft cabinet module; base cabinets exclude accessories.",true);
- allow!("backsplash","Kitchen & bath","Kitchen backsplash finish",fs.iter().filter(|f|f.kind=="kitchen").map(|f|f.local_width*1.5).sum::<f64>(),"sq ft",9.,"18 in backsplash along modeled cabinet runs; islands excluded.",false);
+ allow!("cabinetpulls","Kitchen & bath",&crate::interior_design::hardware_name(c),(cabinet_lf/2.).ceil()*2.,"sets",crate::interior_design::hardware_rate(c),"Two hardware sets per nominal 2 ft cabinet module; base cabinets exclude accessories.",true);
+ allow!("backsplash","Kitchen & bath",&crate::interior_design::backsplash_name(c),fs.iter().filter(|f|f.kind=="kitchen").map(|f|f.local_width*1.5).sum::<f64>(),"sq ft",crate::interior_design::backsplash_rate(c),"18 in backsplash along modeled cabinet runs; islands excluded.",false);
  count!("bathmirrors","Kitchen & bath","Vanity mirrors",basins,95.,"One mirror per modeled vanity.");
  count!("bathaccessories","Kitchen & bath","Towel / toilet-paper accessories",toilets,75.,"One set per modeled toilet.");
  allow!("showerbacker","Kitchen & bath","Shower backer board",fs.iter().filter(|f|f.kind=="shower").map(|f|(2.*f.local_depth+f.local_width)*7.).sum::<f64>()/32.,"4 x 8 sheets",38.,"Three 7 ft shower walls; product and enclosure sides need detailing.",true);

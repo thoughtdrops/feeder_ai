@@ -1,5 +1,6 @@
 type Pattern={name:string;dataUrl:string;repeatFeet:number};
-const MAX_BYTES=12*1024*1024,MAX_ENCODED=200000;
+// Three patterns stay well inside a 150 KB saved build (the profile limit), with room for the design itself.
+const MAX_BYTES=12*1024*1024,MAX_ENCODED=40000;
 export function validateTextureFile(file:File){
  if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw Error('Choose a JPEG, PNG or WebP image.');
  if(!file.size||file.size>MAX_BYTES)throw Error('Choose an image under 12 MB.');
@@ -11,7 +12,7 @@ export async function normalizeTexture(file:File,repeatFeet:number):Promise<Patt
   if(!image.naturalWidth||!image.naturalHeight||image.naturalWidth*image.naturalHeight>64_000_000)throw Error('Choose an image with fewer than 64 million pixels.');
   const canvas=document.createElement('canvas'),context=canvas.getContext('2d');if(!context)throw Error('Image processing is unavailable in this browser.');
   let edge=1024,dataUrl='';
-  for(let attempt=0;attempt<6;attempt++){const scale=Math.min(1,edge/Math.max(image.naturalWidth,image.naturalHeight));canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));context.fillStyle='#e1ded4';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(image,0,0,canvas.width,canvas.height);dataUrl=canvas.toDataURL('image/jpeg',.8-attempt*.06);if(dataUrl.length<=MAX_ENCODED)break;edge=Math.round(edge*.8);}
+  for(let attempt=0;attempt<10;attempt++){const scale=Math.min(1,edge/Math.max(image.naturalWidth,image.naturalHeight));canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));context.fillStyle='#e1ded4';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(image,0,0,canvas.width,canvas.height);dataUrl=canvas.toDataURL('image/jpeg',Math.max(.5,.8-attempt*.04));if(dataUrl.length<=MAX_ENCODED)break;edge=Math.round(edge*.8);}
   if(!dataUrl.startsWith('data:image/jpeg;base64,')||dataUrl.length>MAX_ENCODED)throw Error('Choose a smaller or less detailed pattern image.');
   return {name:Array.from(file.name.replace(/[\x00-\x1f\x7f]/g,'')).slice(0,100).join(''),dataUrl,repeatFeet};
  }finally{URL.revokeObjectURL(url);image.src='';}

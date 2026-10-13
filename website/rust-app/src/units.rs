@@ -10,7 +10,7 @@ pub fn set_metric(on:bool){METRIC.with(|m|m.set(on))}
 pub const FT:f64=0.3048;
 pub const SQFT:f64=0.092_903_04;
 const IN_MM:f64=25.4;
-const PSF_KPA:f64=0.047_880_26;
+pub const PSF_KPA:f64=0.047_880_26;
 const KIP_KN:f64=4.448_222;
 const LB_KG:f64=0.453_592_37;
 const GAL_L:f64=3.785_411_8;
@@ -136,6 +136,8 @@ fn convert_input(tag:&str,unit:&str)->String{
  for name in ["value","min","max"]{if let Some((_,_,v))=attr(&t.clone(),name){if let Ok(x)=v.parse::<f64>(){t=set_attr(&t,name,&num(x*factor,digits));}}}
  t=set_attr(&t,"step","0.01");t=set_attr(&t,"data-unit",unit);
  if let Some(s)=step.filter(|s|*s>=1.){t=set_attr(&t,"data-snap",&num(s,2));}
+ // Loads round-trip to the nearest ½ psf, so 1.92 kPa is the 40 psf table load again (not 40.1).
+ else if unit=="psf"{t=set_attr(&t,"data-snap","0.5");}
  t
 }
 fn label_unit(label_text:&str)->Option<&'static str>{
