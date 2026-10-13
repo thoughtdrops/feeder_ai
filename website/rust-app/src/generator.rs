@@ -62,7 +62,7 @@ fn generate_once(current: &Config, mode: &str, seed: u32, keep_size: bool, grow:
     c.catalog_plan = true; c.trim_overrides.clear();
     c.seed = seed;
     architecture::reset_edits(&mut c);
-    additions::character::match_style(&mut c);
+    additions::character::match_style(&mut c);crate::interior_design::match_style(&mut c);
     let mut random = Random(seed);
     if mode == "Blank slate" { validate(&c)?; return Ok(c); }
     if !["Affordable","Premium"].contains(&mode) { return Err("Choose Affordable or Premium.".into()); }
@@ -135,7 +135,7 @@ pub fn surprise(current:&Config, seed:u32, keep_size:bool) -> Result<Config,Stri
     let mut last=String::new();
     for attempt in 0..40u32 {
         let mut r=Random(seed.wrapping_add(attempt.wrapping_mul(7919)));
-        let mut c=current.clone();c.design_mode=mode.clone();c.seed=seed;c.active_floor=0;c.catalog_plan=true;c.trim_overrides.clear();architecture::reset_edits(&mut c);additions::character::match_style(&mut c);
+        let mut c=current.clone();c.design_mode=mode.clone();c.seed=seed;c.active_floor=0;c.catalog_plan=true;c.trim_overrides.clear();architecture::reset_edits(&mut c);additions::character::match_style(&mut c);crate::interior_design::match_style(&mut c);
         let style=loop{let pick=pool[r.pick(pool.len())];if pick!=current.home_style||attempt>20{break pick}};c.home_style=style.into();
         let home=lookup("homeStyles",style);c.siding=s(&home,"cladding").into();c.trim_package=s(&home,"trim").into();
         for(key,src)in[("siding","siding"),("roof","roof"),("trim","exteriorTrim")]{c.colors.insert(key.into(),s(&home,src).into());}

@@ -27,7 +27,7 @@ const when=(iso:string)=>{const d=new Date(iso);return Number.isNaN(d.getTime())
 
 // ---------- Google Identity Services ----------
 function loadGoogle(){
- gisReady??=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.async=true;s.onload=()=>{const g=(window as any).google;if(!g?.accounts?.id){reject(new Error('Google sign-in did not load'));return;}g.accounts.id.initialize({client_id:clientId,callback:onCredential,ux_mode:'popup',auto_select:false,cancel_on_tap_outside:true,use_fedcm_for_prompt:true});resolve();};s.onerror=()=>reject(new Error('Google sign-in could not load'));document.head.appendChild(s);});
+ gisReady??=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.async=true;s.onload=()=>{const g=(window as any).google;if(!g?.accounts?.id){gisReady=undefined;reject(new Error('Google sign-in did not load'));return;}g.accounts.id.initialize({client_id:clientId,callback:onCredential,ux_mode:'popup',auto_select:false,cancel_on_tap_outside:true,use_fedcm_for_prompt:true});resolve();};s.onerror=()=>{s.remove();gisReady=undefined;reject(new Error('Google sign-in could not load'));};document.head.appendChild(s);});
  return gisReady;
 }
 async function googleButton(host:HTMLElement,width=280){
@@ -65,6 +65,10 @@ async function deleteBuild(meta:BuildMeta&{local?:boolean}){
  else{try{await api(`/api/builds/?id=${encodeURIComponent(meta.id)}`,{method:'DELETE'});}catch{say('That build could not be deleted. Please try again.');return;}}
  if(currentBuild===meta.id)currentBuild=null;renderPanel();
 }
+// Dialogs are modal: Tab stays inside, and the page behind doesn't scroll.
+const modalOpen=(on:boolean)=>document.documentElement.classList.toggle('account-modal-open',on);
+function trap(box:HTMLElement,e:KeyboardEvent){if(e.key!=='Tab')return;const items=[...box.querySelectorAll<HTMLElement>('button,input,select,textarea,a[href],iframe,[tabindex]:not([tabindex="-1"])')].filter(x=>!x.hasAttribute('disabled')&&x.getClientRects().length>0);if(!items.length)return;
+ const first=items[0]!,last=items[items.length-1]!,active=document.activeElement as HTMLElement|null;if(!active||!box.contains(active)){e.preventDefault();first.focus();}else if(e.shiftKey&&active===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&active===last){e.preventDefault();first.focus();}}
 let pending:{design:string;summary:string}|null=null;
 function saveDialog(design:string,summary:string){
  pending={design,summary};
@@ -73,11 +77,14 @@ function saveDialog(design:string,summary:string){
  const where=el('p',{id:'save-where',class:'account-muted',text:user?`Saved to ${user.email}'s profile, available on any device you sign in on.`:accounts?'Saved in this browser. Sign in with Google to keep builds in your profile on every device.':'Saved in this browser.'});
  const actions=el('div',{class:'account-actions'});
  const save=async(asNew:boolean)=>{const name=input.value.trim().replace(/[\u0000-\u001f]/g,'').slice(0,80);if(!name){input.focus();return;}const design=JSON.parse(pending!.design);
+  let failed='';
   if(user){try{const r=await api<{build:BuildMeta}>('/api/builds/',{method:'POST',body:JSON.stringify({...(asNew||!currentBuild?{}:{id:currentBuild}),name,summary:pending!.summary,design})});currentBuild=r.build.id;close();say(`Saved “${name}” to your profile.`);return;}
-   catch(e:any){if(e?.status!==401){say(e?.status===409?'Your profile holds 50 builds. Delete one to save another.':'Could not save to your profile; saved in this browser instead.');}else{user=null;renderProfileButton();}}}
-  const list=store.read();const id=(crypto as any).randomUUID?.()||String(Date.now());list.unshift({id,name,updated:new Date().toISOString(),summary:pending!.summary,design});if(!store.write(list)){say('This browser has no room to save builds.');return;}close();say(`Saved “${name}” in this browser.`);};
- const close=()=>{shade.remove();pending=null;document.removeEventListener('keydown',esc);};
- const esc=(e:KeyboardEvent)=>{if(e.key==='Escape')close();};document.addEventListener('keydown',esc);
+   catch(e:any){if(e?.status!==401)failed=e?.status===409?'Your profile already holds 50 builds.':e?.status===413?'This build is too large for your profile.':'Your profile could not be reached.';else{user=null;renderProfileButton();}}}
+  // The browser keeps up to 20 builds; a full list is never trimmed silently.
+  const list=store.read();if(list.length>=LOCAL_LIMIT){say(`${failed?failed+' ':''}This browser already holds ${LOCAL_LIMIT} builds. Delete one in My builds to save another.`);return;}
+  const id=(crypto as any).randomUUID?.()||String(Date.now());list.unshift({id,name,updated:new Date().toISOString(),summary:pending!.summary,design});if(!store.write(list)){say(`${failed?failed+' ':''}This browser has no room to save builds.`);return;}close();say(failed?`${failed} Saved “${name}” in this browser instead.`:`Saved “${name}” in this browser.`);};
+ const close=()=>{shade.remove();pending=null;document.removeEventListener('keydown',esc);if(!panel)modalOpen(false);};
+ const esc=(e:KeyboardEvent)=>{if(e.key==='Escape')close();else trap(box,e);};document.addEventListener('keydown',esc);modalOpen(true);
  if(user&&currentBuild){actions.append(el('button',{class:'button primary',type:'button',text:'Update this build'}),el('button',{class:'button secondary',type:'button',text:'Save as new'}));(actions.children[0] as HTMLElement).onclick=()=>save(false);(actions.children[1] as HTMLElement).onclick=()=>save(true);}
  else{const b=el('button',{class:'button primary',type:'button',text:'Save build'});b.onclick=()=>save(true);actions.append(b);}
  const cancel=el('button',{class:'button secondary',type:'button',text:'Cancel'});cancel.onclick=close;actions.append(cancel);
@@ -101,12 +108,12 @@ function renderProfileButton(){
  trigger.setAttribute('aria-label',user?`Profile: ${user.name||user.email}`:'Profile and saved builds');
  if(trigger.parentElement!==slot){slot.replaceChildren(trigger);slot.classList.add('has-profile');}
 }
-function closePanel(){shadeEl?.remove();shadeEl=null;panel=null;trigger?.setAttribute('aria-expanded','false');document.removeEventListener('keydown',panelKeys);trigger?.focus();}
-const panelKeys=(e:KeyboardEvent)=>{if(e.key==='Escape')closePanel();};
+function closePanel(){shadeEl?.remove();shadeEl=null;panel=null;if(!pending)modalOpen(false);trigger?.setAttribute('aria-expanded','false');document.removeEventListener('keydown',panelKeys);trigger?.focus();}
+const panelKeys=(e:KeyboardEvent)=>{if(pending)return;if(e.key==='Escape')closePanel();else if(panel)trap(panel,e);};
 function openPanel(focusBuilds=false){
  if(panel){if(focusBuilds)panel.querySelector('.build-list')?.scrollIntoView({block:'nearest'});return;}
  shadeEl=el('div',{class:'account-shade'});panel=el('section',{class:'account-panel profile-panel',role:'dialog','aria-modal':'true','aria-labelledby':'profile-title'});
- shadeEl.append(panel);shadeEl.addEventListener('click',e=>{if(e.target===shadeEl)closePanel();});document.body.append(shadeEl);document.addEventListener('keydown',panelKeys);trigger?.setAttribute('aria-expanded','true');
+ shadeEl.append(panel);shadeEl.addEventListener('click',e=>{if(e.target===shadeEl)closePanel();});document.body.append(shadeEl);document.addEventListener('keydown',panelKeys);modalOpen(true);trigger?.setAttribute('aria-expanded','true');
  renderPanel(focusBuilds);
 }
 async function renderPanel(focusBuilds=false){

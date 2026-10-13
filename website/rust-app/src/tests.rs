@@ -681,3 +681,59 @@ fn facade_character_options_render_data_and_price_once(){
   assert!(m["roofAccents"]["ornaments"].as_array().unwrap().iter().any(|o|s(o,"kind")==kind),"{} has no {}",style,kind);
  }
 }
+#[test]
+fn kitchen_and_living_options_validate_resolve_and_price(){
+ use crate::interior_design as kd;
+ let c=fixture();
+ for (key,_,options,_) in kd::fields(&c){
+  for v in options.iter(){let mut t=serde_json::to_value(&c).unwrap();t[key]=json!(v);let t:Config=serde_json::from_value(t).unwrap();assert!(validate(&t).is_ok(),"{} {}",key,v);let m=model::build(&t);assert!(m["interiorDesign"].is_object());assert!(!m["interiorDesign"].as_object().unwrap().values().any(|v|v=="Style matched"));let total=n(&m,"subtotal");assert!(total.is_finite()&&total>0.,"{} {}",key,v);}
+  let mut t=serde_json::to_value(&c).unwrap();t[key]=json!("Not an option");assert!(validate(&serde_json::from_value::<Config>(t).unwrap()).is_err(),"{}",key);
+ }
+ // Every interior scheme family resolves to a full, valid design.
+ for scheme in catalog()["interiorSchemes"].as_array().unwrap(){let mut t=c.clone();t.interior_style=s(scheme,"name").into();for(key,value)in kd::resolved(&t){let options=kd::fields(&t).into_iter().find(|f|f.0==key).unwrap().2;assert!(options.contains(&value)&&value!="Style matched",)}}
+ let item=|t:&Config,id:&str|model::build(t)["items"].as_array().unwrap().iter().find(|i|s(i,"id")==id).cloned();
+ let price=|t:&Config,id:&str|item(t,id).map(|i|n(&i,"price")).unwrap_or(0.);
+ let with=|f:&dyn Fn(&mut Config)|{let mut t=c.clone();f(&mut t);t};
+ assert!(price(&with(&|t|t.kitchen_counter="Calacatta marble".into()),"counter")>price(&with(&|t|t.kitchen_counter="Butcher block".into()),"counter"));
+ assert!(price(&with(&|t|t.kitchen_cabinets="Fluted oak".into()),"cabinets")>price(&with(&|t|t.kitchen_cabinets="Shaker".into()),"cabinets"));
+ assert!(price(&with(&|t|t.kitchen_sink="Farmhouse apron".into()),"sink")>price(&with(&|t|t.kitchen_sink="Undermount stainless".into()),"sink"));
+ assert_eq!(price(&with(&|t|t.kitchen_backsplash="None".into()),"backsplash"),0.);
+ let range=|v:&str|item(&with(&|t|t.kitchen_range=v.into()),"kitchen-range-upgrade");
+ assert!(range("30 in slide-in").is_none());assert!(n(&range("48 in pro range").unwrap(),"price")>n(&range("36 in pro range").unwrap(),"price"));
+ let media=|v:&str|item(&with(&|t|t.living_media=v.into()),"living-fireplace");assert!(media("TV console").is_none());assert!(media("Fireplace & TV").is_some());
+ // Generated homes come back style matched.
+ let mut t=c.clone();t.kitchen_counter="Concrete".into();t.living_seating="Curved sofa".into();kd::match_style(&mut t);assert_eq!(t.kitchen_counter,"Style matched");assert_eq!(t.living_seating,"Style matched");
+}
+
+#[test]
+fn wide_seating_fits_its_room_and_keeps_every_other_piece_clear(){
+ let mut placed=0;
+ for seating in ["Wraparound U sectional","L-shaped sectional","Sofa & lounge chairs"]{for size in [36.,60.]{for i in (0..30).step_by(2){
+  let mut c=fixture();c.width=size;c.depth=size;c.layout=s(&catalog()["layoutStyles"][i],"name").into();c.living_seating=seating.into();
+  let m=model::build(&c);let rooms:Vec<Room>=serde_json::from_value(m["rooms"].clone()).unwrap();let fs:Vec<staging::Furniture>=serde_json::from_value(m["furniture"].clone()).unwrap();
+  for f in fs.iter().filter(|f|f.kind=="sectional"){placed+=1;let r=rooms.iter().find(|r|r.id==f.room_id).unwrap();assert!(f.x-f.w/2.>=r.x&&f.x+f.w/2.<=r.x+r.w&&f.z-f.d/2.>=r.z&&f.z+f.d/2.<=r.z+r.d,"{} in {}",seating,c.layout);
+   let a=[f.x-f.w/2.,f.z-f.d/2.,f.x+f.w/2.,f.z+f.d/2.];for o in fs.iter().filter(|o|o.id!=f.id&&!["coffee","rug"].contains(&o.kind.as_str())){let b=[o.x-o.w/2.,o.z-o.d/2.,o.x+o.w/2.,o.z+o.d/2.];assert!(!(a[0]<b[2]-0.001&&a[2]>b[0]+0.001&&a[1]<b[3]-0.001&&a[3]>b[1]+0.001),"{} overlaps {} in {}",seating,o.kind,c.layout);}}
+ }}}
+ let d=model::build(&{let mut c=Config::default();c.living_seating="Wraparound U sectional".into();c});assert_eq!(d["furniture"].as_array().unwrap().iter().filter(|f|s(f,"kind")=="sectional").count(),1,"the starter home fits a wraparound sectional");eprintln!("PLACED {}",placed);assert!(placed>10,"wide seating should fit in most living rooms, placed {}",placed);
+}
+
+#[test]
+fn fireplace_and_builtin_media_walls_stay_on_solid_wall(){
+ for media in ["Fireplace & TV","Built-in shelves & TV"]{for i in (0..30).step_by(3){
+  let mut c=fixture();c.layout=s(&catalog()["layoutStyles"][i],"name").into();c.living_media=media.into();
+  let m=model::build(&c);let rooms:Vec<Room>=serde_json::from_value(m["rooms"].clone()).unwrap();let ws:Vec<Wall>=serde_json::from_value(m["walls"].clone()).unwrap();let fs:Vec<staging::Furniture>=serde_json::from_value(m["furniture"].clone()).unwrap();
+  for f in fs.iter().filter(|f|f.kind=="console"&&f.local_width>4.){let r=rooms.iter().find(|r|r.id==f.room_id).unwrap();assert!(f.x-f.w/2.>=r.x&&f.x+f.w/2.<=r.x+r.w&&f.z-f.d/2.>=r.z&&f.z+f.d/2.<=r.z+r.d);assert!(!crate::interior_design::glass_behind(f,&ws));assert!(edit::item_error(f,&c,&ws,&fs).is_none(),"{} in {}",media,c.layout);}
+  let priced=m["items"].as_array().unwrap().iter().any(|i|["living-fireplace","living-builtins"].contains(&s(i,"id")));
+  assert_eq!(priced,fs.iter().any(|f|f.kind=="console"&&!crate::interior_design::glass_behind(f,&ws)),"{} priced only on a solid wall in {}",media,c.layout);
+ }}
+}
+
+#[test]
+fn audit_regressions_stair_rails_and_metric_loads(){
+ // Stair handrails follow the modeled flights: each rail is longer than the rise it climbs.
+ let mut c=Config::default();c.stories=2;let m=model::build(&c);let rail=m["items"].as_array().unwrap().iter().find(|i|s(i,"id")=="stairrail").unwrap();
+ let fh=n(&m,"floorHeight").max(c.wall_height+1.);assert!(n(rail,"net")>2.*fh/2.+16.,"rail {} for floor height {}",n(rail,"net"),fh);
+ // 40 / 20 psf shown in kPa come back as the table loads, not 40.1 / 20.05.
+ assert_eq!(crate::units::to_engine(&crate::units::num(40.*crate::units::PSF_KPA,2),"psf",Some(0.5)),"40");
+ assert_eq!(crate::units::to_engine(&crate::units::num(20.*crate::units::PSF_KPA,2),"psf",Some(0.5)),"20");
+}

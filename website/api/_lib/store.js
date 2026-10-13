@@ -1,10 +1,12 @@
 // Persistence behind a tiny interface: Upstash Redis REST (production) or in-memory (tests).
 //   uf:user:{sub}    -> JSON string (SET/GET)
 //   uf:builds:{sub}  -> HASH id -> JSON {id,name,updated,summary,design}
+//   uf:revoked:{jti} -> '1' until the signed-out session would have expired
 import { HttpError } from './http.js';
 
 const userKey = (sub) => `uf:user:${sub}`;
 const buildsKey = (sub) => `uf:builds:${sub}`;
+const revokedKey = (jti) => `uf:revoked:${jti}`;
 
 function redisEnv() {
   const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
@@ -80,6 +82,12 @@ function createRedisStore({ url, token }) {
     async deleteBuild(sub, id) {
       return Number(await cmd('HDEL', buildsKey(sub), id)) > 0;
     },
+    async revokeSession(jti, ttlSeconds) {
+      await cmd('SET', revokedKey(jti), '1', 'EX', Math.max(1, Math.ceil(ttlSeconds)));
+    },
+    async sessionRevoked(jti) {
+      return Number(await cmd('EXISTS', revokedKey(jti))) === 1;
+    },
   };
 }
 
@@ -116,6 +124,13 @@ export function createMemoryStore() {
     },
     async deleteBuild(sub, id) {
       return hash(buildsKey(sub)).delete(id);
+    },
+    async revokeSession(jti, ttlSeconds) {
+      strings.set(revokedKey(jti), String(Date.now() + ttlSeconds * 1000));
+    },
+    async sessionRevoked(jti) {
+      const until = Number(strings.get(revokedKey(jti)) || 0);
+      return until > Date.now();
     },
   };
 }

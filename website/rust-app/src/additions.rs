@@ -18,6 +18,7 @@ pub fn validate(c:&Config)->Result<(),String>{
         (&c.finials,vec!["Style matched","None","Turned finials","Roof spire"],"roof ornament"),
     ]{if !allowed.contains(&value.as_str()){return Err(format!("Choose a listed {} option.",label));}}
     character::validate(c)?;
+    crate::interior_design::validate(c)?;
     if ![2.,4.,8.,16.].contains(&c.dormer_width)||![2.,4.,8.,16.].contains(&c.dormer_depth)||c.dormer_count>6{return Err("Dormers use 2, 4, 8 or 16 ft modules, with up to six dormers.".into());}
     if ![c.rear_width,c.rear_depth].iter().all(|v|v.is_finite()&&*v>=2.&&*v<=32.&&near(*v/2.,(*v/2.).round())){return Err("Rear decks and porches use 2 ft increments from 2 to 32 ft.".into());}
     Ok(())
@@ -39,6 +40,7 @@ pub fn apply(c:&Config,mut m:Value)->Value{
     balconies::apply(c,&mut m,&mut t);
     accents::apply(c,&mut m,&mut t);
     character::apply(c,&mut m,&mut t);
+    crate::interior_design::apply(c,&mut m,&mut t);
     // Window prices scale with actual opening size and selected operating type.
     m["items"].as_array_mut().unwrap().retain(|i|s(i,"id")!="windows");
     let escape_ids= m["openingChecks"]["schedule"].as_array().unwrap().iter().filter(|o|o["bedroomEscapeCandidate"]==true).map(|o|s(o,"id").to_string()).collect::<std::collections::BTreeSet<_>>();

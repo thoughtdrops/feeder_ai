@@ -78,7 +78,7 @@ fn rotate_selection(a:&mut State,degrees:f64)->bool{
  }else{a.insert_rotation=(a.insert_rotation+degrees.to_radians()).rem_euclid(std::f64::consts::TAU);if s(&a.selection,"kind")=="floor"{a.selection["draftRotation"]=json!(a.insert_rotation);preview_target(a);}false}
 }
 
-pub fn opening_kind(){let kind=val("edit-opening-kind");for(id,value)in if kind=="window"{[("edit-bottom",3.),("edit-height",4.),("edit-width",3.)]}else{[("edit-bottom",0.),("edit-height",82.5/12.),("edit-width",38./12.)]}{if let Some(e)=doc().get_element_by_id(id).and_then(|e|e.dyn_into::<HtmlInputElement>().ok()){e.set_value(&value.to_string());}}}
+pub fn opening_kind(){let kind=val("edit-opening-kind");for(id,value)in if kind=="window"{[("edit-bottom",3.),("edit-height",4.),("edit-width",3.)]}else{[("edit-bottom",0.),("edit-height",82.5/12.),("edit-width",38./12.)]}{if let Some(e)=doc().get_element_by_id(id).and_then(|e|e.dyn_into::<HtmlInputElement>().ok()){e.set_value(&if crate::units::metric(){crate::units::num(value*crate::units::FT,2)}else{value.to_string()});}}}
 
 fn history(a:&mut State,command:&str)->bool{
  let next=if command=="undo"{a.undo.pop()}else{a.redo.pop()};let Some(mut c)=next else{return false};

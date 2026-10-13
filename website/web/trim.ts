@@ -51,7 +51,9 @@ export function createTrimMaterial(profile:number,textures:T.Texture[],isActive:
  const placeholder=(color:string)=>{const c=document.createElement('canvas');c.width=c.height=1;const ctx=c.getContext('2d')!;ctx.fillStyle=color;ctx.fillRect(0,0,1,1);return c;};
  const maps=['oak-diff.jpg','oak-nor_gl.jpg','oak-rough.jpg'].map((file,i)=>{
   const texture:T.Texture<HTMLImageElement|HTMLCanvasElement>=new T.Texture<HTMLImageElement|HTMLCanvasElement>(placeholder(i===1?'#8080ff':'#ffffff'));texture.wrapS=texture.wrapT=T.RepeatWrapping;texture.anisotropy=4;texture.needsUpdate=true;texture.userData={file,url:graphicsAsset('/materials/'+file)};if(i===0)texture.colorSpace=T.SRGBColorSpace;textures.push(texture);
-  new T.ImageLoader().load(texture.userData.url,image=>{if(!isActive())return;texture.image=image;texture.needsUpdate=true;for(const map of textures)if(map.source===texture.source)map.needsUpdate=true;},undefined,()=>{});return texture;
+  // A new Source for the photo: the 1×1 placeholder's GPU storage is immutable, so re-uploading into it fails.
+  // Each texture releases its placeholder upload first, so three's per-source cache stays consistent.
+  new T.ImageLoader().load(texture.userData.url,image=>{if(!isActive())return;const old=texture.source,source=new T.Source(image);for(const map of textures)if(map.source===old){map.dispose();map.source=source;map.needsUpdate=true;}},undefined,()=>{});return texture;
  });
  const mat=new T.MeshStandardMaterial({color:finish.color,map:maps[0],normalMap:maps[1],normalScale:new T.Vector2(.34,.34),roughnessMap:maps[2],roughness:.48,metalness:0});mat.name=finish.name;mat.userData={trimFinish:finish.name,textureCell:index,trimProfile:profile};return mat;
 }

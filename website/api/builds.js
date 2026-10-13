@@ -5,7 +5,7 @@
 //   DELETE /api/builds?id=X     -> 204
 import { randomUUID } from 'node:crypto';
 import { assertMutationAllowed, handler, HttpError, isPlainObject, json, readJsonBody } from './_lib/http.js';
-import { assertConfigured, requireSession } from './_lib/session.js';
+import { assertConfigured, requireActiveSession } from './_lib/session.js';
 import { getStore } from './_lib/store.js';
 
 const MAX_DESIGN_BYTES = 150 * 1024;
@@ -42,7 +42,7 @@ function cleanSummary(raw) {
 
 export const GET = handler(async (request) => {
   assertConfigured();
-  const { sub } = requireSession(request);
+  const { sub } = await requireActiveSession(request);
   const store = getStore();
   const id = idParam(request);
   if (id !== null) {
@@ -59,7 +59,7 @@ export const GET = handler(async (request) => {
 export const POST = handler(async (request) => {
   assertConfigured();
   assertMutationAllowed(request);
-  const { sub } = requireSession(request);
+  const { sub } = await requireActiveSession(request);
   const body = await readJsonBody(request, MAX_DESIGN_BYTES + 16 * 1024);
   if (!isPlainObject(body)) throw new HttpError(400, 'Request body must be a JSON object');
 
@@ -92,7 +92,7 @@ export const POST = handler(async (request) => {
 export const DELETE = handler(async (request) => {
   assertConfigured();
   assertMutationAllowed(request);
-  const { sub } = requireSession(request);
+  const { sub } = await requireActiveSession(request);
   const id = idParam(request);
   if (id === null) throw new HttpError(400, 'Missing id');
   if (!(await getStore().deleteBuild(sub, id))) throw new HttpError(404, 'Build not found');

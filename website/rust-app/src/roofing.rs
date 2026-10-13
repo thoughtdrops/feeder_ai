@@ -45,7 +45,8 @@ pub fn apply(c:&Config,mut m:Value)->Value{
  let low=dormers.iter().filter(|d|dormer_pitch(d)+1e-9<lowest).map(|d|n(d,"roofArea")).sum::<f64>().min(area);
  let shallow_asphalt=if k==ASPHALT&&c.pitch>=4.{dormers.iter().filter(|d|{let p=dormer_pitch(d);p+1e-9>=lowest&&p<4.}).map(|d|n(d,"roofArea")).sum::<f64>()}else{0.};
  let full_area=area;let area=area-low;let seam=k==METAL&&c.pitch<3.;
- let squares=area/100.;let ice=(eave*3.+valley*3.).min(area);let panels=panel_count(&roof);
+ let squares=area/100.;// Same strip the Ice & Water Shield line buys (24 in inside the wall, up the slope), so underlay never overlaps it.
+ let eave_strip=((n(&roof,"overhangZ").max(n(&roof,"overhangX"))+2.)*(1.+(c.pitch/12.).powi(2)).sqrt()).max(3.);let ice=(eave*eave_strip+valley*3.).min(area);let panels=panel_count(&roof);
  let item_qty=|m:&Value,pred:&dyn Fn(&str)->bool|m["items"].as_array().unwrap().iter().filter(|i|pred(s(i,"id"))).map(|i|n(i,"qty")).sum::<f64>();
  let sheets=item_qty(&m,&|id|id=="ziproof");let rafters=item_qty(&m,&|id|id.starts_with("rafter")&&id[6..].bytes().all(|b|b.is_ascii_digit()));
  let mut t=model::Takeoff{items:vec![],c};

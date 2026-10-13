@@ -2,10 +2,11 @@ import * as T from 'three';
 import {GLTFExporter} from 'three/examples/jsm/exporters/GLTFExporter.js';
 import {renderHouse} from './scene';
 import {releaseRenderer} from './graphics';
+import {viewStyle} from './view-styles';
 // "See our process" hands the simulator the studio's own 3D house: the exterior view is built offscreen,
 // furniture and surroundings are left out, and the result is stored as a GLB in IndexedDB. The simulator
 // reveals these exact pieces as each panel is set, so the finished build is the studio design.
-const SKIP=new Set(['Sky','Surroundings','Painted surroundings','Photo surroundings','Lot lawn','North arrow']);
+const SKIP=new Set(['Sky','Surroundings','Painted surroundings','Photo surroundings','Lot lawn','North arrow','Drawing ground','Scale model base']);
 function keep(o:T.Object3D){if(o.userData.batch||(!o.visible&&!o.userData.batchedOriginal)||SKIP.has(o.name)||(o as any).isLight||(o as any).isCamera)return false;const t=o.userData.editTarget;return !(t&&(t.kind==='furniture'||t.kind==='staging'));}
 // Exported copies drop any texture whose image has not arrived (zero size), so the exporter never fails.
 // The same photo is often loaded once per surface, so images are shared by source and stored as small
@@ -49,6 +50,8 @@ export async function exportHouseForProcess(payload:any,design:string,live?:T.Sc
  try{
   // Reuse the exterior view on screen when there is one; otherwise build it offscreen without drawing.
   const t0=performance.now();
+  // Drawing and scale-model styles restyle the live materials, so those views are rebuilt in their true finishes.
+  if(live&&!['studio','photoreal'].includes(viewStyle()))live=undefined;
   if(!live)cleanup=renderHouse(host,{...payload,view:'exterior',frameOpening:'',selection:null,cameraPose:null,exportOnly:true});
   const scene:T.Scene|undefined=live??cleanup?.scene;if(!scene)throw new Error('3D view unavailable');
   const start=performance.now();while(!texturesReady(scene)&&performance.now()-start<4000)await new Promise(r=>setTimeout(r,100));

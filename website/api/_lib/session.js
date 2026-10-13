@@ -1,7 +1,7 @@
 // Signed session cookie: base64url(JSON payload).base64url(HMAC-SHA256(payloadPart, SESSION_SECRET)).
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { getCookie, HttpError } from './http.js';
-import { storeConfigured } from './store.js';
+import { getStore, storeConfigured } from './store.js';
 
 export const COOKIE_NAME = 'uf_session';
 export const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60; // 2592000
@@ -38,6 +38,8 @@ export function createSessionToken(user, now = Math.floor(Date.now() / 1000)) {
     picture: user.picture,
     iat: now,
     exp: now + SESSION_TTL_SECONDS,
+    // Identifies this sign-in, so signing out revokes this cookie everywhere it was copied.
+    jti: randomBytes(16).toString('base64url'),
   };
   const body = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
   return `${body}.${sign(body, secret)}`;
@@ -64,11 +66,23 @@ export function verifySessionToken(token, now = Math.floor(Date.now() / 1000)) {
   return payload;
 }
 
-/** Returns the session payload or throws 401. */
+/** Returns the signed session payload or throws 401 (signature and expiry only). */
 export function requireSession(request) {
   const payload = verifySessionToken(getCookie(request, COOKIE_NAME));
   if (!payload) throw new HttpError(401, 'Not signed in');
   return payload;
+}
+
+/** Like requireSession, and also rejects a session that was signed out. */
+export async function requireActiveSession(request) {
+  const payload = requireSession(request);
+  if (typeof payload.jti === 'string' && (await getStore().sessionRevoked(payload.jti))) throw new HttpError(401, 'Not signed in');
+  return payload;
+}
+
+/** Signs this session out server-side until it would have expired. */
+export async function revokeSession(payload, now = Math.floor(Date.now() / 1000)) {
+  if (typeof payload.jti === 'string' && payload.exp > now) await getStore().revokeSession(payload.jti, payload.exp - now);
 }
 
 const COOKIE_ATTRS = 'HttpOnly; Secure; SameSite=Lax; Path=/';
