@@ -303,4 +303,5 @@ html[data-view-style=mockup] .view-style-name::after{content:"Scale model"}
 .view-style-menu button:hover,.view-style-menu button:focus-visible{background:var(--accent-soft);outline:none}
 .view-style-menu button[aria-checked=true]{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--green)}
 .render-status{position:absolute;left:50%;transform:translateX(-50%);top:.6rem;white-space:nowrap;z-index:5;padding:.35rem .7rem;border-radius:999px;background:var(--floating);border:1px solid var(--line);color:var(--ink);font-size:.6875rem;font-weight:600;pointer-events:none;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.render-status{transition:opacity .6s}.render-status.done{opacity:0}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}

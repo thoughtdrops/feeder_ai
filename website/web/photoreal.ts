@@ -1,91 +1,56 @@
 import * as T from 'three';
+import {EffectComposer} from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import {RenderPass} from 'three/examples/jsm/postprocessing/RenderPass.js';
+import {GTAOPass} from 'three/examples/jsm/postprocessing/GTAOPass.js';
+import {FullScreenQuad} from 'three/examples/jsm/postprocessing/Pass.js';
 
-// Photoreal view: a progressive GPU path tracer (three-gpu-pathtracer) renders the house with true sunlight,
-// sky light, bounced light, soft shadows and reflections whenever the camera rests. While the visitor moves
-// the camera the normal real-time view is shown, then the traced image fades in and keeps refining.
-// The library is loaded only when this style is chosen.
-export type PhotorealHandle={render():boolean;cameraMoved():void;contentChanged():void;dispose():void;samples():number};
-type Options={renderer:T.WebGLRenderer;scene:T.Scene;camera:T.PerspectiveCamera;sun:T.DirectionalLight;sky:T.Mesh;raster:()=>void;mobile:boolean;onStatus:(text:string)=>void;onReady:()=>void};
+// Photoreal at real-time cost. While the camera moves, the normal view is drawn. When it rests, a short
+// burst of frames is blended together: each frame moves the sun across its disc (soft, sun-sized
+// penumbras), shifts the camera by a fraction of a pixel (clean anti-aliased edges) and adds ambient
+// occlusion (contact shadows in corners and under furniture). After ~30 frames (about half a second on a
+// laptop) the view is converged and rendering stops until something changes.
+export type PhotorealHandle={render():boolean;cameraMoved():void;contentChanged():void;setSize():void;dispose():void};
+type Options={renderer:T.WebGLRenderer;scene:T.Scene;camera:T.PerspectiveCamera;sun:T.DirectionalLight;mobile:boolean;onStatus:(text:string)=>void};
 
-/** Equirect sky + ground radiance for image-based lighting (the sun itself is the directional light). */
-function skyEnvironment(){
- const W=512,H=256,data=new Float32Array(W*H*4);const zenith=new T.Color('#3d78c8'),horizon=new T.Color('#c9dcec'),ground=new T.Color('#4d5a3a'),c=new T.Color();
- for(let y=0;y<H;y++){const lat=((y+.5)/H-.5)*Math.PI,e=Math.sin(lat);
-  if(e>=0)c.copy(horizon).lerp(zenith,Math.pow(e,.45)).multiplyScalar(1.15);else c.copy(ground).multiplyScalar(.55+.45*Math.min(1,-e*4));
-  for(let x=0;x<W;x++){const i=(y*W+x)*4;data[i]=c.r;data[i+1]=c.g;data[i+2]=c.b;data[i+3]=1;}}
- const t=new T.DataTexture(data,W,H,T.RGBAFormat,T.FloatType);t.mapping=T.EquirectangularReflectionMapping;t.magFilter=t.minFilter=T.LinearFilter;t.needsUpdate=true;return t;
-}
+const halton=(i:number,b:number)=>{let f=1,r=0;while(i>0){f/=b;r+=f*(i%b);i=Math.floor(i/b);}return r;};
 
-/** A flat copy of everything visible, with instanced parts expanded, in materials the tracer understands. */
-function traceScene(src:T.Scene,sun:T.DirectionalLight,environment:T.Texture){
- const out=new T.Scene();out.environment=environment;out.environmentIntensity=1;out.background=null;
- const light=new T.DirectionalLight(sun.color,sun.intensity);light.position.copy(sun.position);light.target.position.copy(sun.target.position);out.add(light,light.target);
- const converted=new Map<T.Material,T.Material|null>();const lawn=(src.userData.grass as T.MeshStandardMaterial|undefined)?.map?.source;
- const loaded=(t:T.Texture|null)=>!t||Boolean((t.image as any)&&((t.image as any).width||(t.image as any).data));
- const usable=(mat:T.Material):T.Material|null=>{
-  if(converted.has(mat))return converted.get(mat)!;let result:T.Material|null=null;const any=mat as any;
-  // Soft fade pads are a raster-only effect; the lawn traces as a matte green (its photo tiles 100× and
-  // reads as flat colour at a distance anyway).
-  if(any.alphaMap){converted.set(mat,null);return null;}
-  if(lawn&&any.map?.source===lawn){result=new T.MeshStandardMaterial({color:new T.Color('#6f8f45').multiply(any.color??new T.Color(1,1,1)),roughness:1});converted.set(mat,result);return result;}
-  if(any.isMeshStandardMaterial&&['map','normalMap','roughnessMap','metalnessMap','bumpMap','emissiveMap'].some(k=>!loaded(any[k]))){const copy=(mat as T.MeshStandardMaterial).clone();for(const k of ['map','normalMap','roughnessMap','metalnessMap','bumpMap','emissiveMap'])if(!loaded((copy as any)[k]))(copy as any)[k]=null;result=copy;}
-  else if(any.isMeshStandardMaterial)result=mat;
-  else if(any.isShaderMaterial||any.isLineBasicMaterial||any.isPointsMaterial||any.isSpriteMaterial)result=null;
-  else if(mat.transparent&&mat.opacity<.05)result=null;
-  else if(any.color){result=new T.MeshStandardMaterial({color:any.color,map:any.map??null,transparent:mat.transparent,opacity:mat.opacity,side:mat.side,roughness:.8});}
-  converted.set(mat,result);return result;
- };
- const shown=(o:T.Object3D)=>{for(let n:T.Object3D|null=o;n;n=n.parent)if(!n.visible)return false;return true;};
- src.updateMatrixWorld(true);const tmp=new T.Matrix4();
- src.traverse(o=>{
-  const mesh=o as T.Mesh;if(!mesh.isMesh||mesh.name==='Sky'||!shown(mesh))return;
-  const mats=(Array.isArray(mesh.material)?mesh.material:[mesh.material]).map(usable);if(mats.every(m=>!m))return;
-  const material=Array.isArray(mesh.material)?mats.map(m=>m??new T.MeshStandardMaterial({transparent:true,opacity:0})):mats[0]!;
-  const place=(matrix:T.Matrix4)=>{const p=new T.Mesh(mesh.geometry,material as any);p.matrixAutoUpdate=false;p.matrix.copy(matrix);out.add(p);};
-  if((mesh as T.InstancedMesh).isInstancedMesh){const inst=mesh as T.InstancedMesh;for(let i=0;i<inst.count;i++){inst.getMatrixAt(i,tmp);place(new T.Matrix4().multiplyMatrices(inst.matrixWorld,tmp));}}
-  else place(mesh.matrixWorld);
- });
- out.updateMatrixWorld(true);return out;
-}
-
-export async function createPhotoreal(o:Options):Promise<PhotorealHandle|null>{
- const gl=o.renderer.getContext();
- if(!(gl instanceof WebGL2RenderingContext)||!o.renderer.extensions.has('EXT_color_buffer_float')){o.onStatus('Photoreal needs WebGL 2 with float render targets; showing the real-time view.');return null;}
- const [{WebGLPathTracer},{ParallelMeshBVHWorker}]=await Promise.all([import('three-gpu-pathtracer'),import('three-mesh-bvh/worker')]);
- const tracer=new WebGLPathTracer(o.renderer);let worker:any=null;
- try{worker=new ParallelMeshBVHWorker();tracer.setBVHWorker(worker);}catch{worker=null;}
- tracer.multipleImportanceSampling=true;tracer.bounces=o.mobile?3:5;tracer.transmissiveBounces=4;tracer.filterGlossyFactor=.5;
- tracer.minSamples=2;tracer.renderDelay=200;tracer.fadeDuration=350;tracer.dynamicLowRes=false;tracer.renderScale=o.mobile?.5:1;
- tracer.textureSize.set(o.mobile?512:1024,o.mobile?512:1024);
- const maxSamples=o.mobile?96:600;
- // Sky only (no house) under the traced pixels: the traced background is transparent so the painted sky shows.
- const skyScene=new T.Scene();const skyCopy=new T.Mesh(o.sky.geometry,o.sky.material);skyCopy.name='Sky';skyCopy.frustumCulled=false;skyCopy.onBeforeRender=(_r,_s,camera)=>{skyCopy.position.copy(camera.position);skyCopy.updateMatrixWorld();};skyScene.add(skyCopy);
- tracer.rasterizeSceneCallback=()=>o.raster();
- tracer.renderToCanvasCallback=(_target:any,renderer:T.WebGLRenderer,quad:any)=>{
-  if(quad.material.opacity>=1)renderer.render(skyScene,o.camera);
-  const auto=renderer.autoClear;renderer.autoClear=false;quad.material.blending=T.NormalBlending;quad.material.transparent=true;quad.render(renderer);renderer.autoClear=auto;
- };
- const environment=skyEnvironment();let ready=false,building:Promise<void>|null=null,dirty=false,disposed=false,lastStatus='';
- const status=(text:string)=>{if(text!==lastStatus){lastStatus=text;o.onStatus(text);}};
- const build=async()=>{
-  if(building){dirty=true;return;}status('Preparing photoreal render…');
-  building=(async()=>{try{const scene=traceScene(o.scene,o.sun,environment);
-    if(worker)await tracer.setSceneAsync(scene,o.camera);else tracer.setScene(scene,o.camera);
-    if(disposed)return;ready=true;o.onReady();}
-   catch(error){console.warn('Photoreal render unavailable',error);status('Photoreal render could not start on this device; showing the real-time view.');}
-   finally{building=null;if(dirty&&!disposed){dirty=false;build();}}})();
- };
- build();
+export function createPhotoreal(o:Options):PhotorealHandle{
+ const {renderer,scene,camera,sun}=o;const target=o.mobile?12:32;
+ const size=()=>renderer.getDrawingBufferSize(new T.Vector2());let {x:W,y:H}=size();
+ const rt=(w:number,h:number)=>new T.WebGLRenderTarget(Math.max(1,w),Math.max(1,h),{type:T.HalfFloatType,depthBuffer:true});
+ const frameTarget=rt(W,H),accumulation=rt(W,H);
+ const composer=new EffectComposer(renderer,frameTarget);composer.renderToScreen=false;composer.addPass(new RenderPass(scene,camera));
+ const ao=new GTAOPass(scene,camera,W,H);ao.blendIntensity=.85;ao.updateGtaoMaterial({radius:o.mobile?1:1.4,distanceExponent:1.5,thickness:1.2,scale:1,samples:o.mobile?8:12});ao.updatePdMaterial({lumaPhi:10,depthPhi:2,normalPhi:3,radius:4,rings:2,samples:o.mobile?8:12});composer.addPass(ao);
+ // Running average: acc = acc·(1−a) + frame·a with a = 1/(n+1).
+ const blend=new FullScreenQuad(new T.ShaderMaterial({uniforms:{tFrame:{value:null},alpha:{value:1}},transparent:true,depthTest:false,depthWrite:false,blending:T.NormalBlending,toneMapped:false,
+  vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
+  fragmentShader:'uniform sampler2D tFrame;uniform float alpha;varying vec2 vUv;void main(){gl_FragColor=vec4(texture2D(tFrame,vUv).rgb,alpha);}'}));
+ // Shows the accumulated HDR image with the renderer's tone mapping and output colour space.
+ const show=new FullScreenQuad(new T.ShaderMaterial({uniforms:{tAcc:{value:accumulation.texture}},depthTest:false,depthWrite:false,
+  vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
+  fragmentShader:'uniform sampler2D tAcc;varying vec2 vUv;void main(){gl_FragColor=vec4(texture2D(tAcc,vUv).rgb,1.);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}'}));
+ let samples=0,lastStatus='';const status=(t:string)=>{if(t!==lastStatus){lastStatus=t;o.onStatus(t);}};
+ const base=new T.Vector3(),dir=new T.Vector3(),u=new T.Vector3(),v=new T.Vector3();
+ const reset=()=>{samples=0;};
  return{
   render(){
-   if(!ready){o.raster();return Boolean(building);}
-   tracer.renderSample();const n=tracer.samples;
-   status(n<1?'Photoreal · rendering…':n>=maxSamples?'Photoreal · finished':`Photoreal · refining ${Math.min(99,Math.round(n/maxSamples*100))}%`);
-   return n<maxSamples;
+   if(samples>=target){show.render(renderer);return false;}
+   // Sun disc (~1.5° wide, a little larger than the real sun for a pleasing penumbra) and sub-pixel shift.
+   base.copy(sun.position);dir.copy(base).sub(sun.target.position).normalize();u.set(0,1,0).cross(dir).normalize();if(u.lengthSq()<1e-6)u.set(1,0,0);v.copy(dir).cross(u).normalize();
+   const n=samples+1,radius=base.distanceTo(sun.target.position)*Math.tan(T.MathUtils.degToRad(.75)),r=Math.sqrt(halton(n,2))*radius,a=halton(n,3)*Math.PI*2;
+   if(samples>0)sun.position.addScaledVector(u,Math.cos(a)*r).addScaledVector(v,Math.sin(a)*r);
+   renderer.shadowMap.needsUpdate=true;
+   if(samples>0)camera.setViewOffset(W,H,halton(n,2)-.5,halton(n,3)-.5,W,H);
+   composer.render();
+   camera.clearViewOffset();sun.position.copy(base);
+   const auto=renderer.autoClear;renderer.autoClear=false;renderer.setRenderTarget(accumulation);(blend.material as T.ShaderMaterial).uniforms.tFrame!.value=composer.readBuffer.texture;(blend.material as T.ShaderMaterial).uniforms.alpha!.value=1/n;blend.render(renderer);renderer.setRenderTarget(null);renderer.autoClear=auto;
+   samples=n;show.render(renderer);
+   if(samples>=target){renderer.shadowMap.needsUpdate=true;status('Photoreal');}else status(`Photoreal · refining ${Math.round(samples/target*100)}%`);
+   return samples<target;
   },
-  cameraMoved(){if(ready)tracer.updateCamera();},
-  contentChanged(){build();},
-  samples(){return ready?tracer.samples:0;},
-  dispose(){disposed=true;try{tracer.dispose();}catch{}try{worker?.dispose();}catch{}environment.dispose();},
+  cameraMoved(){reset();},
+  contentChanged(){reset();},
+  setSize(){const s=size();W=s.x;H=s.y;frameTarget.setSize(W,H);accumulation.setSize(W,H);composer.setPixelRatio(renderer.getPixelRatio());composer.setSize(W/renderer.getPixelRatio(),H/renderer.getPixelRatio());ao.setSize(W,H);reset();},
+  dispose(){ao.dispose();composer.dispose();frameTarget.dispose();accumulation.dispose();blend.material.dispose();blend.dispose();show.material.dispose();show.dispose();},
  };
 }

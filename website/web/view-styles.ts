@@ -11,7 +11,7 @@ import {EdgePass,FINE_DETAIL_LAYER,type EdgeOptions} from './edges';
 export type ViewStyle='studio'|'photoreal'|'sketch'|'lines'|'blueprint'|'mockup';
 export const VIEW_STYLES:{id:ViewStyle,label:string,note:string}[]=[
  {id:'studio',label:'Studio',note:'The everyday real-time view'},
- {id:'photoreal',label:'Photoreal',note:'Path-traced sunlight, shadows and reflections; hold still to refine'},
+ {id:'photoreal',label:'Photoreal',note:'Soft sun-sized shadows, ambient occlusion and clean edges; refines in a moment when the view rests'},
  {id:'sketch',label:'SketchUp style',note:'Shaded faces with crisp black edges'},
  {id:'lines',label:'Line drawing',note:'Hidden-line architectural drawing on paper'},
  {id:'blueprint',label:'Blueprint',note:'White linework on blueprint blue'},
@@ -27,7 +27,7 @@ export function markViewStyle(){if(typeof document!=='undefined')document.docume
 export function setViewStyle(id:ViewStyle){if(!VIEW_STYLES.some(s=>s.id===id))return current;current=id;try{localStorage.setItem(KEY,current);}catch{/* not remembered */}markViewStyle();return current;}
 
 type Site={minX:number,minZ:number,maxX:number,maxZ:number};
-type Look={scene:T.Scene;renderer:T.WebGLRenderer;sun:T.DirectionalLight;hemi:T.HemisphereLight;ambient:T.AmbientLight;sky:T.Mesh;glass:T.MeshPhysicalMaterial;span:number;h:number;site:Site;groundY:number};
+type Look={scene:T.Scene;renderer:T.WebGLRenderer;sun:T.DirectionalLight;hemi:T.HemisphereLight;ambient:T.AmbientLight;sky:T.Mesh;glass:T.MeshPhysicalMaterial;span:number;h:number;site:Site;groundY:number;indoor?:boolean};
 
 const hideSurroundings=(scene:T.Scene)=>scene.traverse(o=>{if(o.name==='Surroundings')o.visible=false;});
 
@@ -36,10 +36,19 @@ export function applyLook(style:ViewStyle,o:Look){
  const {scene,renderer,sun,hemi,ambient,sky}=o;const uniforms=(sky.material as T.ShaderMaterial).uniforms;
  const place=(azimuth:number,elevation:number)=>{const r=Math.max(90,o.span*1.6+o.h);const a=T.MathUtils.degToRad(azimuth),e=T.MathUtils.degToRad(elevation);sun.position.set(-Math.sin(a)*Math.cos(e)*r,Math.sin(e)*r,-Math.cos(a)*Math.cos(e)*r);uniforms.sunDir?.value.copy(sun.position).normalize();};
  if(style==='photoreal'){
-  renderer.toneMapping=T.AgXToneMapping;renderer.toneMappingExposure=1.2;
-  sun.color.set('#fff2df');sun.intensity=3.6;place(36,44);hemi.intensity=.7;ambient.intensity=.04;
+  renderer.toneMapping=T.NeutralToneMapping;renderer.toneMappingExposure=1;
+  sun.color.set('#fff1dc');sun.intensity=3.4;place(36,44);hemi.intensity=.35;ambient.intensity=0;
   uniforms.zenith?.value.set('#3d78c8');uniforms.horizon?.value.set('#d4e3ef');(scene.fog as T.Fog|null)?.color.set('#d4e3ef');
-  return 1.1;
+  // Walking through rooms: keep the soft white room environment (bounce light off ceilings and walls) and
+  // let the sun reach in through the windows; outdoor sky light would tint every room green and blue.
+  if(o.indoor){hemi.intensity=.2;return 1.7;}
+  // Image-based light from this exact sky and a lawn-coloured ground, so ambient light and reflections match
+  // the sun and sky the house sits under (the generic studio environment reads as indoor light).
+  const pmrem=new T.PMREMGenerator(renderer),envScene=new T.Scene(),dome=new T.Mesh(new T.SphereGeometry(100,48,24),(sky.material as T.ShaderMaterial).clone());(dome.material as T.ShaderMaterial).side=T.BackSide;envScene.add(dome);
+  const lawn=new T.Mesh(new T.CircleGeometry(99,48).rotateX(-Math.PI/2),new T.MeshBasicMaterial({color:'#5b6f42'}));lawn.position.y=-2;envScene.add(lawn);
+  const env=pmrem.fromScene(envScene,.02);scene.environment=env.texture;scene.userData.styleEnv=env;scene.userData.photoEnvironment=true;
+  dome.geometry.dispose();(dome.material as T.Material).dispose();lawn.geometry.dispose();(lawn.material as T.Material).dispose();pmrem.dispose();
+  return 1/(scene.environmentIntensity||1);
  }
  if(style==='lines'||style==='blueprint'){
   renderer.toneMapping=T.NoToneMapping;sky.visible=false;scene.fog=null;hideSurroundings(scene);
@@ -112,7 +121,7 @@ export function refreshLook(style:ViewStyle,scene:T.Scene){
 /** Post-processing per style: ambient occlusion (desktop) and architectural line work. */
 export function createPostFX(style:ViewStyle,renderer:T.WebGLRenderer,scene:T.Scene,camera:T.PerspectiveCamera,mobile:boolean){
  const edges:EdgeOptions|null=style==='sketch'?{line:'#151515',strength:.95,width:1.15}:style==='lines'?{line:'#2b2b2b',strength:1,width:1,background:'#f7f5ef'}:style==='blueprint'?{line:'#eef5ff',strength:1,width:1.1,background:'#1b4885',grid:'#4f7cba'}:null;
- const ao=!mobile&&(style==='photoreal'||style==='mockup'||style==='lines');
+ const ao=!mobile&&(style==='mockup'||style==='lines');
  if(!edges&&!ao)return null;
  const size=renderer.getDrawingBufferSize(new T.Vector2()),width=Math.max(1,size.x),height=Math.max(1,size.y);
  const target=new T.WebGLRenderTarget(width,height,{type:T.HalfFloatType,samples:4});
