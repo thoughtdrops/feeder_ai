@@ -13,7 +13,7 @@ export function batchStatic(root:T.Object3D,minimum=3){
   const material=mesh.material as T.Material;if(material.transparent||material.opacity<1||mesh.morphTargetInfluences)return;
   for(let n:T.Object3D|null=mesh.parent;n&&n!==root;n=n.parent)if(!n.visible)return;
   if(editable(mesh,root)||!mesh.geometry.getAttribute('position')||!mesh.geometry.getAttribute('normal'))return;
-  const key=material.uuid+(mesh.geometry.getAttribute('uv')?':uv':'');let g=groups.get(key);if(!g){g={material,meshes:[]};groups.set(key,g);}g.meshes.push(mesh);
+  const key=material.uuid+(mesh.geometry.getAttribute('uv')?':uv':'')+':'+mesh.layers.mask;let g=groups.get(key);if(!g){g={material,meshes:[]};groups.set(key,g);}g.meshes.push(mesh);
  });
  let merged=0;const local=new T.Matrix4();
  for(const {material,meshes} of groups.values()){
@@ -21,7 +21,7 @@ export function batchStatic(root:T.Object3D,minimum=3){
   const parts:T.BufferGeometry[]=[];let cast=false,receive=false;
   for(const mesh of meshes){const g=(mesh.geometry.index?mesh.geometry.toNonIndexed():mesh.geometry.clone());for(const name of Object.keys(g.attributes))if(!['position','normal','uv'].includes(name))g.deleteAttribute(name);g.clearGroups();g.applyMatrix4(local.multiplyMatrices(inverse,mesh.matrixWorld));parts.push(g);cast||=mesh.castShadow;receive||=mesh.receiveShadow;}
   const geometry=mergeGeometries(parts,false);for(const p of parts)p.dispose();if(!geometry)continue;
-  const batch=new T.Mesh(geometry,material);batch.name='Batched · '+(meshes[0].name||material.type);batch.castShadow=cast;batch.receiveShadow=receive;batch.userData.batch=meshes.length;root.add(batch);
+  const batch=new T.Mesh(geometry,material);batch.name='Batched · '+(meshes[0].name||material.type);batch.castShadow=cast;batch.receiveShadow=receive;batch.userData.batch=meshes.length;batch.layers.mask=meshes[0]!.layers.mask;root.add(batch);
   for(const mesh of meshes){mesh.visible=false;mesh.userData.batchedOriginal=true;}merged+=meshes.length;
  }
  return merged;
