@@ -28,12 +28,6 @@ importers:
       three:
         specifier: ^0.186.1
         version: 0.186.1
-      three-gpu-pathtracer:
-        specifier: 0.0.26
-        version: 0.0.26(three-mesh-bvh@0.9.15(three@0.186.1))(three@0.186.1)(xatlas-web@0.1.0)
-      three-mesh-bvh:
-        specifier: 0.9.15
-        version: 0.9.15(three@0.186.1)
     devDependencies:
       '@types/node':
         specifier: 22.19.19
@@ -700,18 +694,6 @@ packages:
   text-segmentation@1.0.3:
     resolution: {integrity: sha512-iOiPUo/BGnZ6+54OsWxZidGCsdU8YbE4PSpdPinp7DeMtUJNJBoJ/ouUSTJjHkh1KntHaltHl/gDs2FC4i5+Nw==}
 
-  three-gpu-pathtracer@0.0.26:
-    resolution: {integrity: sha512-LtLnv7xu39HjwvH9JGD5a0PISLOBcPHBYp6BcxE2+Unp5xhUGxC0U0UWhlE3dZSk32fBN3K2BnjtNjHE7ayvkQ==}
-    peerDependencies:
-      three: '>=0.185.0'
-      three-mesh-bvh: '>=0.9.15'
-      xatlas-web: ^0.1.0
-
-  three-mesh-bvh@0.9.15:
-    resolution: {integrity: sha512-9xdEDkCzFoT8VPFH9DznwFSdbaIEjMvM106Iqq7TJurrIheUKDcdW4prfJTCxryih4XS/UxWs0H3K4MLMRFyOQ==}
-    peerDependencies:
-      three: '>= 0.159.0'
-
   three@0.186.1:
     resolution: {integrity: sha512-blFeqb49wRCSGUGj7gtpfnSGHy2lwDk94RhUmS1c/hTby70kvChbWpkJ4Pm1390LqzzvTmzgXKHPEafJwCb8jA==}
 
@@ -819,9 +801,6 @@ packages:
   whatwg-url@17.1.2:
     resolution: {integrity: sha512-TEZA+Zqxin7Jjsm2cjRohCmen5awh+hT6Zi3VZdqZlNRk7zvOI/9WpBFg/DWlA56bWnzwm6DuB8NS0EsxQH9uQ==}
     engines: {node: ^22.14.0 || >=24.0.0}
-
-  xatlas-web@0.1.0:
-    resolution: {integrity: sha512-PprVfuXbaIskxLTLBUQRaWfgSy9xUQqAMIRooOw0P6NYqwgh6T0voeer6+Z5M7AFt5SGXUybuww/uDGs1yw8vQ==}
 
   xml-name-validator@5.0.0:
     resolution: {integrity: sha512-EvGK8EJ3DhaHfbRlETOWAS5pO9MZITeauHKJyb8wyajUfQUenkIg2MvLDTZ4T/TgIcm3HU0TFBgWWboAZ30UHg==}
@@ -1396,16 +1375,6 @@ snapshots:
       utrie: 1.0.2
     optional: true
 
-  three-gpu-pathtracer@0.0.26(three-mesh-bvh@0.9.15(three@0.186.1))(three@0.186.1)(xatlas-web@0.1.0):
-    dependencies:
-      three: 0.186.1
-      three-mesh-bvh: 0.9.15(three@0.186.1)
-      xatlas-web: 0.1.0
-
-  three-mesh-bvh@0.9.15(three@0.186.1):
-    dependencies:
-      three: 0.186.1
-
   three@0.186.1: {}
 
   tinyglobby@0.2.17:
@@ -1486,8 +1455,6 @@ snapshots:
       webidl-conversions: 8.0.1
     transitivePeerDependencies:
       - '@noble/hashes'
-
-  xatlas-web@0.1.0: {}
 
   xml-name-validator@5.0.0: {}
 

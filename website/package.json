@@ -18,9 +18,7 @@
   },
   "dependencies": {
     "jspdf": "^4.2.1",
-    "three": "^0.186.1",
-    "three-gpu-pathtracer": "0.0.26",
-    "three-mesh-bvh": "0.9.15"
+    "three": "^0.186.1"
   },
   "devDependencies": {
     "@types/node": "22.19.19",
