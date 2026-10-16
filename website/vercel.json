@@ -58,7 +58,7 @@
       ]
     },
     {
-      "source": "/(materials|models|mobile|brand|references|millwork|process/fonts)/(.*)",
+      "source": "/(materials|models|mobile|brand|references|millwork|neighborhood|process/fonts)/(.*)",
       "headers": [
         {
           "key": "Cache-Control",

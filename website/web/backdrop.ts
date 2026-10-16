@@ -1,5 +1,6 @@
 import * as T from 'three';
 import {GroundedSkybox} from 'three/examples/jsm/objects/GroundedSkybox.js';
+import {addNeighborhood,skyDome} from './neighborhood';
 // Surroundings: a real 360° photograph when one is installed in /backdrop (its ground is projected under
 // the house, so the house appears to stand in the photo), otherwise a painted sky with soft cumulus over
 // a lawn that fades into hazy hills. Nothing here is modeled scenery.
@@ -33,7 +34,7 @@ if(d.y<0.)sky=horizon;gl_FragColor=vec4(sky,1.);
 // {"image":"street-8k.jpg","mobileImage":"street-4k.jpg","height":5.5,"radius":320,"rotation":0,"ground":"lawn","credit":"…"}
 // height = camera height of the photo in feet, radius = how far its ground reaches, rotation in degrees;
 // ground "photo" keeps the photograph's own ground under the house (shadows only), "lawn" lays sod over it.
-type Photo={image:string,mobileImage?:string,height:number,radius:number,rotation:number,ground:'lawn'|'photo',groundTexture?:string,groundTile:number,groundRadius?:number,groundEdge?:[number,number][],lotEdge:number,scale:number,credit:string};
+type Photo={image:string,mobileImage?:string,height:number,radius:number,rotation:number,ground:'lawn'|'photo',groundTexture?:string,groundTile:number,groundRadius?:number,groundEdge?:[number,number][],lotEdge:number,scale:number,mode?:'neighborhood',credit:string};
 let photoRequest:Promise<{spec:Photo,texture:T.Texture,sun:T.Vector3|null}|null>|null=null;
 let loadedPhoto:{spec:Photo,texture:T.Texture,sun:T.Vector3|null}|null=null;
 const environments=new WeakMap<T.WebGLRenderer,T.WebGLRenderTarget>();
@@ -42,7 +43,7 @@ function parsePhoto(raw:any):Photo|null{
  const num=(v:unknown,lo:number,hi:number,fallback:number)=>typeof v==='number'&&Number.isFinite(v)&&v>=lo&&v<=hi?v:fallback;
  if(!raw||typeof raw!=='object'||!file(raw.image))return null;
  const edge=Array.isArray(raw.groundEdge)&&raw.groundEdge.length>=3&&raw.groundEdge.length<=400&&raw.groundEdge.every((p:unknown)=>Array.isArray(p)&&p.length===2&&p.every(v=>typeof v==='number'&&Number.isFinite(v))&&p[0]>=0&&p[0]<=1&&p[1]>=1&&p[1]<=60)?[...raw.groundEdge].sort((a:number[],b:number[])=>a[0]!-b[0]!) as [number,number][]:undefined;
- return {lotEdge:num(raw.lotEdge,1,60,17.5),scale:num(raw.scale,1,10,1.6),groundEdge:edge,image:raw.image,mobileImage:file(raw.mobileImage)?raw.mobileImage:undefined,height:num(raw.height,1,40,5.5),radius:num(raw.radius,60,900,320),rotation:num(raw.rotation,-360,360,0),ground:raw.ground==='photo'?'photo':'lawn',groundTexture:file(raw.groundTexture)?raw.groundTexture:undefined,groundTile:num(raw.groundTile,1,100,14),groundRadius:typeof raw.groundRadius==='number'?num(raw.groundRadius,30,900,0)||undefined:undefined,credit:typeof raw.credit==='string'?raw.credit.slice(0,200):''};
+ return {mode:raw.mode==='neighborhood'?'neighborhood':undefined,lotEdge:num(raw.lotEdge,1,60,17.5),scale:num(raw.scale,1,10,1.6),groundEdge:edge,image:raw.image,mobileImage:file(raw.mobileImage)?raw.mobileImage:undefined,height:num(raw.height,1,40,5.5),radius:num(raw.radius,60,900,320),rotation:num(raw.rotation,-360,360,0),ground:raw.ground==='photo'?'photo':'lawn',groundTexture:file(raw.groundTexture)?raw.groundTexture:undefined,groundTile:num(raw.groundTile,1,100,14),groundRadius:typeof raw.groundRadius==='number'?num(raw.groundRadius,30,900,0)||undefined:undefined,credit:typeof raw.credit==='string'?raw.credit.slice(0,200):''};
 }
 function requestPhoto(mobile:boolean){
  photoRequest??=fetch('/backdrop/backdrop.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(async raw=>{const spec=parsePhoto(raw);if(!spec)return null;
@@ -126,6 +127,13 @@ export function addSurroundings(scene:T.Scene,root:T.Object3D,o:{site:{minX:numb
  // Photograph: projected sky-and-ground panorama, its lighting used for reflections, and a soft lawn
  // under the lot that fades into the photo's own ground.
  const usePhoto=(photo:{spec:Photo,texture:T.Texture,sun:T.Vector3|null})=>{if(!o.alive())return;
+  // Modeled neighborhood: the photographed sky as a dome over a real 3D street, homes and trees.
+  if(photo.spec.mode==='neighborhood'){
+   ridge.visible=false;o.sky.visible=false;lawnMat.color.set('#cdd29c');lawnMat.roughnessMap=null;lawnMat.roughness=1;lawnMat.envMapIntensity=.35;group.add(skyDome(photo.texture,photo.spec.rotation*Math.PI/180));
+   addNeighborhood(group,{site:o.site,groundY:gy,mobile:o.mobile,anisotropy:8},()=>o.wake(true));
+   scene.fog=new T.Fog('#cfd9e1',280,1350);
+   let env=environments.get(o.renderer);if(!env){const pm=new T.PMREMGenerator(o.renderer);env=pm.fromEquirectangular(photo.texture);pm.dispose();env.texture.userData.persistent=true;environments.set(o.renderer,env);}
+   scene.environment=env.texture;scene.environmentIntensity=.9;scene.userData.photoEnvironment=true;scene.userData.photoBackdrop=true;scene.userData.photoSun=photo.sun;scene.userData.photoRadius=600;scene.userData.photoReach=undefined;o.onPhoto?.(photo.sun,600);o.wake(true);return;}
   // Neighbouring houses in the photo look life-size when its sphere is about as far away as they were from the
   // camera; a large design pushes the sphere out (and the lawn with it) far enough that the camera can frame the whole house.
   const lot=o.site,fit=photo.spec.groundEdge?stageFit(photo.spec,lot):null;

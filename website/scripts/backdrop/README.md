@@ -1,14 +1,29 @@
 # Neighborhood backdrop
 
-`public/backdrop/neighborhood-lawn-8k.jpg` (desktop) and `-4k.jpg` (phones) are made from the 8192 × 4096
-original in `backdrop-source/`:
+The viewer's surroundings are a **modeled street** (`web/neighborhood.ts`): one straight residential street in
+front of the lot with curbs, sidewalks, tree lawns, driveways, mailboxes and street lamps; finished two-story
+homes across the street and beside the lot; instanced street trees, woods behind and a hazy wooded horizon.
+`public/backdrop/backdrop.json` selects it with `"mode":"neighborhood"`; the photograph is used only for the sky
+and for reflections.
 
-1. `python3 -I scripts/backdrop/mirror_street.py backdrop-source/suburban-infill-lot-8k.png /tmp/mirrored.png`
-   keeps the street-facing half of the photo and mirrors it to the back (removing the copied sun), so the
-   oversized houses that stood right beside the camera are gone.
-2. `python3 -I scripts/backdrop/lawn_lot.py /tmp/mirrored.png public/backdrop /tmp/preview.jpg` repaints the
-   empty lot as lawn, and behind/beside the lot lays lawn up to the houses (no second street).
+Everything is cheap to draw and loads after the house:
 
-`backdrop.json` then tells the viewer where the photo's ground ends (`groundEdge`), the near sidewalk angle
-(`lotEdge`) and the photo's natural scale (`scale`) so the street lies flat and straight in front of the
-house and the houses across it stand upright at life size.
+- Asphalt, concrete, siding, garage-door and shutter textures are drawn on canvases in the browser (0 bytes).
+- Each home is merged into one mesh per material; the whole street is roughly 240 draw calls on desktop.
+- Trees are instanced; trees away from the house use a lighter leaf set and cast no shadows. Phones get fewer
+  homes and trees and no distant tree ring.
+- The street is built once per page and reused across scene rebuilds.
+
+Downloads: `public/neighborhood/trees.bin` (720 KB, ~440 KB gzipped), bark and leaf textures (~250 KB) and
+`public/backdrop/sky-4k.jpg` (280 KB; `sky-2k.jpg`, 99 KB, on phones).
+
+## Regenerating assets
+
+- **Sky:** `python3 -I scripts/backdrop/make_sky.py <8192×4096 panorama> public/backdrop` keeps the sky above the
+  rooftops, eases it into haze at the horizon and evens out the sun streak.
+- **Trees:** `node scripts/backdrop/bake_trees.mjs <ez-tree lib> public/neighborhood/trees.bin` bakes the oak, ash,
+  aspen and bush presets of [ez-tree](https://github.com/dgreenheck/ez-tree) (MIT, Daniel Greenheck) into one
+  quantized binary. See the script header for preparing the library copy.
+
+`mirror_street.py` and `lawn_lot.py` produced the earlier photo-stage backdrop (photo `mode` unset), which
+`web/backdrop.ts` still supports.
