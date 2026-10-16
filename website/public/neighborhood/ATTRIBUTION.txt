@@ -1,0 +1,2 @@
+trees.bin, leaf-*.webp, bark-*.jpg: baked/derived from ez-tree by Daniel Greenheck (MIT License,
+https://github.com/dgreenheck/ez-tree). ez-tree's bark textures are from Poly Haven and TextureCan (CC0).

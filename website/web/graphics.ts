@@ -40,7 +40,9 @@ export function acquireRenderer(el:HTMLElement){
 }
 export function clearSceneResources(scene:T.Scene,textures:T.Texture[]){
  const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>(),maps=new Set<T.Texture>(textures);
- scene.traverse(object=>{
+ // Cached scenery (the modeled neighborhood) is reused by the next scene: leave its GPU resources alone.
+ const walk=(object:T.Object3D,visit:(o:T.Object3D)=>void)=>{if(object.userData.persistentAsset)return;visit(object);for(const child of object.children)walk(child,visit);};
+ walk(scene,object=>{
   const draw=object as T.Mesh;
   if(draw.geometry)geometries.add(draw.geometry);
   if(draw.material)for(const mat of Array.isArray(draw.material)?draw.material:[draw.material])materials.add(mat);
