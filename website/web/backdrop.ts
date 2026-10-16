@@ -1,6 +1,6 @@
 import * as T from 'three';
 import {GroundedSkybox} from 'three/examples/jsm/objects/GroundedSkybox.js';
-import {addNeighborhood,skyDome} from './neighborhood';
+import {addLot,addNeighborhood,skyDome,type Lot} from './neighborhood';
 // Surroundings: a real 360° photograph when one is installed in /backdrop (its ground is projected under
 // the house, so the house appears to stand in the photo), otherwise a painted sky with soft cumulus over
 // a lawn that fades into hazy hills. Nothing here is modeled scenery.
@@ -113,7 +113,7 @@ function stageFit(spec:Photo,site:{minX:number,minZ:number,maxX:number,maxZ:numb
 }
 
 /** Lawn, hills and, once available, the installed photograph. `site` is the lot in world feet. */
-export function addSurroundings(scene:T.Scene,root:T.Object3D,o:{site:{minX:number,minZ:number,maxX:number,maxZ:number},groundY:number,mobile:boolean,textures:T.Texture[],grass:T.MeshStandardMaterial,renderer:T.WebGLRenderer,sky:T.Object3D,alive:()=>boolean,wake:(content?:boolean)=>void,onPhoto?:(sun:T.Vector3|null,radius:number,reach?:(x:number,z:number)=>number)=>void}){
+export function addSurroundings(scene:T.Scene,root:T.Object3D,o:{lot?:Lot,site:{minX:number,minZ:number,maxX:number,maxZ:number},groundY:number,mobile:boolean,textures:T.Texture[],grass:T.MeshStandardMaterial,renderer:T.WebGLRenderer,sky:T.Object3D,alive:()=>boolean,wake:(content?:boolean)=>void,onPhoto?:(sun:T.Vector3|null,radius:number,reach?:(x:number,z:number)=>number)=>void}){
  const {groundY:gy,textures}=o;const group=new T.Group();group.name='Surroundings';root.add(group);
  const grassRepeat=(mat:T.MeshStandardMaterial,size:number)=>{for(const key of ['map','normalMap','roughnessMap'] as const){const t=(o.grass as any)[key] as T.Texture|null;if(t){const c=t.clone();c.repeat.set(size/4.59,size/4.59);textures.push(c);(mat as any)[key]=c;}}return mat;};
  // Painted fallback: a broad lawn with gentle color variation and smooth hills lost in the haze.
@@ -130,7 +130,7 @@ export function addSurroundings(scene:T.Scene,root:T.Object3D,o:{site:{minX:numb
   // Modeled neighborhood: the photographed sky as a dome over a real 3D street, homes and trees.
   if(photo.spec.mode==='neighborhood'){
    ridge.visible=false;o.sky.visible=false;lawnMat.color.set('#cdd29c');lawnMat.roughnessMap=null;lawnMat.roughness=1;lawnMat.envMapIntensity=.35;group.add(skyDome(photo.texture,photo.spec.rotation*Math.PI/180));
-   addNeighborhood(group,{site:o.site,groundY:gy,mobile:o.mobile,anisotropy:8},()=>o.wake(true));
+   addNeighborhood(group,{site:o.site,groundY:gy,mobile:o.mobile,anisotropy:8},()=>o.wake(true));if(o.lot)addLot(group,{site:o.site,groundY:gy,lot:o.lot,mobile:o.mobile,anisotropy:8});
    scene.fog=new T.Fog('#cfd9e1',280,1350);
    let env=environments.get(o.renderer);if(!env){const pm=new T.PMREMGenerator(o.renderer);env=pm.fromEquirectangular(photo.texture);pm.dispose();env.texture.userData.persistent=true;environments.set(o.renderer,env);}
    scene.environment=env.texture;scene.environmentIntensity=.9;scene.userData.photoEnvironment=true;scene.userData.photoBackdrop=true;scene.userData.photoSun=photo.sun;scene.userData.photoRadius=600;scene.userData.photoReach=undefined;o.onPhoto?.(photo.sun,600);o.wake(true);return;}

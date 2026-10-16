@@ -8,6 +8,11 @@ const HEADER: f64 = 11.875 / 12.;
 #[derive(Clone)]
 struct Placement { x: f64, z: f64, left: bool, entry: Option<f64> }
 
+/// A garage at (x, z) must not overlap an L or U wing that reaches past the side wall.
+fn clear_of_wings(c: &Config, x: f64, z: f64) -> bool {
+    crate::wings::rects(c).iter().all(|g| x + SIZE <= g.x + 1e-6 || x >= g.x + g.w - 1e-6 || z + SIZE <= g.z + 1e-6 || z >= g.z + g.d - 1e-6)
+}
+
 fn placement(c: &Config, rooms: &[Room]) -> Placement {
     if c.garage != "Attached" {
         let left=c.garage_side=="Left";return Placement { x: if left{-SIZE-8.}else{c.width+8.}, z: 0., left, entry: None };
@@ -37,6 +42,7 @@ fn placement(c: &Config, rooms: &[Room]) -> Placement {
             if c.garage_side!="Automatic"&&left!=(c.garage_side=="Left"){continue}
             if !(if left { near(r.x, 0.) } else { near(r.x + r.w, c.width) }) { continue }
             let z = grid(r.z + r.d - SIZE).clamp(-16., (c.depth - 8.).max(0.));
+            if !clear_of_wings(c, if left { -SIZE } else { c.width }, z) { continue }
             let lo = r.z.max(z).max(0.) + 0.4;
             let hi = (r.z + r.d).min(z + SIZE).min(c.depth) - 0.4;
             if hi - lo < 38. / 12. { continue }

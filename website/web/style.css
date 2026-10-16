@@ -315,3 +315,19 @@ html.account-modal-open,html.account-modal-open body{overflow:hidden}
 @media(max-width:560px){.brand .brand-logo{height:50px}}
 @media(max-width:420px){.brand .brand-logo{height:46px}}
 @media(max-width:359px){.brand .brand-logo{height:40px}}
+/* Cladding color chips and the wallpaper preview gallery. */
+.swatch-row{display:flex;flex-wrap:wrap;gap:.45rem;margin:-.3rem 0 1rem}
+.color-chip{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);box-shadow:inset 0 0 0 2px rgba(255,255,255,.55);cursor:pointer;padding:0}
+.color-chip:hover{transform:scale(1.08)}.color-chip.active{outline:2px solid var(--gold);outline-offset:2px}
+.color-chip:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.wallpaper-browser{margin-top:-.4rem}
+.wallpaper-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:.5rem;max-height:340px;overflow:auto;padding:.4rem .1rem .2rem}
+.wallpaper-tile{display:flex;flex-direction:column;align-items:stretch;gap:.2rem;padding:.25rem;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit;font:inherit;font-size:.72rem;text-align:left;cursor:pointer;line-height:1.2}
+.wallpaper-tile img,.wallpaper-none{width:100%;aspect-ratio:1;object-fit:cover;border-radius:5px;display:block;background:#ece8df}
+.wallpaper-none{display:flex;align-items:center;justify-content:center;color:#6b6b6b;font-size:.7rem}
+.wallpaper-tile small{opacity:.7}.wallpaper-tile:hover{border-color:var(--gold)}
+.wallpaper-tile.active{outline:2px solid var(--gold);outline-offset:1px}
+.wallpaper-tile img:hover{transform:scale(1.04)}
+.place-chooser{display:inline-flex;align-items:center;gap:.4rem;flex-wrap:wrap}
+.place-chooser .field{flex-direction:row;align-items:center;gap:.35rem;font-size:.75rem;margin:0;width:auto}
+.place-chooser select{max-width:160px}.place-chooser input{width:62px}
