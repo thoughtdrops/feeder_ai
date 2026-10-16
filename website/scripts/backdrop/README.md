@@ -3,7 +3,7 @@
 The viewer's surroundings are a **modeled street** (`web/neighborhood.ts`): one straight residential street in
 front of the lot with curbs, sidewalks, tree lawns, driveways, mailboxes and street lamps; six kinds of
 finished homes (colonial, brick, farmhouse, ranch, Cape Cod, craftsman) across the street and beside the lot;
-instanced street trees, a big sand dune behind the lot and a hazy wooded horizon. The visitor's own lot gets a
+instanced street trees, a beach and open ocean behind the lot and a hazy wooded horizon. The visitor's own lot gets a
 driveway from the garage to the street, a front walk, a mailbox and a cedar backyard fence.
 `public/backdrop/backdrop.json` selects it with `"mode":"neighborhood"`; the photograph is used only for the sky
 and for reflections.

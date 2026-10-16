@@ -5,7 +5,7 @@ import {roofMaterial} from './roofing';
 // A modeled neighborhood around the lot: one straight residential street in front with curbs, sidewalks,
 // tree lawns and driveways; six kinds of finished homes (colonial, brick, farmhouse, ranch, Cape Cod,
 // craftsman) across the street and beside the lot; mature street trees (baked from ez-tree, MIT, Daniel
-// Greenheck); a big sand dune behind the lot; and a wooded horizon. Everything is built once per
+// Greenheck); a beach and open ocean behind the lot; and a wooded horizon inland. Everything is built once per
 // page and reused across scene rebuilds: textures are drawn on canvases, houses are merged into a few draw
 // calls each and trees are instanced, so the whole street costs little more than one extra house.
 
@@ -271,8 +271,8 @@ const cache=new Map<string,T.Group>();
 function layout(s:Site){
  const front=s.minZ-28;                                       // back of the sidewalk on our side
  const clear=Math.max(105,Math.hypot(s.maxX-s.minX,s.maxZ-s.minZ)/2*2.3),lotHalf=Math.max(Math.max(-s.minX,s.maxX)+18,clear*.85);
- const rear=s.maxZ+55,dune=Math.max(rear+110,clear*2);
- return {front,walkNear:[front-5,front],lawnNear:[front-11,front-5],road:[front-41,front-11],lawnFar:[front-47,front-41],walkFar:[front-52,front-47],acrossFront:front-80,clear,lotHalf,rear,dune};
+ const rear=s.maxZ+55,beach=rear+8,shore=beach+(clear>160?170:150);
+ return {front,walkNear:[front-5,front],lawnNear:[front-11,front-5],road:[front-41,front-11],lawnFar:[front-47,front-41],walkFar:[front-52,front-47],acrossFront:front-80,clear,lotHalf,rear,beach,shore};
 }
 /** The street, houses and trees around a lot; `site` is the lot in world feet (front of the house at minZ, facing -z). */
 export function addNeighborhood(root:T.Object3D,o:Opts,wake:()=>void){
@@ -315,43 +315,64 @@ export function addNeighborhood(root:T.Object3D,o:Opts,wake:()=>void){
   const near:Record<string,Placement[]>={oak:[],ash:[],aspen:[]},far:Record<string,Placement[]>={oak:[],ash:[],aspen:[]},bushes:Placement[]=[];
   const species=['oak','ash','oak','ash','aspen'];const clearOf=(x:number)=>!drives.some(([a,b])=>x>a-4&&x<b+4);const outside=(p:Placement)=>Math.hypot(p.x,p.z)>clear*1.1;
   for(const z of [(lawnNear[0]!+lawnNear[1]!)/2,(lawnFar[0]!+lawnFar[1]!)/2])for(let x=-half+20;x<half;x+=46+r()*10){if(!clearOf(x)||Math.hypot(x,z)<clear*1.08)continue;near[species[Math.floor(r()*4)]!]!.push({x,z,h:28+r()*8,ry:r()*6.28});}
-  // Behind the lot and the homes beside it the land rises into a sand dune; trees stay across the street and on the horizon.
+  // Behind the lot and the homes beside it lie the beach and the ocean; trees stay across the street and inland.
   for(const h of homes){const f=h.ry===0?1:-1;for(let k=0;k<5;k++)bushes.push({x:h.x+f*(-h.spec.w/2+2+k*(h.spec.w-4)/4),z:h.z+f*(KINDS[h.spec.kind].porch==='portico'?2.2:9.6),h:3.4+r()*1.2,ry:r()*6.28});
    if(h.ry===0)far[species[Math.floor(r()*5)]!]!.push({x:h.x+(r()-.5)*h.spec.w,z:h.z-f*(h.spec.d+22+r()*20),h:34+r()*14,ry:r()*6.28});}
-  if(!o.mobile)for(let k=0;k<55;k++){const a=r()*Math.PI*2,rad=560+r()*260;const x=Math.cos(a)*rad,z=Math.sin(a)*rad;if(z<road[1]!+20&&z>acrossFront-60&&Math.abs(x)<half)continue;if(z>L.dune-40&&Math.abs(x)<half*.95)continue;far[species[Math.floor(r()*5)]!]!.push({x,z,h:40+r()*18,ry:r()*6.28});}
+  if(!o.mobile)for(let k=0;k<55;k++){const a=r()*Math.PI*2,rad=560+r()*260;const x=Math.cos(a)*rad,z=Math.sin(a)*rad;if(z<road[1]!+20&&z>acrossFront-60&&Math.abs(x)<half)continue;if(z>L.beach-40)continue;far[species[Math.floor(r()*5)]!]!.push({x,z,h:40+r()*18,ry:r()*6.28});}
   for(const list of [...Object.values(near),...Object.values(far)])for(let k=list.length-1;k>=0;k--)if(!outside(list[k]!))list.splice(k,1);
   const tint:Record<string,string>={oak:'#a3b37e',ash:'#9fb27a',aspen:'#b7bf86'};
   for(const n of ['oak','ash','aspen'])group.add(instanced(by(n),near[n]!,true,tint[n]!),instanced(by(n),far[n]!,false,tint[n]!));
   group.add(instanced(by('bush'),bushes,true,'#93a874'));
-  const grass:Placement[]=[];if(!o.mobile)for(let x=-half*.8;x<half*.8;x+=7+r()*9){const z=L.dune+r()*26;if(Math.hypot(x,z)>clear*1.1)grass.push({x,z,h:1.6+r()*1.4,ry:r()*6.28});}
+  const grass:Placement[]=[];if(!o.mobile)for(let x=-half*.8;x<half*.8;x+=7+r()*9){const z=L.beach+12+r()*20;if(Math.hypot(x,z)>clear*1.1)grass.push({x,z,h:1.6+r()*1.4,ry:r()*6.28});}
   group.add(instanced(by('bush'),grass,false,'#c9c58f'));
   wake();});
- group.add(treeline(760,o.mobile),treeline(810,o.mobile),sandDune(L.dune,half*.85,o.mobile));
+ group.add(treeline(760,o.mobile,L.shore-20),treeline(810,o.mobile,L.shore-20),...oceanfront(L.beach,L.shore,o.mobile));
  return group;
 }
 
-// Wind-rippled sand: fine grains, soft patches and ripple lines (tile = 30 ft).
-const sandTex=()=>canvasTexture('sand',1024,(c,s,r)=>{c.fillStyle='#dcc69c';c.fillRect(0,0,s,s);blotches(c,s,r,40,'198,170,122',.35,160);blotches(c,s,r,30,'236,222,190',.35,140);
- for(let y=0;y<s;y+=7+r()*5){c.beginPath();for(let x=0;x<=s;x+=16){const yy=y+Math.sin(x/s*Math.PI*2*3+y*.05)*4+Math.sin(x/s*Math.PI*2*7)*1.5;x?c.lineTo(x,yy):c.moveTo(x,yy);}c.strokeStyle=`rgba(120,92,52,${.10+r()*.08})`;c.lineWidth=1.6;c.stroke();}
- speckle(c,s,r,90000,190,90,.35,1.1);});
-/** A big sand dune behind the lot: a gentle toe from the backyard, a rounded crest that wanders along its length,
- *  and a long back slope; its ends taper into the land so it never stops abruptly. */
-function sandDune(z0:number,halfX:number,mobile:boolean){
- const nx=mobile?90:180,nz=mobile?36:70,depth=460,Hmax=62,pos:number[]=[],col:number[]=[],idx:number[]=[];
- const smooth=(a:number,b:number,x:number)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t);};
- for(let j=0;j<=nz;j++)for(let i=0;i<=nx;i++){const x=-halfX+2*halfX*i/nx,u=j/nz,z=z0+u*depth;
-  const crest=.42+.06*Math.sin(x/170)+.03*Math.sin(x/53+1),taper=smooth(halfX,halfX-180,Math.abs(x)),H=Hmax*(.78+.22*Math.sin(x/240+2))*taper;
-  let h=u<crest?H*Math.pow(smooth(0,crest,u),1.5):H*(1-.42*smooth(crest,1,u))+H*.08*Math.sin(u*9+x/90)*smooth(crest,crest+.2,u);
-  // A smaller foredune ridge in front of the main one, and the slip-face line it leaves behind.
-  const c2=.16+.04*Math.sin(x/120+3),h2=H*.28*(.6+.4*Math.sin(x/90+1));h=Math.max(h,u<c2?h2*Math.pow(smooth(0,c2,u),1.3):h2*(1-smooth(c2,c2+.07,u)*.55));
-  pos.push(x,h,z);
-  // Sun-bleached crests, darker damp toe, and soft streaks along the wind.
-  const k=.9+.1*smooth(0,H||1,h)+.05*Math.sin(x/37+u*20)-.08*(1-smooth(0,.05,u));col.push(k,k*.985,k*.96);}
- for(let j=0;j<nz;j++)for(let i=0;i<nx;i++){const a=j*(nx+1)+i,b=a+1,c=a+nx+1,d=c+1;idx.push(a,c,b,b,c,d);}
- const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(pos,3));geo.setAttribute('color',new T.Float32BufferAttribute(col,3));geo.setIndex(idx);
- const uv:number[]=[];for(let k=0;k<pos.length;k+=3)uv.push(pos[k]!/30,pos[k+2]!/30);geo.setAttribute('uv',new T.Float32BufferAttribute(uv,2));geo.computeVertexNormals();
- const t=sandTex();const mat=new T.MeshStandardMaterial({map:t,bumpMap:t,bumpScale:1.6,roughness:.97,color:'#e8d3a8',vertexColors:true,envMapIntensity:.5});mat.userData.persistent=true;
- const mesh=new T.Mesh(geo,mat);mesh.receiveShadow=true;mesh.name='Sand dune';return mesh;
+// Beach sand: pale, fine grains, soft patches and faint wind ripples (tile = 30 ft).
+const sandTex=()=>canvasTexture('beach-sand',1024,(c,s,r)=>{c.fillStyle='#e9dcbd';c.fillRect(0,0,s,s);blotches(c,s,r,40,'214,196,158',.3,160);blotches(c,s,r,30,'246,238,220',.35,140);
+ for(let y=0;y<s;y+=9+r()*7){c.beginPath();for(let x=0;x<=s;x+=16){const yy=y+Math.sin(x/s*Math.PI*2*3+y*.05)*4+Math.sin(x/s*Math.PI*2*7)*1.5;x?c.lineTo(x,yy):c.moveTo(x,yy);}c.strokeStyle=`rgba(140,115,75,${.06+r()*.06})`;c.lineWidth=1.4;c.stroke();}
+ speckle(c,s,r,90000,200,80,.3,1.1);});
+// Breaking-wave foam: streaks densest along the middle of the strip, clear at its edges (alpha texture).
+const foamTex=()=>canvasTexture('foam',512,(c,s,r)=>{c.clearRect(0,0,s,s);for(let i=0;i<1400;i++){const v=(r()+r()+r())/3,x=r()*s,y=s*v,w=10+r()*46,h=1+r()*3;c.fillStyle=`rgba(255,255,255,${.2+r()*.6})`;c.beginPath();c.ellipse(x,y,w,h,0,0,Math.PI*2);c.fill();}});
+// Small wind waves as a tangent-space normal map (tile = 24 ft).
+const waterNormals=()=>canvasTexture('water-normal',256,(c,s)=>{const img=c.createImageData(s,s),h=(x:number,y:number)=>{const u=x/s*Math.PI*2,v=y/s*Math.PI*2;return Math.sin(u*3+v*2)*.5+Math.sin(u*7-v*5)*.25+Math.sin(u*13+v*11)*.12+Math.sin(v*9)*.18;};
+ for(let y=0;y<s;y++)for(let x=0;x<s;x++){const dx=h(x+1,y)-h(x-1,y),dy=h(x,y+1)-h(x,y-1),nx=-dx*3,ny=-dy*3,nz=1,l=Math.hypot(nx,ny,nz),i=(y*s+x)*4;img.data[i]=(nx/l*.5+.5)*255;img.data[i+1]=(ny/l*.5+.5)*255;img.data[i+2]=(nz/l*.5+.5)*255;img.data[i+3]=255;}c.putImageData(img,0,0);},false);
+/** The oceanfront behind the lot: a low grassy foredune past the back fences, dry sand down to a darker wet
+ *  band, a shoreline that wanders gently, lines of surf, and open water out to the horizon. Everything stays
+ *  just above the lawn plane, so the ocean simply covers the land beyond the shore. */
+function oceanfront(z0:number,shore:number,mobile:boolean):T.Object3D[]{
+ const W=950,smooth=(a:number,b:number,x:number)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t);};
+ const shoreZ=(x:number)=>shore+10*Math.sin(x/150)+5*Math.sin(x/53+2),SEA=.35;
+ const grid=(nx:number,nz:number,at:(i:number,j:number)=>[number,number,number,number,number,number])=>{const pos:number[]=[],col:number[]=[],idx:number[]=[];
+  for(let j=0;j<=nz;j++)for(let i=0;i<=nx;i++){const [x,y,z,r,g,b]=at(i,j);pos.push(x,y,z);col.push(r,g,b);}
+  for(let j=0;j<nz;j++)for(let i=0;i<nx;i++){const a=j*(nx+1)+i,b=a+1,c=a+nx+1,d=c+1;idx.push(a,c,b,b,c,d);}
+  const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(pos,3));geo.setAttribute('color',new T.Float32BufferAttribute(col,3));geo.setIndex(idx);
+  const uv:number[]=[];for(let k=0;k<pos.length;k+=3)uv.push(pos[k]!/30,pos[k+2]!/30);geo.setAttribute('uv',new T.Float32BufferAttribute(uv,2));geo.computeVertexNormals();return geo;};
+ // Sand: rises from the lawn, a dune ridge about 4 ft high, a dry flat, then down under the water's edge.
+ const nx=mobile?80:160,depth=shore-z0+40;
+ const sand=grid(nx,mobile?20:36,(i,j)=>{const x=-W+2*W*i/nx,z=z0+depth*j/(mobile?20:36),d=z-z0,ds=shoreZ(x)-z;
+  const ridge=4.2*Math.exp(-(((d-22)/11)**2))*(.7+.3*Math.sin(x/60));const y=.2+.7*smooth(-10,40,ds)*smooth(0,10,d)+ridge;
+  const wet=1-smooth(4,26,ds),grass=Math.exp(-(((d-20)/14)**2));const k=1-.26*wet;return [x,y,z,k*(1-.1*grass),k*(1-.03*grass),k*(1-.2*grass-.05*wet)];});
+ const st=sandTex();const sandMat=new T.MeshStandardMaterial({map:st,bumpMap:st,bumpScale:1.2,roughness:.96,vertexColors:true,color:'#d8c7a2',envMapIntensity:.4});sandMat.userData.persistent=true;
+ const beach=new T.Mesh(sand,sandMat);beach.receiveShadow=true;beach.name='Beach';
+ // Ocean: turquoise over the shallows, deepening to navy offshore; glossy, with wind ripples.
+ const wz0=shore-30,wz1=940,wn=mobile?16:30;
+ const sea=grid(40,wn,(i,j)=>{const x=-W+2*W*i/40,z=wz0+(wz1-wz0)*(j/wn)**1.6,t=smooth(0,420,z-shoreZ(x));
+  return [x,SEA,z,.16+(.04-.16)*t,.5+(.17-.5)*t,.55+(.3-.55)*t];});
+ const wn2=waterNormals();wn2.repeat.set(30/24,30/24);
+ const water=new T.MeshPhysicalMaterial({vertexColors:true,roughness:.14,metalness:0,normalMap:wn2,normalScale:new T.Vector2(.5,.5),envMapIntensity:.55,clearcoat:.25,clearcoatRoughness:.15});water.userData.persistent=true;
+ const ocean=new T.Mesh(sea,water);ocean.receiveShadow=true;ocean.name='Ocean';ocean.userData.backdrop=true;
+ // Surf: a swash line on the wet sand and three lines of breaking waves offshore.
+ const foam=foamTex(),out:T.Object3D[]=[beach,ocean];
+ for(const [off,width,opacity] of [[-3,12,1],[16,8,.85],[42,6,.65],[78,5,.45]] as const){const n=mobile?80:160,pos:number[]=[],uv:number[]=[],idx:number[]=[];
+  for(let i=0;i<=n;i++){const x=-W+2*W*i/n,z=shoreZ(x)+off+3*Math.sin(x/37+off);for(const v of [0,1]){pos.push(x,SEA+.02+off*.0001,z+(v-.5)*width);uv.push(x/40+off,v);}}
+  for(let i=0;i<n;i++){const a=i*2;idx.push(a,a+1,a+2,a+1,a+3,a+2);}
+  const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();
+  const m=new T.MeshStandardMaterial({map:foam,transparent:true,opacity,depthWrite:false,roughness:.5,color:'#ffffff'});m.userData.persistent=true;
+  const strip=new T.Mesh(g,m);strip.name='Surf';strip.renderOrder=1;strip.userData.backdrop=true;out.push(strip);}
+ return out;
 }
 
 /** The visitor's own lot: driveway from the garage door to the street, front walk, a mailbox at the curb and a
@@ -394,12 +415,12 @@ export function addLot(root:T.Object3D,o:{site:Site,groundY:number,lot:Lot,mobil
 
 // A continuous wooded horizon well past the street's ends: two staggered bands of crowns, hazed by the fog,
 // so the lawn never meets the sky in a hard line. A few thousand triangles stand in for thousands of trees.
-function treeline(radius:number,mobile:boolean){
+function treeline(radius:number,mobile:boolean,maxZ=Infinity){
  const r=rng(radius),n=mobile?360:900,crowns:number[]=[];let a=0;
  while(a<Math.PI*2){const w=(14+r()*22)/radius;crowns.push(a,w,(radius>780?54:44)+r()*22);a+=w*(.55+r()*.35);}
  const height=(t:number)=>{let h=radius>780?30:24;for(let i=0;i<crowns.length;i+=3){const d=Math.abs(t-crowns[i]!)/crowns[i+1]!;if(d<1)h=Math.max(h,crowns[i+2]!*Math.sqrt(1-d*d));}return h;};
  const pos:number[]=[],col:number[]=[];
- for(let i=0;i<n;i++){const t0=i/n*Math.PI*2,t1=(i+1)/n*Math.PI*2,h0=height(t0),h1=height(t1),g=.8+r()*.35;
+ for(let i=0;i<n;i++){const t0=i/n*Math.PI*2,t1=(i+1)/n*Math.PI*2,h0=height(t0),h1=height(t1),g=.8+r()*.35;if(Math.min(Math.sin(t0),Math.sin(t1))*radius>maxZ)continue;
   const P=(t:number,y:number)=>[Math.cos(t)*radius,y,Math.sin(t)*radius];
   for(const [t,y] of [[t0,-2],[t1,-2],[t1,h1],[t0,-2],[t1,h1],[t0,h0]] as const){pos.push(...P(t,y));const k=y<0?.55:g;col.push(.24*k,.33*k,.2*k);}}
  const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(pos,3));geo.setAttribute('color',new T.Float32BufferAttribute(col,3));geo.computeVertexNormals();
