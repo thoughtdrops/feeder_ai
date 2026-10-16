@@ -4,8 +4,115 @@
   "height": 5.5,
   "radius": 150,
   "rotation": 90,
-  "ground": "lawn",
-  "credit": "360° panorama of a suburban street (8192 × 4096 original in backdrop-source/), empty lot repainted as lawn; supplied by Universal Frames.",
-  "about": "Set image to a 360-degree equirectangular photo in this folder (8192 x 4096 JPG recommended; mobileImage 4096 x 2048). height is the camera height of the photo in feet, radius how far its ground reaches in feet, rotation turns the photo in degrees (90 puts the photo's centre, here the street, in front of the house). ground \"lawn\" lays a real lawn over the photo's ground (groundRadius sets how far it reaches before fading into the photo); \"photo\" keeps the photograph's own ground (optionally covered by groundTexture, tiled every groundTile feet). radius also sets how big the photo's houses look next to the model: about the distance they were from the camera (150 ft here) keeps them life-size.",
-  "groundRadius": 140
+  "ground": "photo",
+  "credit": "360° panorama of a suburban street (8192 × 4096 original in backdrop-source/); the street-facing half is mirrored to the back so houses face the lot across streets on both sides, and the empty lot is repainted as lawn. Supplied by Universal Frames.",
+  "about": "Set image to a 360-degree equirectangular photo in this folder (8192 x 4096 JPG recommended; mobileImage 4096 x 2048). height is the photo's camera height in feet and rotation turns it (90 puts the photo's centre, here the street, in front of the house). groundEdge lists, around the photo ([u from 0 to 1 across the image, degrees below the horizon]), where the ground ends and houses, trees and hedges begin: the viewer lays the ground flat and stands everything above that line upright at its true distance, scaled so the house fits the lot. lotEdge is the angle of the near sidewalk/lot line, where the 3D lawn stops. Without groundEdge the photo is projected on a sphere of the given radius instead.",
+  "groundEdge": [
+    [
+      0.12439,
+      6
+    ],
+    [
+      0.1354,
+      6.5
+    ],
+    [
+      0.24659,
+      6.5
+    ],
+    [
+      0.25319,
+      6.5
+    ],
+    [
+      0.2576,
+      6.5
+    ],
+    [
+      0.262,
+      7
+    ],
+    [
+      0.262,
+      7
+    ],
+    [
+      0.266,
+      6.5
+    ],
+    [
+      0.27,
+      6.5
+    ],
+    [
+      0.276,
+      6.5
+    ],
+    [
+      0.377,
+      6.5
+    ],
+    [
+      0.387,
+      6
+    ],
+    [
+      0.556,
+      6
+    ],
+    [
+      0.564,
+      6
+    ],
+    [
+      0.592,
+      6
+    ],
+    [
+      0.603,
+      6
+    ],
+    [
+      0.691,
+      6
+    ],
+    [
+      0.699,
+      6
+    ],
+    [
+      0.738,
+      6
+    ],
+    [
+      0.738,
+      6
+    ],
+    [
+      0.78093,
+      6
+    ],
+    [
+      0.78974,
+      6
+    ],
+    [
+      0.88661,
+      6
+    ],
+    [
+      0.89872,
+      6
+    ],
+    [
+      0.92955,
+      6
+    ],
+    [
+      0.93835,
+      6
+    ]
+  ],
+  "lotEdge": 17.5,
+  "scale": 3
 }

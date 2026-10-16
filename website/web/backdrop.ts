@@ -33,7 +33,7 @@ if(d.y<0.)sky=horizon;gl_FragColor=vec4(sky,1.);
 // {"image":"street-8k.jpg","mobileImage":"street-4k.jpg","height":5.5,"radius":320,"rotation":0,"ground":"lawn","credit":"…"}
 // height = camera height of the photo in feet, radius = how far its ground reaches, rotation in degrees;
 // ground "photo" keeps the photograph's own ground under the house (shadows only), "lawn" lays sod over it.
-type Photo={image:string,mobileImage?:string,height:number,radius:number,rotation:number,ground:'lawn'|'photo',groundTexture?:string,groundTile:number,groundRadius?:number,credit:string};
+type Photo={image:string,mobileImage?:string,height:number,radius:number,rotation:number,ground:'lawn'|'photo',groundTexture?:string,groundTile:number,groundRadius?:number,groundEdge?:[number,number][],lotEdge:number,scale:number,credit:string};
 let photoRequest:Promise<{spec:Photo,texture:T.Texture,sun:T.Vector3|null}|null>|null=null;
 let loadedPhoto:{spec:Photo,texture:T.Texture,sun:T.Vector3|null}|null=null;
 const environments=new WeakMap<T.WebGLRenderer,T.WebGLRenderTarget>();
@@ -41,7 +41,8 @@ function parsePhoto(raw:any):Photo|null{
  const file=(v:unknown)=>typeof v==='string'&&/^[\w.-]{1,80}\.(jpe?g|webp|png)$/i.test(v);
  const num=(v:unknown,lo:number,hi:number,fallback:number)=>typeof v==='number'&&Number.isFinite(v)&&v>=lo&&v<=hi?v:fallback;
  if(!raw||typeof raw!=='object'||!file(raw.image))return null;
- return {image:raw.image,mobileImage:file(raw.mobileImage)?raw.mobileImage:undefined,height:num(raw.height,1,40,5.5),radius:num(raw.radius,60,900,320),rotation:num(raw.rotation,-360,360,0),ground:raw.ground==='photo'?'photo':'lawn',groundTexture:file(raw.groundTexture)?raw.groundTexture:undefined,groundTile:num(raw.groundTile,1,100,14),groundRadius:typeof raw.groundRadius==='number'?num(raw.groundRadius,30,900,0)||undefined:undefined,credit:typeof raw.credit==='string'?raw.credit.slice(0,200):''};
+ const edge=Array.isArray(raw.groundEdge)&&raw.groundEdge.length>=3&&raw.groundEdge.length<=400&&raw.groundEdge.every((p:unknown)=>Array.isArray(p)&&p.length===2&&p.every(v=>typeof v==='number'&&Number.isFinite(v))&&p[0]>=0&&p[0]<=1&&p[1]>=1&&p[1]<=60)?[...raw.groundEdge].sort((a:number[],b:number[])=>a[0]!-b[0]!) as [number,number][]:undefined;
+ return {lotEdge:num(raw.lotEdge,1,60,17.5),scale:num(raw.scale,1,10,1.6),groundEdge:edge,image:raw.image,mobileImage:file(raw.mobileImage)?raw.mobileImage:undefined,height:num(raw.height,1,40,5.5),radius:num(raw.radius,60,900,320),rotation:num(raw.rotation,-360,360,0),ground:raw.ground==='photo'?'photo':'lawn',groundTexture:file(raw.groundTexture)?raw.groundTexture:undefined,groundTile:num(raw.groundTile,1,100,14),groundRadius:typeof raw.groundRadius==='number'?num(raw.groundRadius,30,900,0)||undefined:undefined,credit:typeof raw.credit==='string'?raw.credit.slice(0,200):''};
 }
 function requestPhoto(mobile:boolean){
  photoRequest??=fetch('/backdrop/backdrop.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(async raw=>{const spec=parsePhoto(raw);if(!spec)return null;
@@ -64,8 +65,54 @@ function photoSun(texture:T.Texture,rotation:number):T.Vector3|null{
 }
 function fadeMap(textures:T.Texture[],inner=.55){const cvs=document.createElement('canvas');cvs.width=cvs.height=256;const ctx=cvs.getContext('2d')!;const g=ctx.createRadialGradient(128,128,40,128,128,128);g.addColorStop(0,'#fff');g.addColorStop(inner,'#fff');g.addColorStop(1,'#000');ctx.fillStyle=g;ctx.fillRect(0,0,256,256);const t=new T.CanvasTexture(cvs);textures.push(t);return t;}
 
+/** Depression angle (degrees below the horizon) where the photo's ground ends at image column u: the base of
+ * the houses, trees and bushes in that direction. Linear between the measured points, wrapping around. */
+function groundEdgeAt(edge:[number,number][],u:number){u=((u%1)+1)%1;for(let i=0;i<edge.length;i++){const a=edge[i]!,b=edge[(i+1)%edge.length]!;const ub=i+1<edge.length?b[0]:b[0]+1;const uu=u<a[0]?u+1:u;if(uu>=a[0]&&uu<=ub)return a[1]+(b[1]-a[1])*(uu-a[0])/Math.max(1e-6,ub-a[0]);}return edge[0]![1];}
+/** Panorama streets run at a constant angle below the horizon, which would lay the street in front of the
+ * lot out as an arc. Pushing each front direction out by 1/cos straightens it into one straight street across
+ * the front (the photo's front is +x before rotation); behind and beside the lot there is no street, and the
+ * stretch eases back to none at the rear. */
+function blockShape(dx:number,_dz:number){return dx>0?1/Math.max(dx,.4):1+1.5*(1+dx)**2;}
+/** A photo "stage": the panorama's ground lies flat at its true distance from the camera, and everything
+ * standing on it (houses, trees, hedges) rises on an upright wall where it actually stands, all scaled by one
+ * factor so nothing stretches. Seen from the photo's camera it is the photograph; from anywhere else the
+ * street stays on the ground and the neighbours stay upright. */
+function photoStage(texture:T.Texture,spec:Photo,scale:number,mobile:boolean){
+ const edge=spec.groundEdge!,h=spec.height*scale,cols=mobile?160:320,deg=Math.PI/180;
+ const rows:number[]=[];for(let b=-89.8;b<-32;b+=2)rows.push(b);for(let b=-32;b<14;b+=mobile?.5:.25)rows.push(b);for(let b=14;b<60;b+=2)rows.push(b);for(let b=60;b<=90.01;b+=3)rows.push(Math.min(b,89.9));
+ const pos:number[]=[],uv:number[]=[],index:number[]=[];
+ for(let i=0;i<=cols;i++){const u=i/cols,phi=u*Math.PI*2,dx=-Math.cos(phi),dz=-Math.sin(phi),tb=groundEdgeAt(edge,u)*deg,wall=h/Math.tan(tb),k=blockShape(dx,dz);
+  for(const b of rows){const beta=b*deg;let r:number,y:number;
+   if(beta<-tb){r=h/Math.tan(-beta);y=0;}
+   else if(b<=60){r=wall;y=h+wall*Math.tan(beta);}
+   else{const t=(b-60)/30;r=wall*(1-t);y=h+wall*Math.tan(60*deg)+wall*.6*t;}
+   // Ground and walls follow a rounded square so the streets run straight along the block; heights keep
+   // the photo's own distance so the houses keep their size.
+   pos.push(dx*r*k,y,dz*r*k);uv.push(u,.5+beta/Math.PI);}}
+ const n=rows.length;for(let i=0;i<cols;i++)for(let j=0;j<n-1;j++){const a=i*n+j,b=(i+1)*n+j;index.push(a,b,a+1,b,b+1,a+1);}
+ const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(pos,3));geo.setAttribute('uv',new T.Float32BufferAttribute(uv,2));geo.setIndex(index);
+ const mesh=new T.Mesh(geo,new T.MeshBasicMaterial({map:texture,side:T.DoubleSide,fog:false}));mesh.rotation.y=spec.rotation*Math.PI/180;mesh.name='Photo surroundings';mesh.userData.backdrop=true;return mesh;
+}
+/** How far the photo's world reaches in a world direction (x, z), and the scale that keeps a lot clear of the
+ * street and the neighbours: the house's footprint plus a yard must fit inside the photo's own lot edge. */
+function stageFit(spec:Photo,site:{minX:number,minZ:number,maxX:number,maxZ:number}){
+ const edge=spec.groundEdge!,rot=spec.rotation*Math.PI/180,deg=Math.PI/180;
+ const uOf=(x:number,z:number)=>{const c=Math.cos(-rot),s=Math.sin(-rot);const lx=x*c+z*s,lz=-x*s+z*c;return ((Math.atan2(-lz,-lx)/(Math.PI*2))%1+1)%1;};
+ // The photo's own scale (its far houses life-size) is the floor; a big house pushes everything out further.
+ let scale=spec.scale;
+ for(let k=0;k<96;k++){const a=k/96*Math.PI*2,x=Math.cos(a),z=Math.sin(a);
+  const tx=x>1e-6?site.maxX/x:x<-1e-6?site.minX/x:Infinity,tz=z>1e-6?site.maxZ/z:z<-1e-6?site.minZ/z:Infinity;const need=Math.min(tx,tz)+10;
+  const u=uOf(x,z),ph=u*Math.PI*2,lot=spec.height*blockShape(-Math.cos(ph),-Math.sin(ph))/Math.tan(Math.max(groundEdgeAt(edge,u),spec.lotEdge)*deg);scale=Math.max(scale,need/lot);}
+ scale=Math.min(scale,8);
+ // A lone tree trunk standing nearer than the houses behind it shouldn't hold the camera back.
+ const open=(u:number)=>{let a=90;for(let k=-6;k<=6;k++)a=Math.min(a,groundEdgeAt(edge,u+k*.002));return a;};
+ const reach=(x:number,z:number)=>{const u=uOf(x,z),ph=u*Math.PI*2;return spec.height*scale*blockShape(-Math.cos(ph),-Math.sin(ph))/Math.tan(open(u)*deg);};
+ let far=0;for(let k=0;k<96;k++){const a=k/96*Math.PI*2;far=Math.max(far,reach(Math.cos(a),Math.sin(a)));}
+ return {scale,reach,far,lot:spec.height*scale/Math.tan(spec.lotEdge*deg)};
+}
+
 /** Lawn, hills and, once available, the installed photograph. `site` is the lot in world feet. */
-export function addSurroundings(scene:T.Scene,root:T.Object3D,o:{site:{minX:number,minZ:number,maxX:number,maxZ:number},groundY:number,mobile:boolean,textures:T.Texture[],grass:T.MeshStandardMaterial,renderer:T.WebGLRenderer,sky:T.Object3D,alive:()=>boolean,wake:(content?:boolean)=>void,onPhoto?:(sun:T.Vector3|null,radius:number)=>void}){
+export function addSurroundings(scene:T.Scene,root:T.Object3D,o:{site:{minX:number,minZ:number,maxX:number,maxZ:number},groundY:number,mobile:boolean,textures:T.Texture[],grass:T.MeshStandardMaterial,renderer:T.WebGLRenderer,sky:T.Object3D,alive:()=>boolean,wake:(content?:boolean)=>void,onPhoto?:(sun:T.Vector3|null,radius:number,reach?:(x:number,z:number)=>number)=>void}){
  const {groundY:gy,textures}=o;const group=new T.Group();group.name='Surroundings';root.add(group);
  const grassRepeat=(mat:T.MeshStandardMaterial,size:number)=>{for(const key of ['map','normalMap','roughnessMap'] as const){const t=(o.grass as any)[key] as T.Texture|null;if(t){const c=t.clone();c.repeat.set(size/4.59,size/4.59);textures.push(c);(mat as any)[key]=c;}}return mat;};
  // Painted fallback: a broad lawn with gentle color variation and smooth hills lost in the haze.
@@ -81,9 +128,13 @@ export function addSurroundings(scene:T.Scene,root:T.Object3D,o:{site:{minX:numb
  const usePhoto=(photo:{spec:Photo,texture:T.Texture,sun:T.Vector3|null})=>{if(!o.alive())return;
   // Neighbouring houses in the photo look life-size when its sphere is about as far away as they were from the
   // camera; a large design pushes the sphere out (and the lawn with it) far enough that the camera can frame the whole house.
-  const lot=o.site,sphere=Math.max(photo.spec.radius,Math.hypot(lot.maxX-lot.minX,lot.maxZ-lot.minZ)/2*5.4),grow=sphere/photo.spec.radius;
-  const box=new GroundedSkybox(photo.texture,photo.spec.height,sphere,o.mobile?64:128);box.position.y=gy+photo.spec.height-.01;box.rotation.y=photo.spec.rotation*Math.PI/180;box.name='Photo surroundings';box.userData.backdrop=true;(box.material as T.MeshBasicMaterial).fog=false;group.add(box);
-  const {minX,minZ,maxX,maxZ}=o.site,wide=photo.spec.groundRadius&&Math.min(photo.spec.groundRadius*grow,sphere*.95),cx=wide?0:(minX+maxX)/2,cz=wide?0:(minZ+maxZ)/2,radius=wide??Math.hypot(maxX-minX,maxZ-minZ)/2+60;
+  const lot=o.site,fit=photo.spec.groundEdge?stageFit(photo.spec,lot):null;
+  let sphere:number,grow:number;
+  if(fit){const stage=photoStage(photo.texture,photo.spec,fit.scale,o.mobile);stage.position.y=gy-.02;group.add(stage);sphere=fit.far;grow=1;}
+  else{sphere=Math.max(photo.spec.radius,Math.hypot(lot.maxX-lot.minX,lot.maxZ-lot.minZ)/2*5.4);grow=sphere/photo.spec.radius;
+   const box=new GroundedSkybox(photo.texture,photo.spec.height,sphere,o.mobile?64:128);box.position.y=gy+photo.spec.height-.01;box.rotation.y=photo.spec.rotation*Math.PI/180;box.name='Photo surroundings';box.userData.backdrop=true;(box.material as T.MeshBasicMaterial).fog=false;group.add(box);}
+  // On a stage the lawn covers only the lot, stopping short of the sidewalk so the street stays in view.
+  const {minX,minZ,maxX,maxZ}=o.site,wide=fit?fit.lot*.97:photo.spec.groundRadius&&Math.min(photo.spec.groundRadius*grow,sphere*.95),cx=wide?0:(minX+maxX)/2,cz=wide?0:(minZ+maxZ)/2,radius=wide??Math.hypot(maxX-minX,maxZ-minZ)/2+60;
   // The lot itself: the photo's ground stretches into a blur close to the camera, so a tiling texture of the
   // same ground (or a lawn) covers the lot and fades into the photograph; shadows fall on it either way.
   let pad:T.Material;
@@ -100,7 +151,7 @@ export function addSurroundings(scene:T.Scene,root:T.Object3D,o:{site:{minX:numb
   const disc=new T.Mesh(discGeometry,pad);disc.position.set(cx,gy+.01,cz);disc.receiveShadow=true;disc.name='Lot lawn';group.add(disc);
   painted.visible=false;o.sky.visible=false;scene.fog=null;
   let env=environments.get(o.renderer);if(!env){const pm=new T.PMREMGenerator(o.renderer);env=pm.fromEquirectangular(photo.texture);pm.dispose();env.texture.userData.persistent=true;environments.set(o.renderer,env);}
-  scene.environment=env.texture;scene.environmentIntensity=.9;scene.userData.photoEnvironment=true;scene.userData.photoBackdrop=true;scene.userData.photoSun=photo.sun;scene.userData.photoRadius=sphere;o.onPhoto?.(photo.sun,sphere);o.wake(true);};
+  scene.environment=env.texture;scene.environmentIntensity=.9;scene.userData.photoEnvironment=true;scene.userData.photoBackdrop=true;scene.userData.photoSun=photo.sun;scene.userData.photoRadius=sphere;scene.userData.photoReach=fit?.reach;o.onPhoto?.(photo.sun,sphere,fit?.reach);o.wake(true);};
  if(loadedPhoto)usePhoto(loadedPhoto);else requestPhoto(o.mobile).then(p=>{if(p)usePhoto(p);});
  return group;
 }
