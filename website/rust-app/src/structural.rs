@@ -38,6 +38,28 @@ pub fn floor_design(c:&Config,ws:&[Wall])->Deck{
  if product.is_none(){let lines=panel_joints(c);if !lines.is_empty(){let(along,spans)=floor_spans(c,ws,&lines);let max=max_of(&spans);let product=table(c,max);if product.is_some(){return Deck{along,spans,product,girders:lines,max}}}}
  Deck{along,spans,product,girders:vec![],max}
 }
+/// Wall stud grades. Sawn: SPF No. 2 2×6 with NDS size factors (Fb 875×1.3, Fc 1150×1.1). LSL: 1.55E laminated
+/// strand lumber, approximate published values. (name, Fb, Fc parallel, Fc perpendicular, E, Emin, NDS c)
+#[derive(Clone,Copy)]pub struct Grade{pub name:&'static str,pub fb:f64,pub fc:f64,pub fc_perp:f64,pub e:f64,pub emin:f64,pub c:f64}
+pub const SAWN:Grade=Grade{name:"SPF No. 2 sawn 2×6",fb:875.*1.3,fc:1150.*1.1,fc_perp:425.,e:1.4e6,emin:0.51e6,c:0.8};
+pub const LSL:Grade=Grade{name:"1.55E LSL 2×6",fb:2325.,fc:2050.,fc_perp:800.,e:1.55e6,emin:0.788e6,c:0.9};
+pub fn grade(c:&Config)->Grade{if c.stud_type=="LSL studs"{LSL}else{SAWN}}
+/// Allowable axial load on one 2×6 stud (lb) and what governs: NDS column stability about the strong axis
+/// (sheathing braces the weak axis) or bearing on the plates (bearing-area factor 1.25). Plates match the studs.
+pub fn stud_capacity(g:Grade,wall_height:f64)->(f64,&'static str){
+ let area=1.5*5.5;let le=wall_height*12.-4.5;let fce=0.822*g.emin/(le/5.5).powi(2);let ratio=fce/g.fc;let a=(1.+ratio)/(2.*g.c);let cp=a-(a*a-ratio/g.c).sqrt();
+ let column=cp*g.fc*area;let bearing=g.fc_perp*1.25*area;if column<bearing{(column,"column buckling")}else{(bearing,"bearing on the plates")}
+}
+/// Load on one lowest-story stud at 16 in o.c. under a bearing line: each floor above over half its clear span,
+/// the roof (30 psf snow + 15 psf dead) over a quarter of the width plus the overhang, and 12 psf of wall per story above.
+pub fn stud_demand(c:&Config,floor_span:f64)->f64{let floors=(c.stories-1)as f64;let plf=floors*(c.floor_live_load+c.floor_dead_load)*floor_span.min(c.width)/2.+45.*(c.width/4.+1.5)+floors*12.*c.wall_height;plf*16./12.}
+pub fn studs(c:&Config,floor_span:f64)->Value{
+ let(sawn,sawn_by)=stud_capacity(SAWN,c.wall_height);let(lsl,lsl_by)=stud_capacity(LSL,c.wall_height);let g=grade(c);let selected=if g.name==LSL.name{lsl}else{sawn};let demand=stud_demand(c,floor_span);
+ json!({"selected":g.name,"sawn":{"name":SAWN.name,"capacityLb":sawn.round(),"governs":sawn_by},"lsl":{"name":LSL.name,"capacityLb":lsl.round(),"governs":lsl_by},
+  "axialRatio":round(lsl/sawn),"bendingRatio":round(LSL.fb/SAWN.fb),"compressionRatio":round(LSL.fc/SAWN.fc),"stiffnessRatio":round(LSL.e/SAWN.e),"bucklingRatio":round(LSL.emin/SAWN.emin),
+  "demandLb":demand.round(),"utilization":round(demand/selected),"floorSpanFeet":round(floor_span),
+  "basis":"NDS column stability (le = wall height − 4.5 in, strong axis) and plate bearing (Cb 1.25); 16 in o.c.; 30 psf snow + 15 psf roof dead load assumed. LSL values are approximate published 1.55E values; confirm with the manufacturer and an engineer."})
+}
 pub fn floor_gap(_c:&Config)->f64{16./12.+0.25}
 pub fn apply(c:&Config,mut m:Value)->Value{
  let mut issues=vec![];let mut floor=Value::Null;
@@ -58,6 +80,7 @@ pub fn apply(c:&Config,mut m:Value)->Value{
  if m["rearOutdoor"].is_object(){issues.push("Rear deck/porch loads, ledger attachment, footings, guards and local setbacks require site review.".into());}
  if n(&m["profile"],"requiredAtticR")>49.{issues.push(format!("Specified R-49 roof panel is below the selected model-code R-{:.0} prescriptive target. Resolve the assembly or approved alternate path before construction.",n(&m["profile"],"requiredAtticR")));}if n(&m["profile"],"requiredContinuousR")>0.{issues.push("Specified 7/16 ZIP + R-21 batt wall has no continuous insulation. Verify an approved local energy-code compliance path; the panel default is retained.".into());}
  issues.push("Crawlspace panel-joint girders, piers, foam protection and ground moisture control need site-specific design. Batt nameplate totals do not certify installed/compressed R-value.".into());
+ let span=if c.stories>=2{n(&floor,"maxClearSpan").max(1.)}else{0.};let stud=studs(c,span);if n(&stud,"utilization")>1.{issues.push(format!("Lowest-story bearing studs carry about {:.0} lb each, more than the {:.0} lb {} 2×6 capacity. Use LSL studs and plates, 12 in spacing, or an engineered wall.",n(&stud,"demandLb"),n(&stud,"demandLb")/n(&stud,"utilization"),s(&stud,"selected")));}
  let status="Engineering review required";
- m["structural"]=json!({"status":status,"floor":floor,"mainFloor":ground,"issues":issues,"check":"Geometry + preliminary manufacturer span-table screening","forte":{"status":"Not connected","analysisRun":false,"reason":"Official SDK and authenticated ForteWEB integration are not configured.","url":"https://www.forteweb.com/","sdkUrl":"https://www.weyerhaeuser.com/woodproducts/software-learning/forte-software/weyerhaeuser-interoperability-license/"},"guide":GUIDE,"basis":"TJ-4000 July 2025, page 7. Assumed dry service, 16-in OC, rated glue-nailed subfloor, adequate bearing and no added roof/point loads. Marked bearing walls are proposed supports, not certified supports. Header, trimmer, uplift, shear, foundation, connection, long-term deflection and site-load checks remain open."});m
+ m["structural"]=json!({"status":status,"studs":stud,"floor":floor,"mainFloor":ground,"issues":issues,"check":"Geometry + preliminary manufacturer span-table screening","forte":{"status":"Not connected","analysisRun":false,"reason":"Official SDK and authenticated ForteWEB integration are not configured.","url":"https://www.forteweb.com/","sdkUrl":"https://www.weyerhaeuser.com/woodproducts/software-learning/forte-software/weyerhaeuser-interoperability-license/"},"guide":GUIDE,"basis":"TJ-4000 July 2025, page 7. Assumed dry service, 16-in OC, rated glue-nailed subfloor, adequate bearing and no added roof/point loads. Marked bearing walls are proposed supports, not certified supports. Header, trimmer, uplift, shear, foundation, connection, long-term deflection and site-load checks remain open."});m
 }

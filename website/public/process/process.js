@@ -381,9 +381,11 @@ function stepPier() {
 }
 
 /* ---------- House ---------- */
-// Steel W10x22 beams (10.17 in) plus a 1.5 in nailer keep the same 11 7/8 in depth as the LVL girders they replace.
+// Steel beams are sized by the studio for the pier spacing and house load (W10×22 when no design is loaded);
+// a 1.5 in treated nailer rides on the top flange, so the floor sits at beam depth + 1.5 in.
 const STEEL_BEAMS = !(DESIGN && DESIGN.foundation && DESIGN.foundation.beam === 'lvl');
-const GIRDER_D = 11.875, GIRDER_W = 5.25, FLOOR_T = DESIGN ? (DESIGN.floorGap > 0.5 && DESIGN.floorGap < 4 ? DESIGN.floorGap * 12 : 16.71875) : 12.625, WALL_H = DESIGN ? DESIGN.wallHeight * 12 : 96, EXT_T = 6.5, INT_T = 4.5, ROOF_T = DESIGN ? 16.625 : 12;
+const BEAM = (DESIGN && DESIGN.foundation && DESIGN.foundation.beamSizes && DESIGN.foundation.beamSizes.interior) || { name: 'W10×22', depthIn: 10.17, flangeIn: 5.75, flangeThickIn: 0.36, webIn: 0.24 };
+const GIRDER_D = STEEL_BEAMS ? BEAM.depthIn + 1.5 : 11.875, GIRDER_W = STEEL_BEAMS ? BEAM.flangeIn : 5.25, FLOOR_T = DESIGN ? (DESIGN.floorGap > 0.5 && DESIGN.floorGap < 4 ? DESIGN.floorGap * 12 : 16.71875) : 12.625, WALL_H = DESIGN ? DESIGN.wallHeight * 12 : 96, EXT_T = 6.5, INT_T = 4.5, ROOF_T = DESIGN ? 16.625 : 12;
 const PITCH_A = Math.atan(10 / 12), ROOF_SLOPE = 264;
 const RISE = (L / 2) * Math.tan(PITCH_A);
 const GIRDER_BOT = PIER_TOP + CAP_T;
@@ -1655,13 +1657,13 @@ function buildHouseObjects() {
     } else if (e.shape === 'roof') {
       mesh = new THREE.Mesh(e.poly ? polyGeo(e.poly, e.h) : flatGeo(e.len, e.thick, e.h, null), [M.stud, M.lvl, M.lvl]);
     } else if (e.kind === 'girder' && STEEL_BEAMS) {
-      // W10x22 wide-flange beam in the cap saddles, with a treated 2x6 nailer bolted along the top flange;
-      // the floor panels land on the nailer.
-      const d = 10.17, bf = 5.75, tf = 0.36, tw = 0.24, nail = 1.5, bot = -e.h / 2;
+      // Wide-flange beam (sized for the span and load) in the cap saddles, with a treated 2x6 nailer bolted
+      // along the top flange; the floor panels land on the nailer.
+      const d = BEAM.depthIn, bf = BEAM.flangeIn, tf = BEAM.flangeThickIn, tw = BEAM.webIn, nail = 1.5, bot = -e.h / 2;
       const flange = (y) => { const f = inchBox(e.len, tf, bf, M.steelDark); f.position.y = y; f.castShadow = f.receiveShadow = true; root.add(f); };
       flange(bot + tf / 2); flange(bot + d - tf / 2);
       mesh = inchBox(e.len, d - 2 * tf, tw, M.steelDark); mesh.position.y = bot + d / 2;
-      const nailer = inchBox(e.len, nail, 5.5, M.lvl); nailer.position.y = e.h / 2 - nail / 2; nailer.castShadow = nailer.receiveShadow = true; root.add(nailer);
+      const nailer = inchBox(e.len, nail, Math.min(5.5, bf), M.lvl); nailer.position.y = e.h / 2 - nail / 2; nailer.castShadow = nailer.receiveShadow = true; root.add(nailer);
     } else {
       mesh = inchBox(e.len, e.h, e.thick, M.lvl);
       if (e.shape === 'beampost') { const p = inchBox(5.5, e.postH, 5.5, M.lvl); p.position.set(e.postX - e.pos.x, -e.h / 2 - e.postH / 2, 0); root.add(p); }
