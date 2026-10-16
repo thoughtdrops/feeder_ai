@@ -5,7 +5,9 @@ pub const HELICAL:&str="Helical piers";
 pub const CONCRETE:&str="Concrete crawlspace";
 /// What the floor sits on between pier caps. Steel is the default: wide-flange beams bolted into the cap
 /// saddles, a treated nailer bolted along the top flange, and the floor panels fastened to the nailer.
-pub const BEAMS:[&str;2]=["Steel W10×22 beam","Engineered LVL girder"];
+pub const BEAMS:[&str;2]=["Steel wide-flange beam · sized to load","Engineered LVL girder"];
+/// Earlier saves named the steel option by its old fixed size.
+pub const LEGACY_STEEL:&str="Steel W10×22 beam";
 pub fn steel(c:&Config)->bool{c.pier_beam!=BEAMS[1]}
 const SOIL_T:[(f64,f64);10]=[(0.,250.),(12.,450.),(48.,800.),(96.,1300.),(168.,2100.),(240.,3300.),(288.,5000.),(320.,6600.),(350.,7800.),(420.,9200.)];
 const T_MAX:f64=8000.;const KT:f64=9.;const SAFETY:f64=2.;
@@ -25,10 +27,25 @@ pub fn layout(c:&Config)->Layout{
  if left>1e-6{if left<=SHORT_FT{ext5=1}else{ext10+=1}}
  Layout{lines,per_line,spacing:c.depth/(per_line-1) as f64,piers:lines*per_line,needed,load,capacity,ext10,ext5}
 }
+/// Wide-flange beams the pier lines can use: (name, lb/ft, depth in, flange width in, flange t in, web t in, Sx in³, Ix in⁴).
+pub const SHAPES:[(&str,f64,f64,f64,f64,f64,f64,f64);9]=[("W8×18",18.,8.14,5.25,0.33,0.23,15.2,61.9),("W10×22",22.,10.17,5.75,0.36,0.24,23.2,118.),("W8×24",24.,7.93,6.5,0.4,0.245,20.9,82.7),("W12×26",26.,12.22,6.49,0.38,0.23,33.4,204.),("W10×33",33.,9.73,7.96,0.435,0.29,35.,171.),("W12×35",35.,12.5,6.56,0.52,0.3,45.6,285.),("W12×40",40.,11.94,8.01,0.515,0.295,51.5,307.),("W12×50",50.,12.19,8.08,0.64,0.37,64.2,391.),("W14×61",61.,13.89,10.,0.645,0.375,92.1,640.)];
+pub struct Beam{pub shape:usize,pub span:f64,pub tributary:f64,pub plf:f64,pub moment:f64,pub s_req:f64,pub i_req:f64}
+/// Lightest A992 (Fy 50 ksi) beam for one pier line: simple span between piers (splices land on the caps), the
+/// house load over the floor width the line carries, bending at 0.66 Fy with the top flange braced by the nailer
+/// and floor, and total-load deflection held to L/240.
+pub fn size_beam(span_ft:f64,tributary_ft:f64,psf:f64)->Beam{
+ let plf=psf*tributary_ft;let w=plf/1000./12.;let l=span_ft*12.;let moment=w*l*l/8.;let s_req=moment/(0.66*50.);let i_req=5.*w*l.powi(3)*240./(384.*29000.);
+ let shape=(0..SHAPES.len()).find(|&i|SHAPES[i].6>=s_req&&SHAPES[i].7>=i_req).unwrap_or(SHAPES.len()-1);
+ Beam{shape,span:span_ft,tributary:tributary_ft,plf,moment,s_req,i_req}
+}
+/// Interior lines carry a full line spacing of floor; the two side lines half of it plus the exterior wall line,
+/// taken as 60% of a spacing.
+pub fn beams(c:&Config,l:&Layout)->(Beam,Beam){let psf=house_kips_per_sqft(c.stories)*1000.;let gap=c.width/(l.lines-1)as f64;let inner=if l.lines>2{gap}else{gap*0.6};(size_beam(l.spacing,inner,psf),size_beam(l.spacing,gap*0.6,psf))}
 pub fn summary(c:&Config)->Value{
  if c.foundation!=HELICAL{return json!({"type":c.foundation})}
  let l=layout(c);
- json!({"type":c.foundation,"beam":if steel(c){"steel"}else{"lvl"},"piers":l.piers,"girderLines":l.lines,"piersPerLine":l.per_line,"spacingFeet":round(l.spacing),"depthFeet":c.pier_depth,"kipsPerPier":round(l.capacity),"houseKips":round(l.load),"piersNeeded":l.needed,"tenFootExtensions":l.ext10,"fiveFootExtensions":l.ext5,
+ let beam_sizes={let(i,e)=beams(c,&l);let sh=|b:&Beam|{let x=SHAPES[b.shape];json!({"name":x.0,"lbPerFt":x.1,"depthIn":x.2,"flangeIn":x.3,"flangeThickIn":x.4,"webIn":x.5,"spanFeet":round(b.span),"tributaryFeet":round(b.tributary),"plf":b.plf.round(),"sRequired":round(b.s_req),"sProvided":x.6,"iRequired":round(b.i_req),"iProvided":x.7})};json!({"interior":sh(&i),"side":sh(&e)})};
+ json!({"type":c.foundation,"beam":if steel(c){"steel"}else{"lvl"},"piers":l.piers,"girderLines":l.lines,"piersPerLine":l.per_line,"spacingFeet":round(l.spacing),"depthFeet":c.pier_depth,"kipsPerPier":round(l.capacity),"houseKips":round(l.load),"piersNeeded":l.needed,"tenFootExtensions":l.ext10,"fiveFootExtensions":l.ext5,"beamSizes":beam_sizes,
   "basis":"Example soil torque profile and loads from the process simulator; installation torque × Kt 9 ÷ 2. A site soil report, the installer's torque logs and an engineer set the final count and depth."})
 }
 pub fn add_items(t:&mut model::Takeoff,c:&Config){
@@ -42,7 +59,11 @@ pub fn add_items(t:&mut model::Takeoff,c:&Config){
  let lf=l.lines as f64*c.depth;
  if steel(c){
   count!("pier-caps","New-construction pier cap brackets · steel beam saddle",p,"each",95.,"One bolted cap per pier with a saddle sized for the beam flange.");
-  t.add("pier-beams","Foundation","Pier-line steel beams · W10×22 wide flange, shop primed",lf,"linear ft",46.,"Steel beams under both side walls and each 16-ft floor-panel joint, seated in the pier-cap saddles; splices at caps. Sizing and spans require engineering.","Pier foundation estimate",true,false);
+  let(ib,sb)=beams(c,&l);let(si,ss)=(SHAPES[ib.shape],SHAPES[sb.shape]);let inner=l.lines.saturating_sub(2)as f64;
+  // Primed A992 beams run about $2.10 per pound of beam per foot, cut and drilled.
+  let price=(inner*si.1+2.*ss.1)/l.lines as f64*2.1;
+  let name=if inner>0.&&si.0!=ss.0{format!("Pier-line steel beams · {} interior, {} side lines, shop primed",si.0,ss.0)}else{format!("Pier-line steel beams · {} wide flange, shop primed",if inner>0.{si.0}else{ss.0})};
+  t.add("pier-beams","Foundation",&name,lf,"linear ft",price,&format!("Sized for a {:.1} ft span between piers: interior lines carry {:.0} lb/ft (needs Sx {:.1} in³, Ix {:.0} in⁴; {} gives {} / {}), side lines {:.0} lb/ft ({}). A992 steel, 0.66 Fy bending, L/240 deflection, simple spans spliced at the caps. Final sizing requires engineering.",ib.span,ib.plf,ib.s_req,ib.i_req,si.0,si.6,si.7,sb.plf,ss.0),"Pier foundation estimate",true,false);
   t.add("pier-nailers","Foundation","Beam-top nailer · pressure-treated 2×6 on the top flange",lf,"linear ft",2.4,"A continuous treated nailer along every beam; the floor panels are fastened down to it.","Pier foundation estimate",true,false);
   count!("pier-nailer-bolts","Nailer-to-flange bolts · ½ in with washers, 24 in on center",(lf/2.).ceil(),"each",2.2,"Two-foot spacing along each beam, staggered across the flange.");
   count!("pier-connections","Beam-to-cap bolted saddle connection sets",p,"sets",42.,"One bolted saddle connection per pier cap, uplift-rated.");

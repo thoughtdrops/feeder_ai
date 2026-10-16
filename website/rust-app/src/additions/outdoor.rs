@@ -9,7 +9,10 @@ pub fn kind(c:&Config)->&str{
 
 pub fn apply(c:&Config,m:&mut Value,t:&mut model::Takeoff){
     let kind=kind(c);if kind=="None"{m["rearOutdoor"]=Value::Null;return}
-    let w=grid(c.rear_width.min(c.width)).max(4.);let d=c.rear_depth;let ground=if c.stories>=2{&m["levels"][0]}else{&*m};let center=ground["walls"].as_array().unwrap().iter().filter(|wall|s(wall,"axis")=="x"&&near(n(wall,"z"),c.depth)).flat_map(|wall|wall["openings"].as_array().unwrap()).find(|o|s(o,"kind")=="door").map(|o|n(o,"at")+n(o,"width")/2.).unwrap_or(c.width/2.);let x=grid(center-w/2.).clamp(0.,c.width-w);let z=c.depth;let deck_y=0.2;
+    // L, T and U homes: the deck goes on the widest stretch of rear wall that no addition covers.
+    let mut spans=vec![(0.,c.width)];for g in crate::wings::rects(c){spans=spans.into_iter().flat_map(|(a,b):(f64,f64)|{let mut out=vec![];if g.x>a{out.push((a,g.x.min(b)))}if g.x+g.w<b{out.push(((g.x+g.w).max(a),b))}out}).filter(|(a,b)|b-a>0.01).collect();}
+    let Some((lo,hi))=spans.into_iter().max_by(|a,b|(a.1-a.0).total_cmp(&(b.1-b.0)))else{m["rearOutdoor"]=Value::Null;return};if hi-lo<6.{m["rearOutdoor"]=Value::Null;return}
+    let w=grid(c.rear_width.min(hi-lo)).max(4.);let d=c.rear_depth;let ground=if c.stories>=2{&m["levels"][0]}else{&*m};let center=ground["walls"].as_array().unwrap().iter().filter(|wall|s(wall,"axis")=="x"&&near(n(wall,"z"),c.depth)).flat_map(|wall|wall["openings"].as_array().unwrap()).filter(|o|s(o,"kind")=="door").map(|o|n(o,"at")+n(o,"width")/2.).find(|mid|*mid>lo&&*mid<hi).unwrap_or((lo+hi)/2.);let x=grid(center-w/2.).clamp(lo,(hi-w).max(lo));let z=c.depth;let deck_y=0.2;
     let count=(w/(16./12.)).ceil()as usize;let joists:Vec<_>=(0..=count).map(|i|json!({"a":[x+w*i as f64/count as f64,deck_y-0.33,z],"b":[x+w*i as f64/count as f64,deck_y-0.33,z+d],"length":d,"stockLength":(d/2.).ceil()*2.})).collect();
     let beam_rows=(d/8.).ceil()as usize;let stations=(w/8.).ceil()as usize;let mut posts=vec![];let mut beams=vec![];
     for row in 1..=beam_rows{let rz=z+d*row as f64/beam_rows as f64;beams.push(json!({"a":[x,deck_y-0.7,rz],"b":[x+w,deck_y-0.7,rz],"length":w}));for i in 0..=stations{posts.push(json!({"x":x+w*i as f64/stations as f64,"z":rz,"height":if kind=="Covered porch"{c.wall_height-0.4}else{3.2},"structuralHeight":if kind=="Covered porch"{c.wall_height-0.4}else{3.2}}));}}

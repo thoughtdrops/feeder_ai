@@ -116,6 +116,7 @@ fn generate_once(current: &Config, mode: &str, seed: u32, keep_size: bool, grow:
     }
     // A low-slope style can't carry the visitor's steep-roof covering; fall back to the style's own roofing.
     if c.roofing != "Style matched" && c.pitch + 1e-9 < roofing::min_pitch(roofing::kind(&c)) { c.roofing = "Style matched".into(); }
+    if mode=="Premium"{c.shape=["L-shape","T-shape","U-shape","Rectangle"][random.pick(4)].into();c.wing_width=14.+2.*random.pick(4)as f64;c.wing_depth=16.+2.*random.pick(4)as f64;}else{c.shape="Rectangle".into();}
     validate(&c)?;
     c.layout=heritage::plan_name(&c.home_style);
     if practical(&c,&model::build(&c)){Ok(c)}else{Err("These dimensions do not fit the selected source-based room program and fixtures. Increase the footprint or reduce bedrooms, or use Blank slate to create your own layout.".into())}
@@ -158,6 +159,8 @@ pub fn surprise(current:&Config, seed:u32, keep_size:bool) -> Result<Config,Stri
         c.ceiling=if roof::cathedral_ok(&c)&&r.pick(10)<3{"Cathedral".into()}else{"Flat ceiling".into()};
         c.rear_outdoor="Style matched".into();c.balcony="Style matched".into();c.window_style="Style matched".into();c.window_size="Style matched".into();
         c.layout=heritage::plan_name(&c.home_style);
+        // Shapes: about half the homes stay rectangles, the rest get L, T or U additions in 2-ft steps.
+        c.shape=["Rectangle","Rectangle","L-shape","T-shape","U-shape","Rectangle"][r.pick(6)].into();c.wing_width=12.+2.*r.pick(5)as f64;c.wing_depth=14.+2.*r.pick(5)as f64;
         match validate(&c){Err(e)=>{last=e;continue}Ok(())=>{}}
         if practical(&c,&model::build(&c)){return Ok(c)}last="The room program did not fit.".into();
     }

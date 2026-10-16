@@ -99,7 +99,7 @@ pub fn apply(c:&Config,mut m:Value)->Value{
  add!("crawl-girder","Foundation","Crawlspace panel-joint engineered girder allowance",girder_lf,"linear ft",32.,"Proposed girder under each 16-ft panel joint; sizing, reactions and foundations pending.",false);
  add!("crawl-piers","Foundation","Crawlspace girder pier / pad material allowance",girder_lines*((c.depth/8.).ceil()+1.),"sets",145.,"Proposed supports up to 8 ft apart; no load capacity assigned.",true);
  t.add("crawl-access","Foundation","Crawlspace access hatch / weather seals",1.,"set",160.,"One access assembly; ordering waste does not apply. Access size and location require local construction detailing.","Panel assembly estimate",false,true);
- }else{piers::add_items(&mut t,c);}
+ }else{piers::add_items(&mut t,c);}wings::add_items(&mut t,c);
  if c.foundation==piers::CONCRETE{t.add("crawl-moisture","Foundation","Crawlspace moisture / ventilation system allowance",1.,"set",650.,"One system allowance; ordering waste does not apply. Placeholder for an approved vented or conditioned crawlspace strategy; ground moisture control is not supplied by ZIP wall sheathing.","Panel assembly estimate",false,true);}
  if !surfaces::tile(&c.floor).is_some(){add!("vinylunderlay","Interior","Vinyl underlayment · 1/4 in 4 × 8 panel",floor_area/32.,"sheets",24.,"All usable finished floors; staircase void deducted.",true);}
  let levels=rows(&m);let mut sound=0.;let mut furring=0.;let mut screen=0.;let mut joints=0.;

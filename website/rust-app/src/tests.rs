@@ -147,7 +147,7 @@ fn compact_two_story_programs_fit_24_foot_shells_and_both_tiers() {
     assert_eq!(next.width,width);assert_eq!(next.depth,depth);
     for level in m["levels"].as_array().unwrap() {
      let rs:Vec<Room>=serde_json::from_value(level["rooms"].clone()).unwrap();
-     assert!(near(rs.iter().map(|r|r.w*r.d).sum(),width*depth));
+     assert!(near(rs.iter().filter(|r|!wings::is_wing(&r.id)).map(|r|r.w*r.d).sum(),width*depth));
      for (i,r) in rs.iter().enumerate() {
       assert!([r.x,r.z,r.w,r.d].iter().all(|v|near(*v/2.,(*v/2.).round())));
       for other in &rs[i+1..] {assert!((r.x+r.w).min(other.x+other.w)<=r.x.max(other.x)+1e-8||(r.z+r.d).min(other.z+other.d)<=r.z.max(other.z)+1e-8);}
@@ -739,4 +739,45 @@ fn audit_regressions_stair_rails_and_metric_loads(){
  // 40 / 20 psf shown in kPa come back as the table loads, not 40.1 / 20.05.
  assert_eq!(crate::units::to_engine(&crate::units::num(40.*crate::units::PSF_KPA,2),"psf",Some(0.5)),"40");
  assert_eq!(crate::units::to_engine(&crate::units::num(20.*crate::units::PSF_KPA,2),"psf",Some(0.5)),"20");
+}
+#[test]fn steel_pier_beams_are_sized_to_span_and_load(){
+ let mut c=Config::default();c.width=32.;c.depth=32.;c.stories=2;let l=piers::layout(&c);assert_eq!((l.lines,l.per_line,l.piers),(3,3,9),"a 32 × 32 ft house sits on a 3 × 3 pier grid");
+ let(i,e)=piers::beams(&c,&l);assert_eq!(piers::SHAPES[i.shape].0,"W12×35");assert_eq!(piers::SHAPES[e.shape].0,"W10×22");
+ for b in [&i,&e]{let x=piers::SHAPES[b.shape];assert!(x.6>=b.s_req&&x.7>=b.i_req);if b.shape>0{let lighter=piers::SHAPES[..b.shape].iter().all(|y|y.6<b.s_req||y.7<b.i_req);assert!(lighter,"the lightest passing shape is chosen");}}
+ // Heavier houses need deeper beams at the same spacing; shorter spans need lighter ones.
+ c.stories=1;let(i1,_)=piers::beams(&c,&piers::layout(&c));assert!(piers::SHAPES[i1.shape].1<piers::SHAPES[i.shape].1);
+ let short=piers::size_beam(8.,16.,181.);assert!(piers::SHAPES[short.shape].1<piers::SHAPES[i.shape].1);
+ let m=model::build(&{let mut c=Config::default();c.width=32.;c.depth=32.;c});assert_eq!(m["foundation"]["beamSizes"]["interior"]["name"],"W12×35");
+ let mut old=Config::default();old.pier_beam=piers::LEGACY_STEEL.into();assert!(validate(&old).is_ok()&&piers::steel(&old));
+}
+#[test]fn lsl_studs_are_stronger_and_checked_against_floor_loads(){
+ let(sawn,by)=structural::stud_capacity(structural::SAWN,8.09375);let(lsl,_)=structural::stud_capacity(structural::LSL,8.09375);
+ assert_eq!(by,"bearing on the plates");assert!(lsl>sawn*1.7&&lsl<sawn*2.2,"LSL with LSL plates carries roughly twice the sawn stud: {} vs {}",lsl,sawn);
+ let mut c=Config::default();let m=model::build(&c);let st=&m["structural"]["studs"];assert!(n(st,"demandLb")>0.&&n(st,"utilization")>0.);assert!(n(st,"bendingRatio")>1.9);
+ c.floor_live_load=300.;c.floor_dead_load=200.;let heavy=model::build(&c);assert!(heavy["structural"]["issues"].as_array().unwrap().iter().any(|i|i.as_str().unwrap().contains("bearing studs")));
+ c.stud_type="LSL studs".into();let lsl_m=model::build(&c);assert!(n(&lsl_m["structural"]["studs"],"utilization")<n(&heavy["structural"]["studs"],"utilization"));
+ assert!(lsl_m["frameMembers"].as_array().map_or(true,|ms|ms.iter().filter(|m|s(m,"role").contains("plate")).all(|m|s(m,"material")=="LSL 2x6")));
+}
+#[test]fn house_shapes_add_wings_with_rooms_walls_roofs_and_pricing(){
+ for stories in [1usize,2]{for(shape,count)in[("Rectangle",0),("L-shape",1),("T-shape",1),("U-shape",2)]{
+  let mut c=Config::default();c.stories=stories;c.width=40.;c.depth=36.;c.shape=shape.into();c.rear_outdoor="Deck".into();c.wing_width=16.;c.wing_depth=18.;assert!(validate(&c).is_ok(),"{}",shape);
+  let m=model::build(&c);let ground=if stories>=2{&m["levels"][0]}else{&m};assert_eq!(m["wings"].as_array().unwrap().len(),count,"{}",shape);
+  let rooms=ground["rooms"].as_array().unwrap();let walls=ground["walls"].as_array().unwrap();let fs=ground["furniture"].as_array().unwrap();
+  for g in m["wings"].as_array().unwrap(){
+   let(x,z,w,d)=(n(g,"x"),n(g,"z"),n(g,"w"),n(g,"d"));assert_eq!(z,c.depth);assert!(x>=0.&&x+w<=c.width);assert!(near(w/2.,(w/2.).round())&&near(d/2.,(d/2.).round()));
+   let inside:Vec<&Value>=rooms.iter().filter(|r|n(r,"x")>=x-1e-6&&n(r,"x")+n(r,"w")<=x+w+1e-6&&n(r,"z")>=z-1e-6).collect();assert!(!inside.is_empty());
+   assert!(inside.iter().all(|r|fs.iter().any(|f|s(f,"roomId")==s(r,"id"))),"every wing room is furnished in {}",shape);
+   for prefix in ["XL-","XR-","XB-"]{let wall=walls.iter().find(|wl|s(wl,"id")==format!("{}{}",prefix,s(g,"id"))).expect("wing wall");assert!(wall["exterior"]==true);assert!(wall["openings"].as_array().unwrap().iter().any(|o|s(o,"kind")=="window"),"{} has windows",prefix);}
+   let rear=walls.iter().find(|wl|s(wl,"id")=="E2").unwrap();let inside_rear:Vec<&Value>=rear["openings"].as_array().unwrap().iter().filter(|o|n(o,"at")>=x&&n(o,"at")+n(o,"width")<=x+w).collect();
+   assert_eq!(inside_rear.len(),1,"one way into the wing");assert!(s(inside_rear[0],"kind")!="window");
+   assert!(n(&g["roof"],"area")>w*d&&n(&g["roof"],"rise")>0.);
+   if let Some(rect)=m["rearOutdoor"]["rectangles"].get(0){assert!(n(rect,"x")+n(rect,"w")<=x+1e-6||n(rect,"x")>=x+w-1e-6,"the deck stays off the {} addition",shape);}
+  }
+  let items=m["items"].as_array().unwrap();let has=|id:&str|items.iter().any(|i|s(i,"id")==id);assert_eq!(has("wing-floor-panels"),count>0);assert_eq!(has("wing-piers"),count>0);
+  if count>0{let mut r=c.clone();r.shape="Rectangle".into();let base=model::build(&r);assert!(n(&m,"subtotal")>n(&base,"subtotal"));assert!(n(&m["siteBounds"],"maxZ")>=c.depth+c.wing_depth);
+   assert!(n(&m,"area")>n(&base,"area")+0.9*count as f64*16.*18.);}
+ }}
+ let mut c=Config::default();c.shape="Hexagon".into();assert!(validate(&c).is_err());c.shape="L-shape".into();c.wing_width=15.;assert!(validate(&c).is_err());c.wing_width=50.;assert!(validate(&c).is_err());
+ // A U on a narrow house trims each wing so the rear wall stays open between them.
+ c.wing_width=40.;c.width=30.;c.shape="U-shape".into();let ws=wings::rects(&c);assert_eq!(ws.len(),2);assert!(ws[0].x+ws[0].w+4.<=ws[1].x+1e-6);
 }
