@@ -22,7 +22,7 @@ pub fn header(w:&Wall,o:&Opening,c:&Config)->(f64,&'static str){if !structural::
 pub fn add_backing(ms:&mut Vec<Member>,ws:&[Wall],c:&Config,fs:&[staging::Furniture]){
  let mut seen=std::collections::BTreeSet::new();
  for f in fs{
-  let rows:Vec<f64>=match f.kind.as_str(){"kitchen"|"pantry-cabinet"=>vec![2.8,4.5,6.8],"shower"|"toilet"=>vec![2.8,3.5],"vanity"|"double-vanity"=>vec![2.8],"console"=>vec![3.5,5.],"wallbed"=>vec![c.wall_height-0.5],_=>continue};
+  let rows:Vec<f64>=match f.kind.as_str(){"kitchen"|"counter-run"|"pantry-cabinet"|"pantry-tower"=>vec![2.8,4.5,6.8],"shower"|"toilet"=>vec![2.8,3.5],"vanity"|"double-vanity"=>vec![2.8],"console"=>vec![3.5,5.],"wallbed"=>vec![c.wall_height-0.5],_=>continue};
   let direction=(f.rotation/std::f64::consts::FRAC_PI_2).round()as i32;
   if (f.rotation-direction as f64*std::f64::consts::FRAC_PI_2).abs()>0.05{continue}
   let along=direction.rem_euclid(2)==0;

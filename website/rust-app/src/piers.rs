@@ -3,6 +3,10 @@ use crate::*;
 // torque profile, shaft rating, Kt and house loads, so the studio and the simulation agree.
 pub const HELICAL:&str="Helical piers";
 pub const CONCRETE:&str="Concrete crawlspace";
+/// What the floor sits on between pier caps. Steel is the default: wide-flange beams bolted into the cap
+/// saddles, a treated nailer bolted along the top flange, and the floor panels fastened to the nailer.
+pub const BEAMS:[&str;2]=["Steel W10×22 beam","Engineered LVL girder"];
+pub fn steel(c:&Config)->bool{c.pier_beam!=BEAMS[1]}
 const SOIL_T:[(f64,f64);10]=[(0.,250.),(12.,450.),(48.,800.),(96.,1300.),(168.,2100.),(240.,3300.),(288.,5000.),(320.,6600.),(350.,7800.),(420.,9200.)];
 const T_MAX:f64=8000.;const KT:f64=9.;const SAFETY:f64=2.;
 const LEAD_FT:f64=7.;const EXT_FT:f64=10.;const SHORT_FT:f64=5.;const REVEAL_FT:f64=1.;const MAX_SPACING:f64=16.;
@@ -24,7 +28,7 @@ pub fn layout(c:&Config)->Layout{
 pub fn summary(c:&Config)->Value{
  if c.foundation!=HELICAL{return json!({"type":c.foundation})}
  let l=layout(c);
- json!({"type":c.foundation,"piers":l.piers,"girderLines":l.lines,"piersPerLine":l.per_line,"spacingFeet":round(l.spacing),"depthFeet":c.pier_depth,"kipsPerPier":round(l.capacity),"houseKips":round(l.load),"piersNeeded":l.needed,"tenFootExtensions":l.ext10,"fiveFootExtensions":l.ext5,
+ json!({"type":c.foundation,"beam":if steel(c){"steel"}else{"lvl"},"piers":l.piers,"girderLines":l.lines,"piersPerLine":l.per_line,"spacingFeet":round(l.spacing),"depthFeet":c.pier_depth,"kipsPerPier":round(l.capacity),"houseKips":round(l.load),"piersNeeded":l.needed,"tenFootExtensions":l.ext10,"fiveFootExtensions":l.ext5,
   "basis":"Example soil torque profile and loads from the process simulator; installation torque × Kt 9 ÷ 2. A site soil report, the installer's torque logs and an engineer set the final count and depth."})
 }
 pub fn add_items(t:&mut model::Takeoff,c:&Config){
@@ -35,7 +39,16 @@ pub fn add_items(t:&mut model::Takeoff,c:&Config){
  count!("pier-ext10","Helical pier extensions · 10 ft",p*l.ext10 as f64,"each",210.,"Extensions to reach the set depth plus a 1 ft reveal; the offcut is plasma-cut at the laser line.");
  count!("pier-ext5","Helical pier extensions · 5 ft",p*l.ext5 as f64,"each",125.,"A short extension is used where it reaches the set depth, so finished piers don't stand tall.");
  count!("pier-couplers","Extension coupler bolt sets · two 3/4 in bolts",p*(l.ext10+l.ext5) as f64,"sets",12.,"One bolted coupler per extension joint.");
- count!("pier-caps","New-construction pier cap brackets",p,"each",85.,"One bolted cap per pier, ready for the girder.");
- t.add("pier-girders","Foundation","Pier-line girders · 3-ply 1¾ × 11⅞ in LVL",l.lines as f64*c.depth,"linear ft",32.,"Girders under both side walls and each 16-ft floor-panel joint; sizing, splices and spans require engineering.","Pier foundation estimate",true,false);
- count!("pier-connections","Girder-to-cap uplift connection sets",p,"sets",28.,"One connection set per pier cap.");
+ let lf=l.lines as f64*c.depth;
+ if steel(c){
+  count!("pier-caps","New-construction pier cap brackets · steel beam saddle",p,"each",95.,"One bolted cap per pier with a saddle sized for the beam flange.");
+  t.add("pier-beams","Foundation","Pier-line steel beams · W10×22 wide flange, shop primed",lf,"linear ft",46.,"Steel beams under both side walls and each 16-ft floor-panel joint, seated in the pier-cap saddles; splices at caps. Sizing and spans require engineering.","Pier foundation estimate",true,false);
+  t.add("pier-nailers","Foundation","Beam-top nailer · pressure-treated 2×6 on the top flange",lf,"linear ft",2.4,"A continuous treated nailer along every beam; the floor panels are fastened down to it.","Pier foundation estimate",true,false);
+  count!("pier-nailer-bolts","Nailer-to-flange bolts · ½ in with washers, 24 in on center",(lf/2.).ceil(),"each",2.2,"Two-foot spacing along each beam, staggered across the flange.");
+  count!("pier-connections","Beam-to-cap bolted saddle connection sets",p,"sets",42.,"One bolted saddle connection per pier cap, uplift-rated.");
+ }else{
+  count!("pier-caps","New-construction pier cap brackets",p,"each",85.,"One bolted cap per pier, ready for the girder.");
+  t.add("pier-girders","Foundation","Pier-line girders · 3-ply 1¾ × 11⅞ in LVL",lf,"linear ft",32.,"Girders under both side walls and each 16-ft floor-panel joint; sizing, splices and spans require engineering.","Pier foundation estimate",true,false);
+  count!("pier-connections","Girder-to-cap uplift connection sets",p,"sets",28.,"One connection set per pier cap.");
+ }
 }

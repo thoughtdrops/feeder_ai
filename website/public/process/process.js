@@ -381,6 +381,8 @@ function stepPier() {
 }
 
 /* ---------- House ---------- */
+// Steel W10x22 beams (10.17 in) plus a 1.5 in nailer keep the same 11 7/8 in depth as the LVL girders they replace.
+const STEEL_BEAMS = !(DESIGN && DESIGN.foundation && DESIGN.foundation.beam === 'lvl');
 const GIRDER_D = 11.875, GIRDER_W = 5.25, FLOOR_T = DESIGN ? (DESIGN.floorGap > 0.5 && DESIGN.floorGap < 4 ? DESIGN.floorGap * 12 : 16.71875) : 12.625, WALL_H = DESIGN ? DESIGN.wallHeight * 12 : 96, EXT_T = 6.5, INT_T = 4.5, ROOF_T = DESIGN ? 16.625 : 12;
 const PITCH_A = Math.atan(10 / 12), ROOF_SLOPE = 264;
 const RISE = (L / 2) * Math.tan(PITCH_A);
@@ -1652,6 +1654,14 @@ function buildHouseObjects() {
       mesh = new THREE.Mesh(flatGeo(e.len, e.thick, e.h, e.hole ? { x0: e.hole.x0, x1: e.hole.x1, z0: e.hole.z0 - e.zoff, z1: e.hole.z1 - e.zoff } : null), [M.stud, M.lvl, M.lvl]);
     } else if (e.shape === 'roof') {
       mesh = new THREE.Mesh(e.poly ? polyGeo(e.poly, e.h) : flatGeo(e.len, e.thick, e.h, null), [M.stud, M.lvl, M.lvl]);
+    } else if (e.kind === 'girder' && STEEL_BEAMS) {
+      // W10x22 wide-flange beam in the cap saddles, with a treated 2x6 nailer bolted along the top flange;
+      // the floor panels land on the nailer.
+      const d = 10.17, bf = 5.75, tf = 0.36, tw = 0.24, nail = 1.5, bot = -e.h / 2;
+      const flange = (y) => { const f = inchBox(e.len, tf, bf, M.steelDark); f.position.y = y; f.castShadow = f.receiveShadow = true; root.add(f); };
+      flange(bot + tf / 2); flange(bot + d - tf / 2);
+      mesh = inchBox(e.len, d - 2 * tf, tw, M.steelDark); mesh.position.y = bot + d / 2;
+      const nailer = inchBox(e.len, nail, 5.5, M.lvl); nailer.position.y = e.h / 2 - nail / 2; nailer.castShadow = nailer.receiveShadow = true; root.add(nailer);
     } else {
       mesh = inchBox(e.len, e.h, e.thick, M.lvl);
       if (e.shape === 'beampost') { const p = inchBox(5.5, e.postH, 5.5, M.lvl); p.position.set(e.postX - e.pos.x, -e.h / 2 - e.postH / 2, 0); root.add(p); }
@@ -3685,7 +3695,7 @@ const btn = { start: $('#btnStart'), next: $('#btnNext'), end: $('#btnEnd'), res
 const PANELS = () => ELEMS.filter((e) => e.fab > 0).length;
 function txt(id, v) { const el = $(id); v = mt(v); if (el && el.textContent !== v) el.textContent = v; }
 function bar(id, p) { const el = $(id); if (el) el.style.width = (clamp(p, 0, 1) * 100).toFixed(1) + '%'; }
-const KIND_WORD = { floor: 'floor panel', ext: 'wall panel', int: 'interior wall', gable: 'gable', roof: 'roof panel', girder: 'girder', beam: 'beam', ridge: 'ridge beam' };
+const KIND_WORD = { floor: 'floor panel', ext: 'wall panel', int: 'interior wall', gable: 'gable', roof: 'roof panel', girder: STEEL_BEAMS ? 'steel beam' : 'girder', beam: 'beam', ridge: 'ridge beam' };
 function nowLine(done, total) {
   const t = SITE.t, fabs = ELEMS.filter((e) => e.fab > 0), N = fabs.length;
   if (!SITE.started) return `Ready: ${total} piers and ${N} panels, shell done about ${fmtClockMin(PLAN.total)}.`;
@@ -3698,7 +3708,7 @@ function nowLine(done, total) {
   if (craneInfo) {
     const e = craneInfo.e;
     if (e.fab > 0) parts.push(`craning ${KIND_WORD[e.kind]} ${fabs.indexOf(e) + 1}/${N}`);
-    else if (e.kind === 'girder') parts.push(`craning girder ${e.gi + 1}/${GIRDERS.n}`);
+    else if (e.kind === 'girder') parts.push(`craning ${STEEL_BEAMS ? 'steel beam' : 'girder'} ${e.gi + 1}/${GIRDERS.n}`);
     else parts.push(`craning ${KIND_WORD[e.kind]}`);
   }
   if (lineInfo) {
@@ -3763,7 +3773,7 @@ function narrate() {
   if (craneInfo && craneInfo.e.idx !== lastSetIdx) {
     lastSetIdx = craneInfo.e.idx; const e = craneInfo.e;
     const tip = e.kind === 'girder' ? (DESIGN ? ' The piers at both ends are capped and the beam has moved off, so this girder bay goes on.' : ' Pier row done and the beam has moved off, so its girder goes on the caps.')
-      : e.kind === 'floor' && e.story === 0 ? ' Floor panels land on the girders.'
+      : e.kind === 'floor' && e.story === 0 ? (STEEL_BEAMS ? ' Floor panels land on the steel beams and are fastened down to the treated nailers.' : ' Floor panels land on the girders.')
       : e.kind === 'roof' ? ' Furring strips and metal roofing were added on the line.'
       : e.kind === 'ext' ? ' Sheathing, furring strips and metal siding were done on the line.' : '';
     setStatus(`${fmtClockMin(SITE.t)}: crane setting ${e.name.toLowerCase()}.${tip}`); lastMsgT = wallClock;

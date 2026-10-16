@@ -114,7 +114,7 @@ pub fn stage(c:&Config,rs:&[Room],ws:&[Wall],fs:&mut Vec<staging::Furniture>)->V
         let coffee=fs.iter().find(|f|f.kind=="coffee"&&f.room_id==sofa.room_id).map(|f|f.id.clone());
         let widths:&[f64]=match kind{"u"=>&[12.,11.,10.,9.5],"l"=>&[10.,9.,8.,7.5],_=>&[11.,10.,9.5]};
         // Lamps, plants, side tables and spare lounge chairs make way for the bigger seating group.
-        let movable=|o:&staging::Furniture|o.room_id==sofa.room_id&&["armchair","floorlamp","plant","tall-plant","side-table","floor-vase"].contains(&o.kind.as_str());
+        let movable=|o:&staging::Furniture|o.room_id==sofa.room_id&&["armchair","floorlamp","plant","tall-plant","side-table","floor-vase","bookcase"].contains(&o.kind.as_str());
         let (sin,cos)=(sofa.rotation.sin(),sofa.rotation.cos());
         let mut placed=false;
         'size:for (width,depth) in widths.iter().flat_map(|&w|[(w,if kind=="l"{6.5}else{7.}),(w,6.)]){

@@ -72,7 +72,7 @@ const artwork=()=>canvasTexture('art',512,(g,s)=>{g.fillStyle='#ece6da';g.fillRe
 /** Linear fireplace flames over a dark firebox. */
 const flames=()=>canvasTexture('flames',512,(g,s)=>{g.fillStyle='#120b07';g.fillRect(0,0,s,s);const r=rand(31);for(let i=0;i<26;i++){const x=r()*s,w=20+r()*40,h=s*(.35+r()*.45);const grad=g.createLinearGradient(0,s,0,s-h);grad.addColorStop(0,'rgba(255,190,90,.95)');grad.addColorStop(.45,'rgba(255,120,30,.75)');grad.addColorStop(1,'rgba(255,80,10,0)');g.fillStyle=grad;g.beginPath();g.moveTo(x-w,s);g.quadraticCurveTo(x-w*.3,s-h*.5,x,s-h);g.quadraticCurveTo(x+w*.3,s-h*.5,x+w,s);g.closePath();g.fill();}},false);
 
-export const INTERIOR_KINDS=['kitchen','island','fridge','console','rug','floorlamp','plant','sofa','sectional','coffee'];
+export const INTERIOR_KINDS=['kitchen','counter-run','pantry-tower','island','fridge','console','rug','floorlamp','plant','sofa','sectional','coffee'];
 
 /** Builds a detailed interior piece; returns false for kinds (or choices) this module doesn't draw. */
 export function addInteriorPiece(scene:T.Object3D,f:any,ctx:Ctx):boolean{
@@ -216,6 +216,38 @@ export function addInteriorPiece(scene:T.Object3D,f:any,ctx:Ctx):boolean{
    const sideX=left>-w/2+2?(-w/2+left)/2:(right+w/2)/2;box(sideX-.3,top+.03,.05,1.1,.05,.7,std('#a8794e',.5),.02);
    const bowl=new T.Mesh(new T.SphereGeometry(.38,24,12,0,Math.PI*2,Math.PI/2,Math.PI/2),std('#f2efe8',.25));bowl.position.set(sideX+.6,top+.36,.15);bowl.castShadow=true;group.add(bowl);
    for(let i=0;i<5;i++){const lemon=new T.Mesh(new T.SphereGeometry(.13,16,12),std('#e8c43a',.45));lemon.scale.set(1,.85,1.2);lemon.position.set(sideX+.5+(i%3)*.1,top+.16+Math.floor(i/3)*.1,.1+(i%2)*.12);group.add(lemon);}
+   break;}
+  case 'counter-run':{
+   // An extra run of base cabinets, counter, backsplash and wall storage in the same finishes (L and U kitchens);
+   // runs of 6 ft or more get a glass-door beverage refrigerator at one end.
+   const toe=FLOOR+.33,bodyH=baseTop-toe,fz=front-.02,y0=toe+.05,h=bodyH-.1;
+   box(0,(toe+FLOOR)/2,-.1,w,.33,dp-.2,std('#2b2b2b',.8));
+   const n=Math.max(1,Math.round(w/1.75)),mw=w/n,wine=w>=6;
+   for(let i=0;i<n;i++){const x=-w/2+mw*(i+.5);box(x,toe+bodyH/2,-.04,mw-.01,bodyH,dp-.1,cab);
+    if(wine&&i===n-1){box(x,y0+h/2,fz+.02,mw-.06,h,.06,brushed,.02);box(x,y0+h/2,fz+.05,mw-.3,h-.3,.02,glass);box(x,y0+h/2,-.1,mw-.3,h-.3,.02,std('#ffffff',.6,0,{emissive:'#fff1d6',emissiveIntensity:.35}));for(let k=0;k<4;k++){const yy=y0+.4+k*(h-.6)/4;for(let b=0;b<3;b++){const bottle=cyl(x-mw*.25+b*mw*.25,yy,0,.09,.12,std(['#3c1520','#1f3a24','#e8d9a0'][b%3]!,.3),.09,12);bottle.rotation.x=Math.PI/2;}}bar(x,y0+h-.3,fz+.05,mw*.6,false,brushed);continue;}
+    if(i%2===0){const rows=[.2,.35,.45];let y=y0;for(const r of rows){const dh=h*r;frontPanel(x,y+dh/2,fz,mw-.04,dh-.03,cab,.15);pull(x,y+dh-.16,fz,mw,false);y+=dh;}}
+    else{const top_=h*.2;frontPanel(x,y0+h-top_/2,fz,mw-.04,top_-.03,cab,.12);pull(x,y0+h-top_/2,fz,mw,false);const doors=mw>2.2?2:1;for(let k=0;k<doors;k++){const dw=(mw-.04)/doors,dx=x-(mw-.04)/2+dw*(k+.5);frontPanel(dx,y0+(h-top_)/2,fz,dw-.02,h-top_-.03);pull(dx+(doors===2?(k?-1:1)*(dw/2-.18):dw/2-.18),y0+(h-top_)-.45,fz,dw,true);}}}
+   box(0,baseTop+counterThick/2,0,w+.04,counterThick,dp+.08,counter,.02);
+   const splashH=d.kitchenBacksplash==='Full-height slab'?2.5:1.5;
+   if(d.kitchenBacksplash!=='None'){let from=-w/2;const spans=windowSpans(f,m,top,top+splashH).map(([a,b])=>[a-.25,b+.25]).sort((a,b)=>a[0]!-b[0]!);
+    for(const [a,b] of [...spans,[w/2,w/2]]){const to=Math.min(w/2,a!);if(to-from>.3){let mat:T.Material;if(d.kitchenBacksplash==='Full-height slab')mat=counter;else{const base=d.kitchenBacksplash==='Chevron'?chevron():d.kitchenBacksplash==='Zellige'?zellige([214,226,221]):d.kitchenBacksplash==='Hexagon'?hexagon():subway();const map=base.clone();map.userData={};map.needsUpdate=true;map.repeat.set((to-from)/2,splashH/2);mat=std('#ffffff',.12,0,{map,clearcoat:.8,clearcoatRoughness:.08});}
+     box((from+to)/2,top+splashH/2,-dp/2+.015,to-from,splashH,.02,mat);}from=Math.max(from,b!);}}
+   const blocked=windowSpans(f,m,top+1.5,top+4.25);
+   for(let i=0;i<n;i++){const x=-w/2+mw*(i+.5),x0=x-mw/2,x1=x+mw/2;if(blocked.some(([a,b])=>a<x1+.1&&b>x0-.1))continue;
+    if(d.kitchenUppers==='Open shelving'){box(x,top+2.2,-dp/2+.45,mw-.1,.12,.85,std('#ffffff',.5,0,{map:butcherBlock()}),.01);for(let k=0;k<3;k++)cyl(x-mw*.25+k*mw*.25,top+2.45,-dp/2+.45,.25,.4,std('#f4f2ec',.25,0,{clearcoat:.6}),.25,20);continue;}
+    const uy=top+1.5+1.25;box(x,uy,-dp/2+.5,mw-.01,2.5,1,cab);const doors=mw>2.2?2:1;
+    for(let k=0;k<doors;k++){const dw=(mw-.04)/doors,dx=x-(mw-.04)/2+dw*(k+.5);frontPanel(dx,uy,-dp/2+1.02,dw-.02,2.46);pull(dx+(doors===2?(k?-1:1)*(dw/2-.18):dw/2-.18),uy-.85,-dp/2+1.02,dw,true);}
+    box(x,uy-1.27,-dp/2+.85,mw-.2,.03,.08,warmLight);}
+   // Styling: an espresso machine and a bowl.
+   box(-w/2+.8,top+.55,-.1,.9,1.0,.9,brushed,.06);box(-w/2+.8,top+.25,.2,.5,.06,.25,iron);
+   const bowl=new T.Mesh(new T.SphereGeometry(.32,24,12,0,Math.PI*2,Math.PI/2,Math.PI/2),std('#d9cbb2',.4));bowl.position.set(w*.15,top+.3,.1);bowl.castShadow=true;group.add(bowl);
+   break;}
+  case 'pantry-tower':{
+   // Floor-to-ceiling pantry cabinet: tall doors over roll-out shelves, a stacked cabinet above.
+   const H=Math.max(6.5,Math.min(ceiling-FLOOR-.05,9)),tallH=H*.68;box(0,FLOOR+H/2,-.04,w-.02,H,dp-.08,cab);
+   const doors=w>2.2?2:1;for(let k=0;k<doors;k++){const dw=(w-.06)/doors,dx=-(w-.06)/2+dw*(k+.5);frontPanel(dx,FLOOR+.33+tallH/2,front-.02,dw-.02,tallH);frontPanel(dx,FLOOR+.33+tallH+(H-.33-tallH)/2,front-.02,dw-.02,H-.36-tallH);
+    const px=dx+(doors===2?(k?-1:1)*(dw/2-.15):dw/2-.15);if(style==='Flat slab')box(px,FLOOR+.33+tallH*.55,front+.03,.03,Math.min(2.6,tallH*.6),.03,metal);else bar(px,FLOOR+.33+tallH*.55,front-.02,Math.min(2.2,tallH*.45),true);}
+   box(0,FLOOR+.165,0,w-.1,.33,dp-.2,std('#2b2b2b',.8));box(0,FLOOR+H+.05,0,w+.06,.1,dp+.04,cab);
    break;}
   case 'island':{
    const kind=d.kitchenIsland||'Waterfall island',toe=FLOOR+.33;

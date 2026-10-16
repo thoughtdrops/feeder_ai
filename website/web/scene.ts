@@ -213,7 +213,7 @@ export function renderHouse(el:HTMLElement,payload:any){const {config,model:m,vi
  envScale=applyLook(style,{scene,renderer,sun,hemi,ambient,sky:skyDome,glass,span,h,groundY:frame?-1.85:-.55,indoor:walk,site:{minX:site.minX-w/2,minZ:site.minZ-d/2,maxX:site.maxX-w/2,maxZ:site.maxZ-d/2}});scene.environmentIntensity*=envScale;
  if(mainScene.userData.photoSun)aimAtPhotoSun(mainScene.userData.photoSun);
  // The camera stays inside the photograph's sphere (outside it there is no backdrop to see).
- limitOrbit=(radius:number)=>{if(walk||!radius)return;const max=radius*.82;orbit.maxDistance=Math.min(orbit.maxDistance,max);const offset=camera.position.clone().sub(orbit.target);if(offset.length()>max){camera.position.copy(orbit.target).addScaledVector(offset.normalize(),max);orbit.update();}wake();};
+ limitOrbit=(radius:number)=>{if(walk||!radius)return;const max=radius*.95;orbit.maxDistance=Math.min(orbit.maxDistance,max);const offset=camera.position.clone().sub(orbit.target);if(offset.length()>max){camera.position.copy(orbit.target).addScaledVector(offset.normalize(),max);orbit.update();}wake();};
  const fx=payload.exportOnly?null:createPostFX(style,renderer,scene,camera,mobileGraphics());const raster=()=>{if(fx)fx.render();else renderer.render(scene,camera);};
  // Photoreal: a short burst of jittered frames (soft sun, anti-aliasing, contact shadows) blended when the
  // camera rests; the normal view is drawn while it moves.
