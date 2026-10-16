@@ -122,6 +122,16 @@ fn generate_once(current: &Config, mode: &str, seed: u32, keep_size: bool, grow:
     if practical(&c,&model::build(&c)){Ok(c)}else{Err("These dimensions do not fit the selected source-based room program and fixtures. Increase the footprint or reduce bedrooms, or use Blank slate to create your own layout.".into())}
 }
 
+/// The home a first visit opens on: a two-story Colonial with an attached two-car garage.
+pub fn starter() -> Config {
+    let mut c=Config::default();c.home_style="Colonial".into();c.catalog_plan=true;c.trim_overrides.clear();
+    let home=lookup("homeStyles",&c.home_style);c.siding=s(&home,"cladding").into();c.trim_package=s(&home,"trim").into();
+    for(key,src)in[("siding","siding"),("roof","roof"),("trim","exteriorTrim")]{c.colors.insert(key.into(),s(&home,src).into());}
+    finishes::architecture_defaults(&mut c);c.stories=heritage::default_stories(&c.home_style);c.bedrooms=heritage::default_bedrooms(&c.home_style);
+    architecture::apply(&mut c,true);c.garage="Attached".into();c.garage_side="Automatic".into();
+    if validate(&c).is_ok(){c}else{Config::default()}
+}
+
 /// "Generate another home": a complete, visibly different design on every click — style, size,
 /// stories, bedrooms, roof covering, dormers, garage, ceiling, exterior palette and interior.
 /// Candidates are screened with the same validation and room-program checks as hand edits, and the
@@ -155,7 +165,7 @@ pub fn surprise(current:&Config, seed:u32, keep_size:bool) -> Result<Config,Stri
         if r.pick(2)==0{let(sd,rf,tr)=palettes[r.pick(palettes.len())];for(key,value)in[("siding",sd),("roof",rf),("trim",tr)]{c.colors.insert(key.into(),value.into());}}
         let coverings=[roofing::METAL,roofing::ASPHALT,roofing::CEDAR,roofing::SLATE];c.roofing=if r.pick(10)<7{"Style matched".into()}else{let k=coverings[r.pick(4)];if c.pitch>=roofing::min_pitch(k){k.into()}else{"Style matched".into()}};
         c.dormer_style=if c.pitch>=8.&&r.pick(10)<4{"Style matched".into()}else{"None".into()};c.dormer_count=2;c.dormer_width=4.;c.dormer_depth=8.;c.dormer_side="Automatic".into();
-        c.garage=if r.pick(10)<3{"Attached".into()}else{"None".into()};c.garage_side="Automatic".into();
+        c.garage="Attached".into();c.garage_side="Automatic".into();
         c.ceiling=if roof::cathedral_ok(&c)&&r.pick(10)<3{"Cathedral".into()}else{"Flat ceiling".into()};
         c.rear_outdoor="Style matched".into();c.balcony="Style matched".into();c.window_style="Style matched".into();c.window_size="Style matched".into();
         c.layout=heritage::plan_name(&c.home_style);

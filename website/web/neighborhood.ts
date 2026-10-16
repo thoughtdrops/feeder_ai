@@ -3,8 +3,9 @@ import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {roofMaterial} from './roofing';
 
 // A modeled neighborhood around the lot: one straight residential street in front with curbs, sidewalks,
-// tree lawns and driveways; finished two-story homes across the street and beside the lot; mature street
-// trees (baked from ez-tree, MIT, Daniel Greenheck) and a wooded backdrop. Everything is built once per
+// tree lawns and driveways; six kinds of finished homes (colonial, brick, farmhouse, ranch, Cape Cod,
+// craftsman) across the street and beside the lot; mature street trees (baked from ez-tree, MIT, Daniel
+// Greenheck); a big sand dune behind the lot; and a wooded horizon. Everything is built once per
 // page and reused across scene rebuilds: textures are drawn on canvases, houses are merged into a few draw
 // calls each and trees are instanced, so the whole street costs little more than one extra house.
 
@@ -65,12 +66,26 @@ function materials(o:Opts):Mats{
   brass:std({color:'#b08d4a',roughness:.3,metalness:.9}),
   lamp:std({color:'#1c1d1f',roughness:.45,metalness:.6}),lampGlass:std({color:'#fff3d6',emissive:'#ffe2a8',emissiveIntensity:.25,roughness:.2}),
   mailbox:std({color:'#202224',roughness:.5,metalness:.3}),
+  frameBlack:std({color:'#1d1f21',roughness:.45}),doorRed:std({color:'#7a2a26',roughness:.35}),doorSage:std({color:'#5f6f5a',roughness:.4}),
+  deck:std({color:'#7d7064',roughness:.8}),garageWood:std({map:garageDoor(),bumpMap:garageDoor(),bumpScale:2,roughness:.6,color:'#9a6c45'}),
+  fence:std({color:'#b9a588',roughness:.85}),fenceCap:std({color:'#a8977c',roughness:.8}),
  };
  for(const k of Object.keys(m))m[k]!.userData.persistent=true;
  void o;void tex;return m;
 }
+// Board-and-batten: 12-in boards with a raised batten over each joint (tile = 4 ft).
+const boardTex=()=>canvasTexture('board',512,(c,s,r)=>{c.fillStyle='#f2f2f2';c.fillRect(0,0,s,s);speckle(c,s,r,6000,235,30,.25,1.2);const b=s/4;for(let i=0;i<4;i++){const x=i*b;const g=c.createLinearGradient(x-10,0,x+12,0);g.addColorStop(0,'rgba(0,0,0,.0)');g.addColorStop(.35,'rgba(0,0,0,.28)');g.addColorStop(.45,'#ffffff');g.addColorStop(.85,'#e6e6e6');g.addColorStop(1,'rgba(0,0,0,.18)');c.fillStyle=g;c.fillRect(x-10,0,22,s);}});
+// Cedar shake: staggered 7-in courses of shingles of random width (tile = 4 ft).
+const shakeTex=()=>canvasTexture('shake',512,(c,s,r)=>{const rows=7,h=s/rows;for(let y=0;y<rows;y++){let x=-r()*40;while(x<s){const sw=24+r()*46,g=200+r()*45;c.fillStyle=`rgb(${g},${g},${g})`;c.fillRect(x,y*h,sw,h);c.fillStyle='rgba(0,0,0,.35)';c.fillRect(x,y*h,2,h);for(let k=0;k<5;k++){c.fillStyle=`rgba(0,0,0,${.04+r()*.06})`;c.fillRect(x+r()*sw,y*h,1,h);}x+=sw;}c.fillStyle='rgba(0,0,0,.45)';c.fillRect(0,y*h+h-5,s,5);}});
+// Standing-seam metal roof: a raised seam every 18 in (tile = 4.5 ft along the eave).
+const seamTex=()=>canvasTexture('seam',256,(c,s)=>{c.fillStyle='#e8e8e8';c.fillRect(0,0,s,s);for(let i=0;i<3;i++){const x=i*s/3;c.fillStyle='#ffffff';c.fillRect(x,0,3,s);c.fillStyle='rgba(0,0,0,.35)';c.fillRect(x+3,0,3,s);}});
+let shared:Mats|null=null;
+function sharedMats(o:Opts){if(!shared){shared=materials(o);shared.stone=stoneMat();shared.brick=brickMat();for(const m of [shared.stone,shared.brick])m!.userData.persistent=true;}return shared;}
 const sidingMats=new Map<string,T.MeshStandardMaterial>();
-function sidingMat(color:string){let m=sidingMats.get(color);if(!m){const t=siding();m=new T.MeshStandardMaterial({color,map:t,bumpMap:t,bumpScale:1.4,roughness:.72,side:T.DoubleSide});m.userData.persistent=true;sidingMats.set(color,m);}return m;}
+/** Cladding by "kind:#color" (lap, board or shake). */
+function sidingMat(key:string){let m=sidingMats.get(key);if(!m){const [kind,color]=key.split(':') as [string,string];const t=kind==='board'?boardTex():kind==='shake'?shakeTex():siding();m=new T.MeshStandardMaterial({color,map:t,bumpMap:t,bumpScale:kind==='lap'?1.4:1.8,roughness:kind==='shake'?.85:.72,side:T.DoubleSide});m.userData.persistent=true;sidingMats.set(key,m);}return m;}
+const paintMats=new Map<string,T.MeshStandardMaterial>();
+function paintMat(color:string){let m=paintMats.get(color);if(!m){m=new T.MeshStandardMaterial({color,roughness:.55});m.userData.persistent=true;paintMats.set(color,m);}return m;}
 const shutterMats=new Map<string,T.MeshStandardMaterial>();
 function shutterMat(color:string){let m=shutterMats.get(color);if(!m){const t=shutterTex();m=new T.MeshStandardMaterial({color,map:t,bumpMap:t,bumpScale:1,roughness:.5});m.userData.persistent=true;shutterMats.set(color,m);}return m;}
 const loadedMaps=new Map<string,T.Texture>();
@@ -79,74 +94,108 @@ const stoneMat=()=>{const m=new T.MeshStandardMaterial({map:photoMap('/materials
 const brickMat=()=>new T.MeshStandardMaterial({map:photoMap('/materials/brick-diff.jpg'),normalMap:photoMap('/materials/brick-nor_gl.jpg',false),roughness:.85});
 
 // ---------- One finished house ----------
-type HouseSpec={w:number,d:number,roof:'gable'|'hip',garage:-1|0|1,siding:string,roofColor:string,shutters:string|null,door:'doorNavy'|'doorBlack'|'doorOak',chimney:boolean,porch:boolean,seed:number};
-const PITCH=8/12,FLOOR=9.5,PLINTH=1.6,OVER=1.3;
-/** A two-story home with its front wall on z = 0 facing +z, centered on x = 0 (its garage, if any, extends sideways). */
+// Six common American house types, so the street reads as a real neighborhood rather than one plan repeated.
+type Kind='colonial'|'brick'|'farmhouse'|'ranch'|'cape'|'craftsman';
+type HouseSpec={kind:Kind,w:number,d:number,roof:'gable'|'hip',garage:-1|0|1,siding:string,trim:string,roofColor:string,shutters:string|null,door:'doorNavy'|'doorBlack'|'doorOak'|'doorRed'|'doorSage',chimney:boolean,porch:boolean,seed:number};
+const FLOOR=9.5,PLINTH=1.6;
+// floors, roof pitch, cladding, overhang, porch kind
+const KINDS:Record<Kind,{floors:number,pitch:number,clad:'lap'|'board'|'shake'|'brick',over:number,porch:'portico'|'full'|'craftsman'}>={
+ colonial:{floors:2,pitch:8/12,clad:'lap',over:1.3,porch:'portico'},brick:{floors:2,pitch:8/12,clad:'brick',over:1.1,porch:'portico'},
+ farmhouse:{floors:2,pitch:10/12,clad:'board',over:1.2,porch:'full'},ranch:{floors:1,pitch:5/12,clad:'lap',over:1.8,porch:'portico'},
+ cape:{floors:1,pitch:12/12,clad:'shake',over:1,porch:'portico'},craftsman:{floors:1,pitch:6/12,clad:'shake',over:2.2,porch:'craftsman'}};
+/** A finished home with its front wall on z = 0 facing +z, centered on x = 0 (its garage, if any, extends sideways). */
 function house(spec:HouseSpec,mats:Mats,roofMats:Map<string,T.Material>):T.Group{
- const b:Bucket=new Map(),{w,d}=spec,eave=PLINTH+FLOOR*2,sidingKey='siding:'+spec.siding;
- // Stone plinth, then siding walls (tile 4 ft wide × 4 ft tall).
+ const K=KINDS[spec.kind],PITCH=K.pitch,OVER=K.over,b:Bucket=new Map(),{w,d}=spec,eave=PLINTH+FLOOR*K.floors;
+ const sidingKey=K.clad==='brick'?'brick':`siding:${K.clad}:${spec.siding}`,trimKey=`paint:${spec.trim}`,frameKey=spec.kind==='farmhouse'?'frameBlack':trimKey;
+ const plinth=spec.kind==='craftsman'?3:PLINTH;
+ // Stone plinth, then cladding (tile 4 ft wide × 4 ft tall).
  const walls:[T.Vector3,T.Vector3][]=[[V(-w/2,0,0),V(w/2,0,0)],[V(w/2,0,0),V(w/2,0,-d)],[V(w/2,0,-d),V(-w/2,0,-d)],[V(-w/2,0,-d),V(-w/2,0,0)]];
- for(const [a,c] of walls){put(b,'stone',quad([V(a.x,0,a.z),V(c.x,0,c.z),V(c.x,PLINTH,c.z),V(a.x,PLINTH,a.z)],5,5));put(b,sidingKey,quad([V(a.x,PLINTH,a.z),V(c.x,PLINTH,c.z),V(c.x,eave,c.z),V(a.x,eave,a.z)],4,4));}
- // Corner boards.
- for(const [x,z] of [[-w/2,0],[w/2,0],[w/2,-d],[-w/2,-d]] as const)put(b,'trim',box(x,(PLINTH+eave)/2,z,.55,eave-PLINTH,.55));
- put(b,'trim',box(0,PLINTH+FLOOR,.02,w+.3,.5,.12));put(b,'trim',box(0,PLINTH+FLOOR,-d-.02,w+.3,.5,.12));
+ for(const [a,c] of walls){put(b,'stone',quad([V(a.x,0,a.z),V(c.x,0,c.z),V(c.x,plinth,c.z),V(a.x,plinth,a.z)],5,5));put(b,sidingKey,quad([V(a.x,plinth,a.z),V(c.x,plinth,c.z),V(c.x,eave,c.z),V(a.x,eave,a.z)],4,4));}
+ // Corner boards and a band between floors (brick gets neither).
+ if(K.clad!=='brick'){for(const [x,z] of [[-w/2,0],[w/2,0],[w/2,-d],[-w/2,-d]] as const)put(b,trimKey,box(x,(plinth+eave)/2,z,.55,eave-plinth,.55));
+  if(K.floors>1){put(b,trimKey,box(0,PLINTH+FLOOR,.02,w+.3,.5,.12));put(b,trimKey,box(0,PLINTH+FLOOR,-d-.02,w+.3,.5,.12));}}
+ else{put(b,'concrete',box(0,plinth+.1,.08,w+.2,.2,.2));}
  // Roof.
- const roofKey='roof:'+spec.roofColor,rise=d/2*PITCH,ridgeY=eave+rise,ey=eave-OVER*PITCH,slope=Math.hypot(1,PITCH);
+ const roofKey='roof:'+spec.roofColor,rise=d/2*PITCH,ridgeY=eave+rise,ey=eave-OVER*PITCH;
  const fz=OVER,bz=-d-OVER,xl=-w/2-OVER,xr=w/2+OVER,course=3.75;
+ const roofY=(z:number)=>eave-z*PITCH;                         // height of the front slope above wall line z (z ≤ 0)
  if(spec.roof==='gable'){
   put(b,roofKey,quad([V(xl,ey,fz),V(xr,ey,fz),V(xr,ridgeY,-d/2),V(xl,ridgeY,-d/2)],4,course));
   put(b,roofKey,quad([V(xr,ey,bz),V(xl,ey,bz),V(xl,ridgeY,-d/2),V(xr,ridgeY,-d/2)],4,course));
   for(const sx of [-1,1]){const x=sx*w/2;const p=sx>0?[V(x,eave,0),V(x,eave,-d),V(x,ridgeY,-d/2)]:[V(x,eave,-d),V(x,eave,0),V(x,ridgeY,-d/2)];put(b,sidingKey,tri(p,4,4));
    // Rake boards along both gable edges.
-   for(const [z0,z1] of [[fz,-d/2],[bz,-d/2]] as const){const a=V(sx*(w/2+OVER)-sx*.05,z0===fz?ey:ey,z0),c=V(sx*(w/2+OVER)-sx*.05,ridgeY,z1);const mid=a.clone().add(c).multiplyScalar(.5),len=a.distanceTo(c);const g=new T.BoxGeometry(.12,.75,len);g.rotateX(Math.atan2(c.y-a.y,Math.abs(c.z-a.z))*(z0>z1?1:-1));g.translate(mid.x,mid.y,mid.z);put(b,'trim',g);}}
-  put(b,'trim',box(0,ridgeY+.08,-d/2,w+2*OVER,.22,.5));
+   for(const [z0,z1] of [[fz,-d/2],[bz,-d/2]] as const){const a=V(sx*(w/2+OVER)-sx*.05,ey,z0),c=V(sx*(w/2+OVER)-sx*.05,ridgeY,z1);const mid=a.clone().add(c).multiplyScalar(.5),len=a.distanceTo(c);const g=new T.BoxGeometry(.12,.75,len);g.rotateX(Math.atan2(c.y-a.y,Math.abs(c.z-a.z))*(z0>z1?1:-1));g.translate(mid.x,mid.y,mid.z);put(b,trimKey,g);}
+   // Craftsman knee braces under the deep gable overhang.
+   if(spec.kind==='craftsman')for(const z of [-d*.3,-d*.7]){const g=new T.BoxGeometry(.35,2.6,.35);g.rotateZ(sx*Math.PI/4);g.translate(sx*(w/2+.9),eave-.6+Math.abs(z+d/2)*PITCH*.0,z);put(b,trimKey,g);}}
+  put(b,trimKey,box(0,ridgeY+.08,-d/2,w+2*OVER,.22,.5));
  }else{
   const hx=Math.max(0,w/2-d/2);
   put(b,roofKey,quad([V(xl,ey,fz),V(xr,ey,fz),V(hx,ridgeY,-d/2),V(-hx,ridgeY,-d/2)],4,course));
   put(b,roofKey,quad([V(xr,ey,bz),V(xl,ey,bz),V(-hx,ridgeY,-d/2),V(hx,ridgeY,-d/2)],4,course));
   put(b,roofKey,tri([V(xr,ey,fz),V(xr,ey,bz),V(hx,ridgeY,-d/2)],4,course));put(b,roofKey,tri([V(xl,ey,bz),V(xl,ey,fz),V(-hx,ridgeY,-d/2)],4,course));
-  put(b,'trim',box(0,ridgeY+.08,-d/2,2*hx+.4,.22,.5));
+  put(b,trimKey,box(0,ridgeY+.08,-d/2,2*hx+.4,.22,.5));
  }
  // Soffits, fascia and gutters along the eaves.
  put(b,'soffit',quad([V(xl,eave-.05,0),V(xr,eave-.05,0),V(xr,eave-.05,fz),V(xl,eave-.05,fz)],4,4));put(b,'soffit',quad([V(xr,eave-.05,-d),V(xl,eave-.05,-d),V(xl,eave-.05,bz),V(xr,eave-.05,bz)],4,4));
- for(const z of [fz,bz]){put(b,'trim',box(0,ey-.25,z,xr-xl,.7,.12));put(b,'gutter',box(0,ey-.2,z+(z>0?.22:-.22),xr-xl,.38,.38));}
+ for(const z of [fz,bz]){put(b,trimKey,box(0,ey-.25,z,xr-xl,.7,.12));put(b,'gutter',box(0,ey-.2,z+(z>0?.22:-.22),xr-xl,.38,.38));}
  for(const [x,z] of [[xl+.5,fz+.2],[xr-.5,fz+.2],[xl+.5,bz-.2],[xr-.5,bz-.2]] as const)put(b,'gutter',box(x,ey/2,z,.28,ey,.22));
  // Windows: a bay grid on the front (door in the middle bay), two per floor on the sides, a row on the back.
- const r=rng(spec.seed);const shutters=spec.shutters;
+ const r=rng(spec.seed);const shutters=spec.shutters;const grilles=spec.kind!=='ranch';
  const windowAt=(x:number,y:number,z:number,ry:number,ww:number,wh:number,shut:boolean)=>{
   const s=Math.sin(ry),c=Math.cos(ry),place=(g:T.BufferGeometry,dx:number,dy:number,dz:number)=>{g.rotateY(ry);g.translate(x+dx*c+dz*s,y+dy,z-dx*s+dz*c);return g;};
   put(b,'glass',place(new T.PlaneGeometry(ww,wh),0,wh/2,.03));
-  for(const [dx,dy,sx,sy] of [[0,wh+.17,ww+.7,.34],[0,-.12,ww+.9,.24],[-ww/2-.17,wh/2,.34,wh+.2],[ww/2+.17,wh/2,.34,wh+.2]] as const)put(b,'trim',place(new T.BoxGeometry(sx,sy,.32),dx,dy,.04));
-  // Colonial grilles: 2 columns × 2 rows per sash pair.
-  put(b,'muntin',place(new T.BoxGeometry(.07,wh,.06),0,wh/2,.08));put(b,'muntin',place(new T.BoxGeometry(ww,.1,.08),0,wh*.5,.08));for(const fy of [.25,.75])put(b,'muntin',place(new T.BoxGeometry(ww,.05,.05),0,wh*fy,.08));
+  for(const [dx,dy,sx,sy] of [[0,wh+.17,ww+.7,.34],[0,-.12,ww+.9,.24],[-ww/2-.17,wh/2,.34,wh+.2],[ww/2+.17,wh/2,.34,wh+.2]] as const)put(b,frameKey,place(new T.BoxGeometry(sx,sy,.32),dx,dy,.04));
+  // Meeting rail on every sash; colonial grilles (2 × 2 per sash) except on the ranch's plain modern glass.
+  put(b,frameKey,place(new T.BoxGeometry(ww,.1,.08),0,wh*.5,.08));
+  if(grilles){put(b,frameKey,place(new T.BoxGeometry(.07,wh,.06),0,wh/2,.08));for(const fy of [.25,.75])put(b,frameKey,place(new T.BoxGeometry(ww,.05,.05),0,wh*fy,.08));}
   if(shut&&shutters){for(const sx of [-1,1])put(b,'shutter:'+shutters,place(new T.BoxGeometry(ww*.48,wh+.1,.1),sx*(ww/2+.42+ww*.24),wh/2,.08));}
  };
  const bays=Math.max(3,Math.round(w/9)|1),bw=w/bays,mid=Math.floor(bays/2);
- for(let i=0;i<bays;i++){const x=-w/2+bw*(i+.5);windowAt(x,PLINTH+FLOOR+2.6,0,0,3,5,true);if(i!==mid)windowAt(x,PLINTH+2.6,0,0,3,5.2,true);windowAt(x,PLINTH+FLOOR+2.6,-d,Math.PI,3,5,false);windowAt(x,PLINTH+2.6,-d,Math.PI,3,5,false);}
- for(const sx of [-1,1])for(const f of [0,1])for(const fz2 of [-d*.3,-d*.7]){if(spec.garage===sx&&f===0)continue;windowAt(sx*w/2,PLINTH+f*FLOOR+2.6,fz2,sx*Math.PI/2,2.8,4.6,false);}
- // Front door with a portico.
- const dx=-w/2+bw*(mid+.5);put(b,spec.door,box(dx,PLINTH+3.5,.05,3.3,7,.18));put(b,'trim',box(dx,PLINTH+7.35,.12,4.6,.5,.3));for(const sx of [-1,1])put(b,'trim',box(dx+sx*2,PLINTH+3.6,.12,.45,7.3,.3));put(b,'glass',box(dx,PLINTH+7.95,.1,3.3,.7,.05));put(b,'brass',box(dx+1.2,PLINTH+3.3,.25,.12,.5,.12));
- for(let k=0;k<3;k++)put(b,'concrete',box(dx,PLINTH-(k+.5)*.53,1.2+k*1.1,7.5,.53,1.2+(2-k)*0));
- put(b,'concrete',box(dx,PLINTH-.26,2.2,8,.52,4.4));
- if(spec.porch){const pz=4.6,ph=PLINTH+9;for(const sx of [-1,1]){const col=new T.CylinderGeometry(.42,.48,ph-PLINTH,16);col.translate(dx+sx*3.4,(ph+PLINTH)/2,pz);put(b,'trim',col);}
-  const pr=2.3;put(b,roofKey,quad([V(dx-4.4,ph,pz+.8),V(dx+4.4,ph,pz+.8),V(dx+4.4,ph+pr,0),V(dx-4.4,ph+pr,0)],4,course));put(b,'trim',box(dx,ph-.25,pz+.6,8.8,.6,.25));put(b,'soffit',box(dx,ph-.1,pz/2,8.6,.1,pz));}
+ for(let f=0;f<K.floors;f++){const y=PLINTH+f*FLOOR+2.6;for(let i=0;i<bays;i++){const x=-w/2+bw*(i+.5);if(!(f===0&&i===mid))windowAt(x,y,0,0,spec.kind==='ranch'&&f===0&&Math.abs(i-mid)===1?5:3,f?5:5.2,true);windowAt(x,y,-d,Math.PI,3,5,false);}
+  for(const sx of [-1,1])for(const fz2 of [-d*.3,-d*.7]){if(spec.garage===sx&&f===0)continue;windowAt(sx*w/2,y,fz2,sx*Math.PI/2,2.8,4.6,false);}}
+ // Cape Cod: gable dormers on the steep front slope light the half story.
+ if(spec.kind==='cape'){const n=w>=40?3:2;for(let k=0;k<n;k++){const dx=-w/2+w*(k+.5)/n,zd=-2.4,yb=roofY(zd),yt=yb+5.2,yr=yt+2.3,zt=-(yt-eave)/PITCH,zr=-(yr-eave)/PITCH,hw=2.6;
+   put(b,sidingKey,quad([V(dx-hw,yb,zd),V(dx+hw,yb,zd),V(dx+hw,yt,zd),V(dx-hw,yt,zd)],4,4));put(b,sidingKey,tri([V(dx-hw,yt,zd),V(dx+hw,yt,zd),V(dx,yr,zd)],4,4));
+   put(b,sidingKey,tri([V(dx+hw,yb,zd),V(dx+hw,yt,zt),V(dx+hw,yt,zd)],4,4));put(b,sidingKey,tri([V(dx-hw,yt,zd),V(dx-hw,yt,zt),V(dx-hw,yb,zd)],4,4));
+   put(b,roofKey,quad([V(dx-hw-.45,yt-.1,zd+.5),V(dx,yr+.05,zd+.5),V(dx,yr+.05,zr),V(dx-hw-.45,yt-.1,zt)],4,course));put(b,roofKey,quad([V(dx,yr+.05,zd+.5),V(dx+hw+.45,yt-.1,zd+.5),V(dx+hw+.45,yt-.1,zt),V(dx,yr+.05,zr)],4,course));
+   windowAt(dx,yb+.7,zd,0,2.6,3.8,false);}}
+ // Front door.
+ const dx=-w/2+bw*(mid+.5);put(b,spec.door,box(dx,PLINTH+3.5,.05,3.3,7,.18));put(b,trimKey,box(dx,PLINTH+7.35,.12,4.6,.5,.3));for(const sx of [-1,1])put(b,trimKey,box(dx+sx*2,PLINTH+3.6,.12,.45,7.3,.3));put(b,'glass',box(dx,PLINTH+7.95,.1,3.3,.7,.05));put(b,'brass',box(dx+1.2,PLINTH+3.3,.25,.12,.5,.12));
+ if(K.porch==='portico'){
+  for(let k=0;k<3;k++)put(b,'concrete',box(dx,PLINTH-(k+.5)*.53,1.2+k*1.1,7.5,.53,1.2));
+  put(b,'concrete',box(dx,PLINTH-.26,2.2,8,.52,4.4));
+  if(spec.porch){const pz=4.6,ph=PLINTH+9;for(const sx of [-1,1]){const col=new T.CylinderGeometry(.42,.48,ph-PLINTH,16);col.translate(dx+sx*3.4,(ph+PLINTH)/2,pz);put(b,trimKey,col);}
+   const pr=2.3;put(b,roofKey,quad([V(dx-4.4,ph,pz+.8),V(dx+4.4,ph,pz+.8),V(dx+4.4,ph+pr,0),V(dx-4.4,ph+pr,0)],4,course));put(b,trimKey,box(dx,ph-.25,pz+.6,8.8,.6,.25));put(b,'soffit',box(dx,ph-.1,pz/2,8.6,.1,pz));}
+ }else{
+  // Full-width front porch: a deck on the plinth, a shed roof, posts (farmhouse) or tapered columns on stone piers (craftsman).
+  const pd=8,x0=-w/2+.8,x1=w/2-.8,top=K.floors>1?PLINTH+FLOOR+.5:eave-.35,front=top-pd*.3;
+  put(b,'deck',box(0,PLINTH-.2,pd/2,x1-x0,.4,pd));put(b,'stone',quad([V(x0,0,pd),V(x1,0,pd),V(x1,PLINTH-.4,pd),V(x0,PLINTH-.4,pd)],5,5));
+  for(let k=0;k<3;k++)put(b,'concrete',box(dx,PLINTH-(k+.5)*.53,pd+.6+k*1.1,6,.53,1.2));
+  put(b,roofKey,quad([V(x0-.6,front,pd+.8),V(x1+.6,front,pd+.8),V(x1+.6,top,0),V(x0-.6,top,0)],4,course));
+  put(b,trimKey,box(0,front-.4,pd+.5,x1-x0+1.2,.8,.3));put(b,'soffit',quad([V(x1,front-.75,pd+.4),V(x0,front-.75,pd+.4),V(x0,top-.4,0),V(x1,top-.4,0)],4,4));
+  put(b,'gutter',box(0,front-.15,pd+.95,x1-x0+1.2,.35,.35));
+  const posts=Math.max(3,Math.round((x1-x0)/8)+1);for(let k=0;k<posts;k++){const px=x0+.4+(x1-x0-.8)*k/(posts-1);if(Math.abs(px-dx)<2.5)continue;
+   if(spec.kind==='craftsman'){put(b,'stone',box(px,PLINTH+1.4,pd-.4,1.6,2.8,1.6));const col=new T.CylinderGeometry(.42,.68,front-.8-(PLINTH+2.8),4);col.rotateY(Math.PI/4);col.translate(px,(front-.8+PLINTH+2.8)/2,pd-.4);put(b,trimKey,col);}
+   else{put(b,trimKey,box(px,(front-.8+PLINTH)/2,pd-.4,.55,front-.8-PLINTH,.55));}}
+  if(spec.kind==='farmhouse'){for(const [a,c] of [[x0+.4,dx-2.5],[dx+2.5,x1-.4]] as const){const len=c-a;if(len<1)continue;put(b,trimKey,box((a+c)/2,PLINTH+3,pd-.4,len,.22,.3));put(b,trimKey,box((a+c)/2,PLINTH+.35,pd-.4,len,.18,.25));for(let x=a+.4;x<c-.2;x+=.55)put(b,trimKey,box(x,PLINTH+1.65,pd-.4,.14,2.5,.14));}}
+ }
  // Chimney.
  if(spec.chimney){const cx=(r()<.5?-1:1)*w/2;put(b,'brick',box(cx+(cx<0?-1.4:1.4),(ridgeY+3)/2,-d*.5,2.8,ridgeY+3,5));put(b,'concrete',box(cx+(cx<0?-1.4:1.4),ridgeY+3.1,-d*.5,3.2,.3,5.4));}
  // Attached two-car garage, set back 2 ft, front-gable roof.
- if(spec.garage){const gw=23,gd=24,gh=PLINTH+9.5,gx=spec.garage*(w/2+gw/2),gz=-2,gr=gw/2*PITCH*.8;
+ if(spec.garage){const gw=23,gd=24,gh=PLINTH+9.5,gx=spec.garage*(w/2+gw/2),gz=-2,gp=Math.min(PITCH,8/12)*.8,gr=gw/2*gp;
   const g0=gx-gw/2,g1=gx+gw/2,zf=gz,zb=gz-gd;
   for(const [a,c] of [[V(g0,0,zf),V(g1,0,zf)],[V(g1,0,zf),V(g1,0,zb)],[V(g1,0,zb),V(g0,0,zb)],[V(g0,0,zb),V(g0,0,zf)]] as [T.Vector3,T.Vector3][]){put(b,'stone',quad([V(a.x,0,a.z),V(c.x,0,c.z),V(c.x,PLINTH*.6,c.z),V(a.x,PLINTH*.6,a.z)],5,5));put(b,sidingKey,quad([V(a.x,PLINTH*.6,a.z),V(c.x,PLINTH*.6,c.z),V(c.x,gh,c.z),V(a.x,gh,a.z)],4,4));}
   put(b,sidingKey,tri([V(g0,gh,zf+.01),V(g1,gh,zf+.01),V(gx,gh+gr,zf+.01)],4,4));
-  const go=1.2,gey=gh-go*PITCH*.8;put(b,roofKey,quad([V(g0-go,gey,zf+go),V(gx,gh+gr,zf+go),V(gx,gh+gr,zb-go),V(g0-go,gey,zb-go)],4,course));put(b,roofKey,quad([V(gx,gh+gr,zf+go),V(g1+go,gey,zf+go),V(g1+go,gey,zb-go),V(gx,gh+gr,zb-go)],4,course));
-  for(const sx of [-1,1]){const a=V(gx+sx*(gw/2+go),gey,zf+go),c=V(gx,gh+gr,zf+go);const m2=a.clone().add(c).multiplyScalar(.5);const g=new T.BoxGeometry(a.distanceTo(c),.7,.14);g.rotateZ(Math.atan2(c.y-a.y,c.x-a.x));g.translate(m2.x,m2.y,m2.z+.05);put(b,'trim',g);put(b,'gutter',box(gx+sx*(gw/2+go),gey-.2,(zf+zb)/2,.38,.38,gd+2*go));}
-  put(b,'garage',quad([V(gx-8,.05,zf+.08),V(gx+8,.05,zf+.08),V(gx+8,7.3,zf+.08),V(gx-8,7.3,zf+.08)],16,7.25));
-  for(const [ox,sx2,sy2,oy] of [[0,17.2,.5,7.55],[-8.35,.5,7.6,3.8],[8.35,.5,7.6,3.8]] as const)put(b,'trim',box(gx+ox,oy,zf+.15,sx2,sy2,.25));
+  const go=1.2,gey=gh-go*gp;put(b,roofKey,quad([V(g0-go,gey,zf+go),V(gx,gh+gr,zf+go),V(gx,gh+gr,zb-go),V(g0-go,gey,zb-go)],4,course));put(b,roofKey,quad([V(gx,gh+gr,zf+go),V(g1+go,gey,zf+go),V(g1+go,gey,zb-go),V(gx,gh+gr,zb-go)],4,course));
+  for(const sx of [-1,1]){const a=V(gx+sx*(gw/2+go),gey,zf+go),c=V(gx,gh+gr,zf+go);const m2=a.clone().add(c).multiplyScalar(.5);const g=new T.BoxGeometry(a.distanceTo(c),.7,.14);g.rotateZ(Math.atan2(c.y-a.y,c.x-a.x));g.translate(m2.x,m2.y,m2.z+.05);put(b,trimKey,g);put(b,'gutter',box(gx+sx*(gw/2+go),gey-.2,(zf+zb)/2,.38,.38,gd+2*go));}
+  put(b,spec.kind==='craftsman'?'garageWood':'garage',quad([V(gx-8,.05,zf+.08),V(gx+8,.05,zf+.08),V(gx+8,7.3,zf+.08),V(gx-8,7.3,zf+.08)],16,7.25));
+  for(const [ox,sx2,sy2,oy] of [[0,17.2,.5,7.55],[-8.35,.5,7.6,3.8],[8.35,.5,7.6,3.8]] as const)put(b,trimKey,box(gx+ox,oy,zf+.15,sx2,sy2,.25));
   for(const sx of [-1,1]){put(b,'lamp',box(gx+sx*9.4,6.4,zf+.35,.55,1.1,.45));put(b,'lampGlass',box(gx+sx*9.4,6.35,zf+.62,.4,.75,.05));}
  }
  // Foundation shrubs are added as tree instances by the caller.
- const group=new T.Group();group.name='Neighbor house';
+ const group=new T.Group();group.name='Neighbor '+spec.kind;
  for(const [key,list] of b){const geo=mergeGeometries(list.map(g=>g.index?g.toNonIndexed():g).map(g=>{g.deleteAttribute('uv1' as any);return g;}),false);for(const g of list)g.dispose();if(!geo)continue;
-  const mat=key.startsWith('siding:')?sidingMat(key.slice(7)):key.startsWith('roof:')?roofMats.get(key.slice(5))!:key.startsWith('shutter:')?shutterMat(key.slice(8)):mats[key]!;
+  const mat=key.startsWith('siding:')?sidingMat(key.slice(7)):key.startsWith('roof:')?roofMats.get(key.slice(5))!:key.startsWith('shutter:')?shutterMat(key.slice(8)):key.startsWith('paint:')?paintMat(key.slice(6)):mats[key]!;
   const mesh=new T.Mesh(geo,mat);mesh.castShadow=true;mesh.receiveShadow=true;mesh.name='Neighbor '+key;group.add(mesh);}
  return group;
 }
@@ -207,18 +256,33 @@ function instanced(v:TreeVariant,list:Placement[],shadows:boolean,tint:string){
 }
 
 // ---------- The street ----------
-const PALETTE=[{siding:'#f2efe7',roof:'#3a3b3d',shutters:'#1f2a36'},{siding:'#d9d4c7',roof:'#4a4643',shutters:null},{siding:'#8e9a8f',roof:'#353637',shutters:'#ece8dc'},{siding:'#3f4a57',roof:'#2e2f31',shutters:null},{siding:'#c9c2b3',roof:'#5a4f45',shutters:'#2b3a2f'},{siding:'#e7e2d6',roof:'#2f3236',shutters:'#3a4a5c'},{siding:'#6f7674',roof:'#2a2b2d',shutters:null},{siding:'#efe9dc',roof:'#4b4038',shutters:'#203040'}];
+type Look={siding:string,roof:string,trim:string,shutters:string|null,door:HouseSpec['door']};
+const W='#f4f2ec';
+const LOOKS:Record<Kind,Look[]>={
+ colonial:[{siding:'#f2efe7',roof:'#3a3b3d',trim:W,shutters:'#1f2a36',door:'doorRed'},{siding:'#8e9a8f',roof:'#353637',trim:W,shutters:'#ece8dc',door:'doorBlack'},{siding:'#3f4a57',roof:'#2e2f31',trim:W,shutters:null,door:'doorOak'},{siding:'#d8cdb4',roof:'#4b4038',trim:W,shutters:'#2b3a2f',door:'doorNavy'}],
+ brick:[{siding:'',roof:'#3a3b3d',trim:W,shutters:'#1f2a36',door:'doorNavy'},{siding:'',roof:'#4b4038',trim:'#efe8d8',shutters:'#2b3a2f',door:'doorBlack'}],
+ farmhouse:[{siding:'#f4f3ef',roof:'metal:#2c2e30',trim:'#f4f3ef',shutters:null,door:'doorOak'},{siding:'#4b5350',roof:'metal:#25272a',trim:'#4b5350',shutters:null,door:'doorOak'},{siding:'#e6e1d4',roof:'metal:#6d7377',trim:'#f4f3ef',shutters:null,door:'doorBlack'}],
+ ranch:[{siding:'#d9d4c7',roof:'#4a4643',trim:W,shutters:null,door:'doorBlack'},{siding:'#6f7674',roof:'#2a2b2d',trim:W,shutters:null,door:'doorOak'},{siding:'#b7a68e',roof:'#4b4038',trim:'#efe8d8',shutters:'#3b3a35',door:'doorSage'}],
+ cape:[{siding:'#a3abad',roof:'#3a3b3d',trim:W,shutters:'#203040',door:'doorRed'},{siding:'#ece8de',roof:'#2f3236',trim:W,shutters:'#3a4a5c',door:'doorNavy'}],
+ craftsman:[{siding:'#6f7d6a',roof:'#4a4038',trim:'#e9e1cf',shutters:null,door:'doorOak'},{siding:'#7a5f4a',roof:'#3d3a36',trim:'#e9e1cf',shutters:null,door:'doorOak'},{siding:'#5b6b78',roof:'#3a3b3d',trim:'#efe8d8',shutters:null,door:'doorRed'}]};
+const ORDER:Kind[]=['colonial','farmhouse','ranch','brick','craftsman','cape'];
 const cache=new Map<string,T.Group>();
+/** Street lines (z, feet) and the house-free ring around the lot, all derived from the lot's footprint. */
+function layout(s:Site){
+ const front=s.minZ-28;                                       // back of the sidewalk on our side
+ const clear=Math.max(105,Math.hypot(s.maxX-s.minX,s.maxZ-s.minZ)/2*2.3),lotHalf=Math.max(Math.max(-s.minX,s.maxX)+18,clear*.85);
+ const rear=s.maxZ+55,dune=Math.max(rear+110,clear*2);
+ return {front,walkNear:[front-5,front],lawnNear:[front-11,front-5],road:[front-41,front-11],lawnFar:[front-47,front-41],walkFar:[front-52,front-47],acrossFront:front-80,clear,lotHalf,rear,dune};
+}
 /** The street, houses and trees around a lot; `site` is the lot in world feet (front of the house at minZ, facing -z). */
 export function addNeighborhood(root:T.Object3D,o:Opts,wake:()=>void){
  const s=o.site,key=[s.minX,s.minZ,s.maxX,s.maxZ].map(v=>Math.round(v/4)*4).join(',')+(o.mobile?'m':'');
  const hit=cache.get(key);if(hit){hit.position.y=o.groundY;root.add(hit);return hit;}
  const group=new T.Group();group.name='Modeled neighborhood';group.userData.persistentAsset=true;group.position.y=o.groundY;root.add(group);cache.set(key,group);
  if(cache.size>3){const [oldKey,old]=cache.entries().next().value as [string,T.Group];cache.delete(oldKey);old.traverse(x=>{const m=x as T.Mesh;if(m.geometry&&!(x instanceof T.InstancedMesh))m.geometry.dispose();});}
- const mats=materials(o),roofMats=new Map<string,T.Material>();const roofFor=(c:string)=>{let m=roofMats.get(c);if(!m){m=roofMaterial('Architectural asphalt shingles',c,[],o.anisotropy);m.side=T.DoubleSide;m.userData.persistent=true;(m as T.MeshStandardMaterial).map!.userData.persistent=true;((m as T.MeshStandardMaterial).bumpMap as T.Texture).userData.persistent=true;roofMats.set(c,m);}return m;};
- mats.stone=stoneMat();mats.brick=brickMat();
- const r=rng(73),half=o.mobile?420:700,front=s.minZ-28;           // back of the sidewalk on our side
- const walkNear=[front-5,front],lawnNear=[front-11,front-5],road=[front-41,front-11],lawnFar=[front-47,front-41],walkFar=[front-52,front-47],acrossFront=front-80;
+ const mats=sharedMats(o),roofMats=new Map<string,T.Material>();const roofFor=(c:string)=>{let m=roofMats.get(c);if(!m){if(c.startsWith('metal:')){const t=seamTex();m=new T.MeshStandardMaterial({color:c.slice(6),map:t,bumpMap:t,bumpScale:2,roughness:.5,metalness:.15,envMapIntensity:.6,side:T.DoubleSide});}else{m=roofMaterial('Architectural asphalt shingles',c,[],o.anisotropy);m.side=T.DoubleSide;(m as T.MeshStandardMaterial).map!.userData.persistent=true;((m as T.MeshStandardMaterial).bumpMap as T.Texture).userData.persistent=true;}m.userData.persistent=true;roofMats.set(c,m);}return m;};
+ const r=rng(73),half=o.mobile?420:700,L=layout(s);
+ const {walkNear,lawnNear,road,lawnFar,walkFar,acrossFront,clear,lotHalf}=L;
  const flat=(x0:number,x1:number,z0:number,z1:number,y:number,mat:string,tile:number)=>{const g=quad([V(x0,y,z1),V(x1,y,z1),V(x1,y,z0),V(x0,y,z0)],tile,tile);const mesh=new T.Mesh(g,mats[mat]);mesh.receiveShadow=true;mesh.name='Street '+mat;group.add(mesh);return mesh;};
  flat(-half,half,road[0]!,road[1]!,.03,'asphalt',12);
  for(const z of [walkNear,walkFar])flat(-half,half,z[0]!,z[1]!,.07,'slab',5);
@@ -226,9 +290,11 @@ export function addNeighborhood(root:T.Object3D,o:Opts,wake:()=>void){
  for(const z of [road[1]!,road[0]!]){const g=new T.BoxGeometry(half*2,.55,.55);g.translate(0,.27,z+(z===road[1]?.27:-.27));const mesh=new T.Mesh(g,mats.concrete);mesh.receiveShadow=mesh.castShadow=true;mesh.name='Curb';group.add(mesh);}
  // Houses beside the lot (front on our setback, facing the street) and across the street.
  // The camera orbits the house at roughly twice its half-diagonal; keep that ring free of trees and houses.
- const clear=Math.max(105,Math.hypot(s.maxX-s.minX,s.maxZ-s.minZ)/2*2.3),lotHalf=Math.max(Math.max(-s.minX,s.maxX)+18,clear*.85);
  const homes:{x:number,z:number,ry:number,spec:HouseSpec}[]=[];
- const specFor=(i:number):HouseSpec=>{const p=PALETTE[i%PALETTE.length]!;return {w:40+Math.round(r()*4)*3,d:32+Math.round(r()*3)*3,roof:r()<.45?'hip':'gable',garage:r()<.5?-1:1,siding:p.siding,roofColor:p.roof,shutters:p.shutters,door:(['doorNavy','doorBlack','doorOak'] as const)[i%3]!,chimney:r()<.4,porch:r()<.6,seed:i*97+11};};
+ const specFor=(i:number):HouseSpec=>{const kind=ORDER[(i+3)%ORDER.length]!,looks=LOOKS[kind],p=looks[Math.floor(i/ORDER.length+r()*looks.length)%looks.length]!;
+  const [w,d]=kind==='ranch'?[54+Math.round(r()*4)*2.5,30+Math.round(r()*2)*2]:kind==='cape'?[34+Math.round(r()*4)*2,30+Math.round(r()*1)*2]:kind==='craftsman'?[38+Math.round(r()*4)*2,40+Math.round(r()*3)*2]:[40+Math.round(r()*4)*3,32+Math.round(r()*3)*2];
+  const roof=['colonial','brick','ranch'].includes(kind)&&r()<.5?'hip':'gable';
+  return {kind,w,d,roof,garage:r()<.5?-1:1,siding:p.siding,trim:p.trim,roofColor:p.roof,shutters:p.shutters,door:p.door,chimney:kind!=='farmhouse'&&r()<.45,porch:kind!=='ranch'&&r()<.7,seed:i*97+11};};
  let i=0;const perSide=o.mobile?1:3;
  for(const side of [-1,1]){let x=side*lotHalf;for(let k=0;k<perSide;k++){const spec=specFor(i++);const span=spec.w/2+(spec.garage===-side?23:0)+(spec.garage===side?0:0);const cx=x+side*(span+18+(k?10:0));homes.push({x:cx,z:s.minZ,ry:Math.PI,spec});x=cx+side*(spec.w/2+(spec.garage===side?23:0)+12);}}
  const across=o.mobile?4:8,spacing=92;for(let k=0;k<across;k++){const spec=specFor(i++);homes.push({x:(k-(across-1)/2)*spacing+(r()-.5)*8,z:acrossFront,ry:0,spec});}
@@ -239,7 +305,7 @@ export function addNeighborhood(root:T.Object3D,o:Opts,wake:()=>void){
    const za=Math.min(z0,z1),zb=Math.max(z0,z1);drives.push([gx-10,gx+10]);flat(gx-9,gx+9,za,zb,.06,'concrete',6);
    const zr=facing>0?road[0]!:road[1]!,zs=facing>0?walkFar[1]!:walkNear[0]!;flat(gx-9,gx+9,Math.min(zr,zs),Math.max(zr,zs),.065,'concrete',6);}
   const facing=h.ry===0?1:-1,bays=Math.max(3,Math.round(h.spec.w/9)|1),dx=h.x+facing*(-h.spec.w/2+h.spec.w/bays*(Math.floor(bays/2)+.5));
-  const z0=h.z+facing*4.4,z1=facing>0?walkFar[0]!:walkNear[1]!;flat(dx-2,dx+2,Math.min(z0,z1),Math.max(z0,z1),.065,'slab',5);
+  const z0=h.z+facing*(KINDS[h.spec.kind].porch==='portico'?4.4:11.6),z1=facing>0?walkFar[0]!:walkNear[1]!;flat(dx-2,dx+2,Math.min(z0,z1),Math.max(z0,z1),.065,'slab',5);
   // Mailbox at the curb.
   const mz=facing>0?road[0]!-1:road[1]!+1;const post=new T.Mesh(new T.BoxGeometry(.3,3.6,.3),mats.mailbox);post.position.set(dx+5,1.8,mz);const mbox=new T.Mesh(new T.BoxGeometry(.6,.65,1.6),mats.mailbox);mbox.position.set(dx+5,3.7,mz);post.castShadow=mbox.castShadow=true;group.add(post,mbox);}
  // Street lamps every ~170 ft on the near side.
@@ -249,17 +315,80 @@ export function addNeighborhood(root:T.Object3D,o:Opts,wake:()=>void){
   const near:Record<string,Placement[]>={oak:[],ash:[],aspen:[]},far:Record<string,Placement[]>={oak:[],ash:[],aspen:[]},bushes:Placement[]=[];
   const species=['oak','ash','oak','ash','aspen'];const clearOf=(x:number)=>!drives.some(([a,b])=>x>a-4&&x<b+4);const outside=(p:Placement)=>Math.hypot(p.x,p.z)>clear*1.1;
   for(const z of [(lawnNear[0]!+lawnNear[1]!)/2,(lawnFar[0]!+lawnFar[1]!)/2])for(let x=-half+20;x<half;x+=46+r()*10){if(!clearOf(x)||Math.hypot(x,z)<clear*1.08)continue;near[species[Math.floor(r()*4)]!]!.push({x,z,h:28+r()*8,ry:r()*6.28});}
-  // Woods behind the lot and the homes beside it, and a loose ring of trees on every horizon.
-  const back=Math.max(s.maxZ+60,clear+15);for(let row=0;row<(o.mobile?1:3);row++)for(let x=-half*.7;x<half*.7;x+=38+r()*18){const z=back+row*40+r()*16;(row<1?near:far)[species[Math.floor(r()*5)]!]!.push({x:x+r()*12,z,h:36+r()*14,ry:r()*6.28});}
-  for(const h of homes){const f=h.ry===0?1:-1;for(let k=0;k<5;k++)bushes.push({x:h.x+f*(-h.spec.w/2+2+k*(h.spec.w-4)/4),z:h.z+f*2.2,h:3.4+r()*1.2,ry:r()*6.28});
-   far[species[Math.floor(r()*5)]!]!.push({x:h.x+(r()-.5)*h.spec.w,z:h.z-f*(h.spec.d+22+r()*20),h:34+r()*14,ry:r()*6.28});}
-  if(!o.mobile)for(let k=0;k<55;k++){const a=r()*Math.PI*2,rad=560+r()*260;const x=Math.cos(a)*rad,z=Math.sin(a)*rad;if(z<road[1]!+20&&z>acrossFront-60&&Math.abs(x)<half)continue;far[species[Math.floor(r()*5)]!]!.push({x,z,h:40+r()*18,ry:r()*6.28});}
+  // Behind the lot and the homes beside it the land rises into a sand dune; trees stay across the street and on the horizon.
+  for(const h of homes){const f=h.ry===0?1:-1;for(let k=0;k<5;k++)bushes.push({x:h.x+f*(-h.spec.w/2+2+k*(h.spec.w-4)/4),z:h.z+f*(KINDS[h.spec.kind].porch==='portico'?2.2:9.6),h:3.4+r()*1.2,ry:r()*6.28});
+   if(h.ry===0)far[species[Math.floor(r()*5)]!]!.push({x:h.x+(r()-.5)*h.spec.w,z:h.z-f*(h.spec.d+22+r()*20),h:34+r()*14,ry:r()*6.28});}
+  if(!o.mobile)for(let k=0;k<55;k++){const a=r()*Math.PI*2,rad=560+r()*260;const x=Math.cos(a)*rad,z=Math.sin(a)*rad;if(z<road[1]!+20&&z>acrossFront-60&&Math.abs(x)<half)continue;if(z>L.dune-40&&Math.abs(x)<half*.95)continue;far[species[Math.floor(r()*5)]!]!.push({x,z,h:40+r()*18,ry:r()*6.28});}
   for(const list of [...Object.values(near),...Object.values(far)])for(let k=list.length-1;k>=0;k--)if(!outside(list[k]!))list.splice(k,1);
   const tint:Record<string,string>={oak:'#a3b37e',ash:'#9fb27a',aspen:'#b7bf86'};
   for(const n of ['oak','ash','aspen'])group.add(instanced(by(n),near[n]!,true,tint[n]!),instanced(by(n),far[n]!,false,tint[n]!));
   group.add(instanced(by('bush'),bushes,true,'#93a874'));
+  const grass:Placement[]=[];if(!o.mobile)for(let x=-half*.8;x<half*.8;x+=7+r()*9){const z=L.dune+r()*26;if(Math.hypot(x,z)>clear*1.1)grass.push({x,z,h:1.6+r()*1.4,ry:r()*6.28});}
+  group.add(instanced(by('bush'),grass,false,'#c9c58f'));
   wake();});
- group.add(treeline(760,o.mobile),treeline(810,o.mobile));
+ group.add(treeline(760,o.mobile),treeline(810,o.mobile),sandDune(L.dune,half*.85,o.mobile));
+ return group;
+}
+
+// Wind-rippled sand: fine grains, soft patches and ripple lines (tile = 30 ft).
+const sandTex=()=>canvasTexture('sand',1024,(c,s,r)=>{c.fillStyle='#dcc69c';c.fillRect(0,0,s,s);blotches(c,s,r,40,'198,170,122',.35,160);blotches(c,s,r,30,'236,222,190',.35,140);
+ for(let y=0;y<s;y+=7+r()*5){c.beginPath();for(let x=0;x<=s;x+=16){const yy=y+Math.sin(x/s*Math.PI*2*3+y*.05)*4+Math.sin(x/s*Math.PI*2*7)*1.5;x?c.lineTo(x,yy):c.moveTo(x,yy);}c.strokeStyle=`rgba(120,92,52,${.10+r()*.08})`;c.lineWidth=1.6;c.stroke();}
+ speckle(c,s,r,90000,190,90,.35,1.1);});
+/** A big sand dune behind the lot: a gentle toe from the backyard, a rounded crest that wanders along its length,
+ *  and a long back slope; its ends taper into the land so it never stops abruptly. */
+function sandDune(z0:number,halfX:number,mobile:boolean){
+ const nx=mobile?90:180,nz=mobile?36:70,depth=460,Hmax=62,pos:number[]=[],col:number[]=[],idx:number[]=[];
+ const smooth=(a:number,b:number,x:number)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t);};
+ for(let j=0;j<=nz;j++)for(let i=0;i<=nx;i++){const x=-halfX+2*halfX*i/nx,u=j/nz,z=z0+u*depth;
+  const crest=.42+.06*Math.sin(x/170)+.03*Math.sin(x/53+1),taper=smooth(halfX,halfX-180,Math.abs(x)),H=Hmax*(.78+.22*Math.sin(x/240+2))*taper;
+  let h=u<crest?H*Math.pow(smooth(0,crest,u),1.5):H*(1-.42*smooth(crest,1,u))+H*.08*Math.sin(u*9+x/90)*smooth(crest,crest+.2,u);
+  // A smaller foredune ridge in front of the main one, and the slip-face line it leaves behind.
+  const c2=.16+.04*Math.sin(x/120+3),h2=H*.28*(.6+.4*Math.sin(x/90+1));h=Math.max(h,u<c2?h2*Math.pow(smooth(0,c2,u),1.3):h2*(1-smooth(c2,c2+.07,u)*.55));
+  pos.push(x,h,z);
+  // Sun-bleached crests, darker damp toe, and soft streaks along the wind.
+  const k=.9+.1*smooth(0,H||1,h)+.05*Math.sin(x/37+u*20)-.08*(1-smooth(0,.05,u));col.push(k,k*.985,k*.96);}
+ for(let j=0;j<nz;j++)for(let i=0;i<nx;i++){const a=j*(nx+1)+i,b=a+1,c=a+nx+1,d=c+1;idx.push(a,c,b,b,c,d);}
+ const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(pos,3));geo.setAttribute('color',new T.Float32BufferAttribute(col,3));geo.setIndex(idx);
+ const uv:number[]=[];for(let k=0;k<pos.length;k+=3)uv.push(pos[k]!/30,pos[k+2]!/30);geo.setAttribute('uv',new T.Float32BufferAttribute(uv,2));geo.computeVertexNormals();
+ const t=sandTex();const mat=new T.MeshStandardMaterial({map:t,bumpMap:t,bumpScale:1.6,roughness:.97,color:'#e8d3a8',vertexColors:true,envMapIntensity:.5});mat.userData.persistent=true;
+ const mesh=new T.Mesh(geo,mat);mesh.receiveShadow=true;mesh.name='Sand dune';return mesh;
+}
+
+/** The visitor's own lot: driveway from the garage door to the street, front walk, a mailbox at the curb and a
+ *  cedar privacy fence around the backyard. Rebuilt with each scene (it follows the garage and front door). */
+export type Lot={door:{x:number,z:number}|null,garage:{x:number,z:number,x0:number,x1:number,z0:number,z1:number}|null,house:{x0:number,x1:number,z0:number,z1:number}};
+const fenceTex=()=>canvasTexture('fence',512,(c,s,r)=>{const n=8,b=s/n;for(let i=0;i<n;i++){const g=150+r()*40;c.fillStyle=`rgb(${g+40},${g+18},${g-12})`;c.fillRect(i*b,0,b,s);for(let k=0;k<14;k++){c.fillStyle=`rgba(90,60,30,${.05+r()*.08})`;c.fillRect(i*b+r()*b,0,1+r()*2,s);}c.fillStyle='rgba(40,25,10,.55)';c.fillRect(i*b,0,3,s);}});
+export function addLot(root:T.Object3D,o:{site:Site,groundY:number,lot:Lot,mobile:boolean,anisotropy:number}){
+ const L=layout(o.site),mats=sharedMats({site:o.site,groundY:o.groundY,mobile:o.mobile,anisotropy:o.anisotropy}),{lot}=o;
+ const group=new T.Group();group.name='Lot';group.position.y=o.groundY;root.add(group);
+ const flat=(x0:number,x1:number,z0:number,z1:number,y:number,mat:string,tile:number,name:string)=>{const g=quad([V(x0,y,z1),V(x1,y,z1),V(x1,y,z0),V(x0,y,z0)],tile,tile);const mesh=new T.Mesh(g,mats[mat]);mesh.receiveShadow=true;mesh.name=name;group.add(mesh);};
+ // Driveway: full width from the garage door to the sidewalk, then the apron across the tree lawn to the curb.
+ let mailX=lot.door?lot.door.x+4.5:0;
+ if(lot.garage){const g=lot.garage;flat(g.x-9,g.x+9,L.walkNear[1]!,g.z,.06,'concrete',6,'Driveway');flat(g.x-9,g.x+9,L.road[1]!,L.walkNear[0]!,.065,'concrete',6,'Driveway apron');
+  for(let z=g.z-12;z>L.walkNear[1]!+2;z-=12){const j=new T.Mesh(new T.BoxGeometry(18,.02,.08),mats.mailbox);j.position.set(g.x,.075,z);group.add(j);}
+  mailX=lot.door&&lot.door.x<g.x?g.x-10.5:g.x+10.5;}
+ if(lot.door){const d=lot.door;flat(d.x-2,d.x+2,L.walkNear[1]!,d.z-5,.065,'slab',5,'Front walk');}
+ // Mailbox on a 4×4 post at the curb, with a rounded-top box and a red flag.
+ const mz=L.road[1]!+1.4,post=new T.Mesh(new T.BoxGeometry(.33,3.8,.33),mats.trim);post.position.set(mailX,1.9,mz);
+ const body=new T.Mesh(new T.BoxGeometry(.7,.45,1.75),mats.mailbox);body.position.set(mailX,3.75,mz-.2);
+ const top=new T.Mesh(new T.CylinderGeometry(.35,.35,1.75,16,1,false,0,Math.PI),mats.mailbox);top.rotation.set(Math.PI/2,0,Math.PI/2);top.position.set(mailX,3.97,mz-.2);
+ const flag=new T.Mesh(new T.BoxGeometry(.05,.55,.22),mats.doorRed);flag.position.set(mailX+.38,4.05,mz+.25);
+ for(const m of [post,body,top,flag]){m.castShadow=true;m.name='Mailbox';group.add(m);}
+ // Backyard fence: 6 ft cedar boards on 4×4 posts, from each side of the house out to the lot lines and around the back.
+ const tex=fenceTex();const boards=new T.MeshStandardMaterial({map:tex,bumpMap:tex,bumpScale:1,roughness:.85,color:'#d9b993',side:T.DoubleSide});
+ const side=Math.max(L.lotHalf-4,Math.max(-o.site.minX,o.site.maxX)+12),h=lot.house,ret=h.z0+(h.z1-h.z0)*.6,rear=L.rear;
+ const runs:[number,number,number,number][]=[];
+ for(const sx of [-1,1]){let x=sx>0?h.x1:h.x0;const g=lot.garage;if(g&&ret>g.z0-1&&ret<g.z1+1&&(sx>0?g.x1>x-1:g.x0<x+1))x=sx>0?Math.max(x,g.x1):Math.min(x,g.x0);
+  const gate=!g||(sx>0)!==(g.x>0);const start=x+sx*(gate?4.5:0);if(gate)runs.push([x,ret,x+sx*.2,ret]);runs.push([start,ret,sx*side,ret],[sx*side,ret,sx*side,rear]);}
+ runs.push([-side,rear,side,rear]);
+ const pg:T.BufferGeometry[]=[],bg:T.BufferGeometry[]=[];
+ for(const [x0,z0,x1,z1] of runs){const len=Math.hypot(x1-x0,z1-z0);if(len<.5)continue;const ux=(x1-x0)/len,uz=(z1-z0)/len;
+  bg.push(quad([V(x0,.25,z0),V(x1,.25,z1),V(x1,6,z1),V(x0,6,z0)],4,6));
+  const n=Math.max(1,Math.round(len/8));for(let k=0;k<=n;k++){const t=len*k/n;const g=new T.BoxGeometry(.35,6.4,.35);g.translate(x0+ux*t,3.2,z0+uz*t);pg.push(g);}
+  const cap=new T.BoxGeometry(len+.3,.15,.5);cap.rotateY(-Math.atan2(uz,ux));cap.translate((x0+x1)/2,6.08,(z0+z1)/2);pg.push(cap);}
+ const panel=new T.Mesh(mergeGeometries(bg)!,boards);panel.castShadow=panel.receiveShadow=true;panel.name='Backyard fence';group.add(panel);
+ const posts=new T.Mesh(mergeGeometries(pg.map(g=>g.toNonIndexed()))!,mats.fenceCap);posts.castShadow=posts.receiveShadow=true;posts.name='Fence posts';group.add(posts);
+ for(const g of [...bg,...pg])g.dispose();
  return group;
 }
 

@@ -14,5 +14,5 @@ const pattern={name:'my-pattern.jpg',dataUrl:'data:image/jpeg;base64,/9j/AAAAAAA
 change('[data-pattern-repeat="general"]',4);assert.equal(state.config.customTextures.general.repeatFeet,4);
 click('[data-action="texture-remove"][data-value="general"]');assert.equal(state.config.customTextures.general,undefined);assert.equal(state.model.customWallArea,0);
 assert.equal(document.querySelectorAll('[data-texture-upload]').length,3);
-click('[data-tab="edit"]');app.pick_scene(JSON.stringify({kind:'floor',x:12,z:12}));const kinds=new Set([...q('#edit-item').options].map(o=>o.value));for(const obj of JSON.parse(fs.readFileSync('rust-app/data/objects.json','utf8')))assert.ok(kinds.has(obj.kind),'Insert '+obj.kind);
+click('[data-view="dollhouse"]');app.pick_scene(JSON.stringify({kind:'floor',x:12,z:12}));const kinds=new Set([...q('#edit-item').options].map(o=>o.value));for(const obj of JSON.parse(fs.readFileSync('rust-app/data/objects.json','utf8')))assert.ok(kinds.has(obj.kind),'Insert '+obj.kind);
 console.log('PASS: compiled WASM tile controls, preserved disclosure, custom texture/repeat/remove and all forty insert options.');

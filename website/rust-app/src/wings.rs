@@ -1,27 +1,39 @@
 use crate::*;
 // House shapes. The main block stays a rectangle; L, T and U homes add one-story wings off the rear wall,
 // sized in 2-ft increments. Each wing gets its own rooms, walls, windows, gable roof, piers and pricing,
-// and opens into the house through the rear wall.
+// and opens into the house through the rear wall. L and U wings reach past the side walls.
 pub const SHAPES:[&str;4]=["Rectangle","L-shape","T-shape","U-shape"];
 #[derive(Clone,Debug)]pub struct Wing{pub id:String,pub x:f64,pub z:f64,pub w:f64,pub d:f64}
 fn snap(v:f64)->f64{(v/2.).floor()*2.}
-/// Wing rectangles in house coordinates (x across the width, z from the front). The width is trimmed so
-/// at least 4 ft of the rear wall stays exposed beside each wing.
+/// Wing rectangles in house coordinates (x across the width, z from the front). A T's stem sits behind the
+/// middle of the house. L and U wings reach half their width past the side walls, so the shape reads from the
+/// street; the rest overlaps the rear wall for the way in, and a U keeps 4 ft of rear wall open between them.
 pub fn rects(c:&Config)->Vec<Wing>{
- if c.design_mode=="Blank slate"||!SHAPES[1..].contains(&c.shape.as_str()){return vec![]}
- let d=c.wing_depth;let u=c.shape=="U-shape";let w=snap(c.wing_width.min(if u{(c.width-4.)/2.}else{c.width-4.}));
- if w<8.||d<8.{return vec![]}
- let wing=|i:usize,x:f64|Wing{id:format!("wing{}",i),x,z:c.depth,w,d};
- match c.shape.as_str(){"L-shape"=>vec![wing(0,0.)],"T-shape"=>vec![wing(0,snap((c.width-w)/2.))],_=>vec![wing(0,0.),wing(1,c.width-w)]}
+ if !SHAPES[1..].contains(&c.shape.as_str()){return vec![]}
+ let d=c.wing_depth;if d<8.{return vec![]}
+ let wing=|i:usize,x:f64,w:f64|Wing{id:format!("wing{}",i),x,z:c.depth,w,d};
+ if c.shape=="T-shape"{let w=snap(c.wing_width.min(c.width-4.));if w<8.{return vec![]}return vec![wing(0,snap((c.width-w)/2.),w)]}
+ let u=c.shape=="U-shape";let w=snap(c.wing_width);let out=snap(w/2.);
+ let inside=(w-out).min(snap(if u{(c.width-4.)/2.}else{c.width-4.}));if inside<6.||w<8.{return vec![]}
+ let left=wing(0,-out,inside+out);let right=|i:usize|wing(i,c.width-inside,inside+out);
+ if u{vec![left,right(1)]}else if c.garage_side=="Left"{vec![right(0)]}else{vec![left]}
 }
+/// The stretch of a wing that overlaps the house's rear wall.
+pub fn overlap(c:&Config,g:&Wing)->(f64,f64){(g.x.max(0.),(g.x+g.w).min(c.width))}
+/// How far a wing reaches past the house's side walls (both sides together).
+fn reach(c:&Config,g:&Wing)->f64{(-g.x).max(0.)+(g.x+g.w-c.width).max(0.)}
 pub fn floor_area(c:&Config)->f64{if c.active_floor!=0{return 0.}rects(c).iter().map(|g|g.w*g.d).sum()}
 /// Exterior wall added: each wing's two sides and back, less the stretch of rear wall it covers.
-pub fn added_perimeter(c:&Config)->f64{if c.active_floor!=0{return 0.}rects(c).iter().map(|g|2.*g.d).sum()}
+pub fn added_perimeter(c:&Config)->f64{if c.active_floor!=0{return 0.}rects(c).iter().map(|g|2.*g.d+2.*reach(c,g)).sum()}
 /// Rooms inside the wings: a family room, or in the second wing of a U a guest suite with its own bath.
+/// On a blank slate each wing is one empty room for the visitor to lay out.
 pub fn rooms(c:&Config)->Vec<Room>{
  let mut out=vec![];if c.active_floor!=0{return out}
  for(i,g)in rects(c).iter().enumerate(){
-  let suite=i==1&&g.w>=10.&&g.d>=14.;
+  if c.design_mode=="Blank slate"{out.push(Room{id:format!("{}-blank",g.id),name:"Empty addition".into(),kind:"blank".into(),x:g.x,z:g.z,w:g.w,d:g.d});continue}
+  // A two-story house keeps its bedrooms upstairs, so its second U wing is a den rather than a guest suite.
+  let suite=i==1&&g.w>=10.&&g.d>=14.&&c.stories==1;
+  if i==1&&c.stories>1{out.push(Room{id:format!("{}-den",g.id),name:"Den".into(),kind:"flex".into(),x:g.x,z:g.z,w:g.w,d:g.d});continue}
   if suite{let bath=if g.d>=18.{6.}else{0.};out.push(Room{id:format!("{}-suite",g.id),name:"Guest suite".into(),kind:"bedroom".into(),x:g.x,z:g.z,w:g.w,d:g.d-bath});if bath>0.{out.push(Room{id:format!("{}-bath",g.id),name:"Guest bath".into(),kind:"bath".into(),x:g.x,z:g.z+g.d-bath,w:g.w,d:bath});}}
   else{out.push(Room{id:format!("{}-family",g.id),name:if c.shape=="T-shape"{"Great room"}else{"Family room"}.into(),kind:"living".into(),x:g.x,z:g.z,w:g.w,d:g.d});}
  }
@@ -37,18 +49,22 @@ pub fn prepare_walls(c:&Config,rs:&[Room],mut ws:Vec<Wall>)->Vec<Wall>{
  for g in &wings{
   // The rear wall behind the wing becomes interior: its windows and doors there go, and one opening leads in.
   if let Some(rear)=ws.iter_mut().find(|w|w.id=="E2"){
-   rear.openings.retain(|o|o.at+o.width<g.x-0.3||o.at>g.x+g.w+0.3);
-   let suite=rs.iter().any(|r|is_wing(&r.id)&&r.kind=="bedroom"&&near(r.x,g.x));let width=if suite{38./12.}else{(g.w-3.).min(8.)};
+   let(lo,hi)=overlap(c,g);rear.openings.retain(|o|o.at+o.width<lo-0.3||o.at>hi+0.3);
+   let suite=rs.iter().any(|r|is_wing(&r.id)&&r.kind=="bedroom"&&near(r.x,g.x));let width=if suite{38./12.}else{(hi-lo-3.).min(8.).max(3.)};
    let ok=|at:f64|{let mid=at+width/2.;rs.iter().filter(|r|!is_wing(&r.id)&&near(r.z+r.d,c.depth)&&mid>r.x&&mid<r.x+r.w).all(|r|!["bath","stairs"].contains(&r.kind.as_str()))};
-   let centre=g.x+(g.w-width)/2.;let mut best=None;let mut k=0;while k<=(g.w*2.)as usize{for sign in [1.,-1.]{let at=centre+sign*k as f64*0.5;if best.is_none()&&at>=g.x+0.5&&at+width<=g.x+g.w-0.5&&ok(at){best=Some(at)}}k+=1;}
+   let centre=lo+(hi-lo-width)/2.;let mut best=None;let mut k=0;while k<=((hi-lo)*2.)as usize{for sign in [1.,-1.]{let at=centre+sign*k as f64*0.5;if best.is_none()&&at>=lo+0.5&&at+width<=hi-0.5&&ok(at){best=Some(at)}}k+=1;}
    let at=best.unwrap_or(centre);let num=rear.openings.len()+90;rear.openings.push(Opening{id:format!("E2-{}-{}",if suite{"D"}else{"P"},num),kind:if suite{"door"}else{"passage"}.into(),at,width,bottom:0.,height:82.5/12.});rear.openings.sort_by(|a,b|a.at.total_cmp(&b.at));
   }
   let mut num=0;
-  for(id,name,x,z,len,axis)in[(format!("XL-{}",g.id),"Wing left exterior",g.x,g.z,g.d,"z"),(format!("XR-{}",g.id),"Wing right exterior",g.x+g.w,g.z,g.d,"z"),(format!("XB-{}",g.id),"Wing rear exterior",g.x,g.z+g.d,g.w,"x")]{
+  // Where a wing reaches past a side wall, a short front wall (XF, facing the street) closes it.
+  let mut sides=vec![(format!("XL-{}",g.id),"Wing left exterior",g.x,g.z,g.d,"z"),(format!("XR-{}",g.id),"Wing right exterior",g.x+g.w,g.z,g.d,"z"),(format!("XB-{}",g.id),"Wing rear exterior",g.x,g.z+g.d,g.w,"x")];
+  if g.x<0.{sides.push((format!("XF-{}",g.id),"Wing front exterior",g.x,g.z,-g.x,"x"));}
+  if g.x+g.w>c.width{sides.push((format!("XF{}-{}",2,g.id),"Wing front exterior",c.width,g.z,g.x+g.w-c.width,"x"));}
+  for(id,name,x,z,len,axis)in sides{let front=id.starts_with("XF");
    let mut wall=Wall{id,name:name.into(),x,z,length:len,axis:axis.into(),exterior:true,openings:vec![]};
    // A side of the wing that runs along the house's own side wall continues that facade.
    let bays=((len/9.5).round()as usize).max(1);let bay=len/bays as f64;
-   for i in 0..bays{let centre=bay*(i as f64+0.5);let(px,pz)=if axis=="x"{(x+centre,z-0.5)}else{(x+if near(x,g.x){0.5}else{-0.5},z+centre)};
+   for i in 0..bays{let centre=bay*(i as f64+0.5);let(px,pz)=if axis=="x"{(x+centre,if front{z+0.5}else{z-0.5})}else{(x+if near(x,g.x){0.5}else{-0.5},z+centre)};
     let room=rs.iter().find(|r|is_wing(&r.id)&&px>=r.x&&px<=r.x+r.w&&pz>=r.z&&pz<=r.z+r.d);let Some(r)=room else{continue};let bath=r.kind=="bath";
     let room_lo=if axis=="x"{r.x}else{r.z}-if axis=="x"{x}else{z};let room_hi=room_lo+if axis=="x"{r.w}else{r.d};
     let ww=if bath{2.}else{((bay*0.44*2.).round()/2.).clamp(3.,6.)};let at=centre-ww/2.;if at<room_lo+0.6||at+ww>room_hi-0.6{continue}
@@ -63,7 +79,7 @@ pub fn prepare_walls(c:&Config,rs:&[Room],mut ws:Vec<Wall>)->Vec<Wall>{
 /// Rear-wall area now inside the house behind each wing (no siding or sheathing outside it).
 pub fn shared_area(c:&Config,ws:&[Wall])->f64{
  if c.active_floor!=0{return 0.}let Some(rear)=ws.iter().find(|w|w.id=="E2")else{return 0.};
- rects(c).iter().map(|g|(g.w*c.wall_height-rear.openings.iter().map(|o|((g.x+g.w).min(o.at+o.width)-g.x.max(o.at)).max(0.)*o.height).sum::<f64>()).max(0.)).sum()
+ rects(c).iter().map(|g|{let(lo,hi)=overlap(c,g);((hi-lo)*c.wall_height-rear.openings.iter().map(|o|(hi.min(o.at+o.width)-lo.max(o.at)).max(0.)*o.height).sum::<f64>()).max(0.)}).sum()
 }
 /// Wing roof pitch: the house pitch, flattened on a multi-story house so the wing ridge stays below the
 /// upper-floor window sills.
@@ -89,6 +105,7 @@ pub fn apply(c:&Config,mut m:Value)->Value{
  m["wings"]=json!(out);
  if !m["siteBounds"].is_object(){m["siteBounds"]=json!({"minX":0.,"minZ":0.,"maxX":c.width,"maxZ":c.depth});}
  let back=wings.iter().map(|g|g.z+g.d+1.5).fold(0.,f64::max);if back>n(&m["siteBounds"],"maxZ"){m["siteBounds"]["maxZ"]=json!(back);}
+ for g in &wings{if g.x-1.5<n(&m["siteBounds"],"minX"){m["siteBounds"]["minX"]=json!(g.x-1.5);}if g.x+g.w+1.5>n(&m["siteBounds"],"maxX"){m["siteBounds"]["maxX"]=json!(g.x+g.w+1.5);}}
  m["shape"]=json!(c.shape);m["wingArea"]=json!(round(wings.iter().map(|g|g.w*g.d).sum::<f64>()));
  m
 }
