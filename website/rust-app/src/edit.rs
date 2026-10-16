@@ -71,7 +71,7 @@ fn remove_sections(mut ws:Vec<Wall>,c:&Config)->Vec<Wall>{
  }
  ws
 }
-pub fn item_dimensions(kind:&str)->(f64,f64){if let Some(o)=objects::find(kind){return(o.width,o.depth)}match kind{"stairs"=>(8.,16.),"sofa"=>(7.,3.),"bed"=>(5.,6.7),"toilet"=>(2.,2.6),"vanity"=>(3.,2.),"shower"=>(3.,3.),"kitchen"=>(6.,2.5),"island"=>(5.,3.),"fridge"=>(2.7,2.7),"dining"=>(6.,5.),"chair"=>(2.,2.),"armchair"=>(3.,3.),"desk"=>(4.,2.),"wardrobe"=>(4.,2.),"laundry"=>(5.,2.7),"coffee"=>(3.5,2.),"nightstand"=>(1.8,1.5),"rug"=>(6.,4.),"plant"=>(1.3,1.3),"floorlamp"=>(1.6,1.6),"side-table"=>(2.,2.),"bench"=>(4.,1.6),"bookcase"=>(3.,1.1),"entry-console"=>(4.,1.2),"floor-vase"=>(1.,1.),"floor-mirror"=>(2.6,0.7),"tall-plant"=>(2.,2.),_=>(3.,2.)}}
+pub fn item_dimensions(kind:&str)->(f64,f64){if let Some(o)=objects::find(kind){return(o.width,o.depth)}match kind{"stairs"=>(8.,16.),"sofa"=>(7.,3.),"bed"=>(5.,6.7),"toilet"=>(2.,2.6),"vanity"=>(3.,2.),"shower"=>(3.,3.),"kitchen"=>(6.,2.5),"island"=>(5.,3.),"counter-run"=>(6.,2.),"pantry-tower"=>(2.5,2.),"fridge"=>(2.7,2.7),"dining"=>(6.,5.),"chair"=>(2.,2.),"armchair"=>(3.,3.),"desk"=>(4.,2.),"wardrobe"=>(4.,2.),"laundry"=>(5.,2.7),"coffee"=>(3.5,2.),"nightstand"=>(1.8,1.5),"rug"=>(6.,4.),"plant"=>(1.3,1.3),"floorlamp"=>(1.6,1.6),"side-table"=>(2.,2.),"bench"=>(4.,1.6),"bookcase"=>(3.,1.1),"entry-console"=>(4.,1.2),"floor-vase"=>(1.,1.),"floor-mirror"=>(2.6,0.7),"tall-plant"=>(2.,2.),_=>(3.,2.)}}
 pub fn rotate_item(f:&mut staging::Furniture,rotation:f64){let rotation=if f.kind=="stairs"{f.local_width=8.;f.local_depth=16.;(rotation/std::f64::consts::FRAC_PI_2).round()*std::f64::consts::FRAC_PI_2}else{rotation};f.rotation=rotation.rem_euclid(std::f64::consts::TAU);let(c,s)=(f.rotation.cos().abs(),f.rotation.sin().abs());f.w=f.local_width*c+f.local_depth*s;f.d=f.local_width*s+f.local_depth*c;}
 fn corners(f:&staging::Furniture,pad:f64)->[[f64;2];4]{let(c,s)=(f.rotation.cos(),f.rotation.sin());let(w,d)=(f.local_width/2.+pad,f.local_depth/2.+pad);[[-w,-d],[w,-d],[w,d],[-w,d]].map(|[x,z]|[f.x+c*x-s*z,f.z+s*x+c*z])}
 fn rectangle(r:[f64;4])->[[f64;2];4]{[[r[0],r[1]],[r[2],r[1]],[r[2],r[3]],[r[0],r[3]]]}
@@ -107,5 +107,7 @@ pub fn snap_item(mut f:staging::Furniture,c:&Config,ws:&[Wall],others:&[staging:
  if f.kind=="stairs"{for p in &mut candidates{p.0=(p.0/2.).round()*2.;p.1=(p.1/2.).round()*2.;}}
  candidates.retain(|(x,z)|(x-origin.0).hypot(z-origin.1)<=radius);candidates.sort_by(|a,b|((a.0-requested.0).powi(2)+(a.1-requested.1).powi(2)).total_cmp(&((b.0-requested.0).powi(2)+(b.1-requested.1).powi(2))));
  for(x,z)in candidates{f.x=x;f.z=z;if item_error_with_zones(&f,c,ws,others,&zones).is_none(){return(f,true,None)}}
+ // Nothing free right by the click (say, a stairwell corner): search outward for the nearest free spot.
+ if f.kind!="stairs"{let mut wide=vec![];for ix in -20i32..=20{for iz in -20i32..=20{let(x,z)=(origin.0+ix as f64*0.5,origin.1+iz as f64*0.5);let dist=(x-origin.0).hypot(z-origin.1);if dist>radius&&dist<=10.{wide.push((dist,x,z));}}}wide.sort_by(|a,b|a.0.total_cmp(&b.0));for(_,x,z)in wide{f.x=x;f.z=z;if item_error_with_zones(&f,c,ws,others,&zones).is_none(){return(f,true,None)}}}
  f.x=requested.0;f.z=requested.1;let error=item_error_with_zones(&f,c,ws,others,&zones);(f,false,error)
 }

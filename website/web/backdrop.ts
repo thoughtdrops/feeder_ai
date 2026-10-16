@@ -80,8 +80,8 @@ export function addSurroundings(scene:T.Scene,root:T.Object3D,o:{site:{minX:numb
  // under the lot that fades into the photo's own ground.
  const usePhoto=(photo:{spec:Photo,texture:T.Texture,sun:T.Vector3|null})=>{if(!o.alive())return;
   // Neighbouring houses in the photo look life-size when its sphere is about as far away as they were from the
-  // camera; a very large design pushes the sphere out (and the lawn with it) so the lot never looks crowded.
-  const lot=o.site,sphere=Math.max(photo.spec.radius,Math.hypot(lot.maxX-lot.minX,lot.maxZ-lot.minZ)/2*2.2),grow=sphere/photo.spec.radius;
+  // camera; a large design pushes the sphere out (and the lawn with it) far enough that the camera can frame the whole house.
+  const lot=o.site,sphere=Math.max(photo.spec.radius,Math.hypot(lot.maxX-lot.minX,lot.maxZ-lot.minZ)/2*5.4),grow=sphere/photo.spec.radius;
   const box=new GroundedSkybox(photo.texture,photo.spec.height,sphere,o.mobile?64:128);box.position.y=gy+photo.spec.height-.01;box.rotation.y=photo.spec.rotation*Math.PI/180;box.name='Photo surroundings';box.userData.backdrop=true;(box.material as T.MeshBasicMaterial).fog=false;group.add(box);
   const {minX,minZ,maxX,maxZ}=o.site,wide=photo.spec.groundRadius&&Math.min(photo.spec.groundRadius*grow,sphere*.95),cx=wide?0:(minX+maxX)/2,cz=wide?0:(minZ+maxZ)/2,radius=wide??Math.hypot(maxX-minX,maxZ-minZ)/2+60;
   // The lot itself: the photo's ground stretches into a blur close to the camera, so a tiling texture of the
