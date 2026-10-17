@@ -76,7 +76,7 @@ export function renderHouse(el:HTMLElement,payload:any){const {config,model:m,vi
  const character=m.character,shutterTone=shutterColor(config.colors.siding||'#cccccc');
  const front=m.walls.find((wall:any)=>wall.exterior&&wall.axis==='x'&&wall.z===0&&wall.openings.some((o:any)=>o.kind==='door'));const hasEntry=!!front;const frontDoor=front?.openings.find((o:any)=>o.kind==='door');const entry={at:frontDoor?front.x+frontDoor.at:w/2-1.5};if(hasEntry){box(entry.at+1.5,-.32,-2.5,Math.min(8,w*.65),.6,5,material('#a3a494',.85));box(entry.at+1.5,-.53,-10,4,.15,8,material('#8d9488',.95));}
  if(groundHere){const site=bounds||{minX:0,minZ:0,maxX:w,maxZ:d};const gm=payload.model.garage,over=gm?.walls?.flatMap((wl:any)=>wl.openings.filter((op:any)=>op.id==='G-OVERHEAD').map((op:any)=>({wl,op})))[0];
-  const lot={door:hasEntry?{x:front.x+frontDoor.at+frontDoor.width/2-w/2,z:-d/2}:null,garage:gm&&over&&over.wl.axis==='x'?{x:over.wl.x+over.op.at+over.op.width/2-w/2,z:over.wl.z-d/2,x0:gm.x-w/2,x1:gm.x+24-w/2,z0:gm.z-d/2,z1:gm.z+24-d/2}:null,house:{x0:-w/2,x1:w/2,z0:-d/2,z1:d/2}};
+  const lot={door:hasEntry?{x:front.x+frontDoor.at+frontDoor.width/2-w/2,z:-d/2}:null,garage:gm&&over&&over.wl.axis==='x'?{x:gm.x+(gm.w||24)/2-w/2,z:over.wl.z-d/2,x0:gm.x-w/2,x1:gm.x+(gm.w||24)-w/2,z0:gm.z-d/2,z1:gm.z+24-d/2}:null,house:{x0:-w/2,x1:w/2,z0:-d/2,z1:d/2}};
   addSurroundings(mainScene,scene,{lot,site:{minX:site.minX-w/2,minZ:site.minZ-d/2,maxX:site.maxX-w/2,maxZ:site.maxZ-d/2},groundY:frame?-1.85:-.55,mobile:mobileGraphics(),textures,grass:ground,renderer,sky:skyDome,alive:()=>active,wake:(content=false)=>wake(content),onPhoto:(dir,radius,reach)=>{aimAtPhotoSun?.(dir);limitOrbit?.(radius,reach);}});}
  const thickness=5.5/12,wh=cut?4.1:h;const tiledMaterial=(base:T.MeshStandardMaterial,length:number,height:number,start:number,bottom:number,tile:number)=>{const mat=base.clone();for(const key of ['map','normalMap','roughnessMap','bumpMap'] as const){const tx=base[key]?.clone();if(tx){tx.repeat.set(length/tile,height/tile);tx.offset.set(start/tile,bottom/tile);if((tx.image as any)?.width)tx.needsUpdate=true;mat[key]=tx;textures.push(tx)}}return mat;};const wallPaint=(length:number,height:number,start:number,bottom:number)=>tiledMaterial(paint,length,height,start,bottom,3.28);
 
@@ -144,10 +144,15 @@ export function renderHouse(el:HTMLElement,payload:any){const {config,model:m,vi
  const sofa=(x:number,z:number,width:number)=>{box(x,.6,z,width,.7,2.7,oak,false,.10);box(x,1.12,z,width-.18,.4,2.6,fabric,false,.13);box(x,1.7,z-1.1,width,1.7,.35,fabric,false,.12);for(const side of [-1,1]){box(x+side*(width/2-.17),1.35,z,.34,1.1,2.7,fabric,false,.10);const pillow=box(x+side*(width/2-1),1.85,z-.6,.9,.85,.28,side<0?accent:linen,false,.13);pillow.rotation.set(-.15,0,side*.12);}for(let i=0;i<Math.max(2,Math.floor(width/2));i++){const count=Math.max(2,Math.floor(width/2));box(x-width/2+(i+.5)*width/count,1.38,z,width/count-.15,.17,2.25,linen,false,.09);}box(x+width*.23,1.52,z+.38,Math.min(1.25,width*.22),.05,1.8,accent,false,.04);};
  const bed=(x:number,z:number,width:number,length:number)=>{box(x,.7,z,width,.85,length,oak,false,.1);box(x,1.25,z,width-.15,.4,length-.15,linen,false,.15);box(x,1.5,z-.5,width-.1,.15,length*.65,fabric,false,.12);for(const side of [-1,1])box(x+side*width*.22,1.66,z+length/2-.9,width*.4,.28,1.1,linen,false,.15);box(x,1.64,z-length*.25,width-.15,.06,1.2,accent,false,.045);box(x,1.8,z+length/2,width,2.7,.15,oak,false,.05);};
 
+ // Bedroom and living cabinetry follow the chosen finish: oak and walnut keep the wood grain, painted
+ // and lacquered finishes are smooth colour.
+ const finishes:Record<string,[string,boolean,number]>={'White oak':['#d9b98d',true,.5],'Walnut':['#7a5238',true,.45],'Painted white':['#ece8e0',false,.5],'Sage green':['#8d9c84',false,.5],'Navy blue':['#2f3f58',false,.45],'Charcoal':['#3d4042',false,.45],'Black lacquer':['#18191a',false,.22]};
+ const finish=finishes[m.interiorDesign?.furnitureFinish];const fin=finish?(finish[1]?(()=>{const o=oak.clone();o.color.set(finish[0]);return o;})():material(finish[0],finish[2])):cab;fin.userData.finish=!!finish;
+ const storage=m.interiorDesign?.bedroomStorage||'Wardrobe';
  for(const f of m.furniture){if(f.kind==='stairs')continue;
   if(view!=='exterior'&&view!=='framing'&&addInteriorPiece(scene,f,{config,interior,m}))continue;
   if(addRealFurniture(scene,f,m,interior,()=>active,view!=='exterior'&&view!=='framing'))continue;
-  if(addStagingObject(scene,f,m,interior,oak,fabric,bronze,()=>active))continue;
+  if(addStagingObject(scene,f,m,interior,finish?fin as T.MeshStandardMaterial:oak,fabric,bronze,()=>active))continue;
   editTarget={kind:'furniture',id:f.id};
   if(f.kind==='dining')addDiningChairs(scene,f,m,interior,()=>active,view!=='exterior'&&view!=='framing');
   const before=new Set(scene.children),fw=f.localWidth,fd=f.localDepth;
@@ -155,8 +160,13 @@ export function renderHouse(el:HTMLElement,payload:any){const {config,model:m,vi
    case 'sofa': sofa(0,0,fw);break;
    case 'bed': bed(0,0,fw,fd);break;
    case 'wallbed': box(0,3.6,0,fw,6.8,fd,oak,false,.07);box(0,3.5,fd/2+.02,fw-.25,6.25,.08,linen,false,.04);box(fw*.3,3,fd/2+.10,.08,.65,.1,bronze);break;
-   case 'nightstand': box(0,.95,0,fw,1.7,fd,cab,false,.05);books(-.15,1.84,0,2);cyl(.2,2.2,0,.035,.75,bronze);mesh(new T.CylinderGeometry(.25,.34,.4,20),linen,.2,2.65,0);break;
-   case 'wardrobe': box(0,3,0,fw,6,fd,cab,false,.03);for(const side of [-1,1])box(side*.15,3,fd/2+.025,.045,.7,.045,bronze);break;
+   case 'nightstand': box(0,.95,0,fw,1.7,fd,fin,false,.05);books(-.15,1.84,0,2);cyl(.2,2.2,0,.035,.75,bronze);mesh(new T.CylinderGeometry(.25,.34,.4,20),linen,.2,2.65,0);break;
+   case 'wardrobe':
+    if(storage==='Armoire'){for(const x of [-1,1])for(const z of [-1,1])box(x*(fw/2-.15),.3,z*(fd/2-.15),.16,.6,.16,fin,false,.03);box(0,3.4,0,fw,5.6,fd,fin,false,.04);box(0,6.35,0,fw+.3,.3,fd+.2,fin,false,.05);for(const side of [-1,1]){box(side*fw/4,3.5,fd/2+.03,fw/2-.2,4.9,.05,fin,false,.03);box(side*.14,3.6,fd/2+.08,.05,.6,.05,bronze);}}
+    else if(storage==='Built-in closet wall'){box(0,3.9,0,fw,7.8,fd,fin,false,.01);for(const x of [-1,0,1])box(x*fw/3,3.9,fd/2+.02,.03,7.6,.03,dark);for(const x of [-1,1])box(x*.12,3.6,fd/2+.06,.03,1.6,.04,bronze);}
+    else if(storage==='Tall chest'){box(0,2.5,0,fw,4.6,fd,fin,false,.04);for(let i=0;i<5;i++){const y=.55+i*.9;box(0,y,fd/2+.03,fw-.2,.8,.05,fin,false,.02);box(0,y,fd/2+.09,.5,.05,.06,bronze);}box(0,4.86,0,fw+.08,.12,fd+.06,fin,false,.03);}
+    else{box(0,3,0,fw,6,fd,fin,false,.03);for(const side of [-1,1])box(side*.15,3,fd/2+.025,.045,.7,.045,bronze);}
+    break;
    case 'kitchen': {
     const count=Math.max(1,Math.floor(fw/2)),cw=fw/count;
     for(let i=0;i<count;i++){const xx=-fw/2+(i+.5)*cw;box(xx,1.5,0,cw-.04,2.8,fd,cab,false,.025);box(xx,2.3,fd/2+.04,Math.min(.65,cw*.6),.05,.06,bronze);}
@@ -169,19 +179,19 @@ export function renderHouse(el:HTMLElement,payload:any){const {config,model:m,vi
    case 'island': box(0,1.5,0,fw,2.9,fd,cab,false,.04);box(0,3,0,fw+.1,.17,fd+.1,counter,false,.03);vase(0,3.1,0,.65);break;
    case 'fridge': box(0,3.2,0,fw,6.4,fd,stainless,false,.05);box(0,3.9,fd/2+.035,.03,4.3,.025,dark);for(const side of [-1,1])box(side*.16,4.1,fd/2+.07,.055,1.7,.1,bronze);break;
    case 'coffee': box(0,1.1,0,fw,.23,fd,oak,false,.1);for(const side of [-1,1])box(side*(fw/2-.4),.6,0,.14,1.,fd*.65,trim);books(-.7,1.27,0);vase(.8,1.25,0,.5);break;
-   case 'console': box(0,1.1,0,fw,1.8,fd,cab,false,.035);books(-1,2.05,0,3);box(.2,3.7,-fd/2+.05,fw*.85,2.4,.12,dark,false,.03);break;
+   case 'console': box(0,1.1,0,fw,1.8,fd,fin,false,.035);books(-1,2.05,0,3);box(.2,3.7,-fd/2+.05,fw*.85,2.4,.12,dark,false,.03);break;
    case 'dining': {const tw=fw,td=Math.max(2,fd-2.4);box(0,2.5,0,tw,.2,td,oak,false,.08);for(const x of [-1,1])for(const z of [-1,1]){box(x*(tw/2-.45),1.3,z*(td/2-.3),.12,2.4,.12,trim);cyl(x*tw*.28,2.63,z*td*.25,.35,.03,white);}vase(0,2.62,0,.7);break;}
    case 'shower': box(0,.32,0,fw,.2,fd,white,false,.04);box(-fw/2,3.45,0,.055,6.4,fd,glass);cyl(0,5.8,-fd/2+.1,.07,.25,stainless);box(0,6.1,-fd/2+.3,.3,.04,.45,stainless);break;
    case 'toilet':{const body=mesh(new T.LatheGeometry([new T.Vector2(.34,0),new T.Vector2(.39,.12),new T.Vector2(.29,.52),new T.Vector2(.4,.95),new T.Vector2(.62,1.23),new T.Vector2(.65,1.42),new T.Vector2(.54,1.46),new T.Vector2(.48,1.22),new T.Vector2(.2,1.03)],40),white,0,.23,.21);body.scale.z=1.25;const seat=mesh(new T.TorusGeometry(.56,.055,12,48),white,0,1.73,.21);seat.rotation.x=Math.PI/2;seat.scale.y=1.25;box(0,1.95,-.77,1.2,1.55,.58,white,false,.12);box(0,2.74,-.77,1.27,.1,.65,white,false,.04);cyl(.38,2.76,-.76,.05,.045,stainless);break;}
    case 'vanity': box(0,1.4,0,fw,2.7,fd,cab,false,.04);box(0,2.85,0,fw+.04,.16,fd+.05,counter,false,.03);box(0,2.97,0,fw*.6,.05,.9,white,false,.05);cyl(0,3.27,-.6,.04,.5,bronze);box(0,4.8,-fd/2+.08,fw*.9,2.3,.05,new T.MeshStandardMaterial({color:'#b9c6c6',metalness:.9,roughness:.08}));box(fw*.3,3,0,.4,.15,.4,linen,false,.03);break;
-   case 'desk': box(0,2.5,0,fw,.2,fd,oak,false,.04);for(const side of [-1,1])box(side*(fw/2-.25),1.25,0,.12,2.4,fd*.8,trim);box(0,3.1,-.3,1.6,1,.08,dark,false,.02);box(0,2.65,.35,1.25,.025,.4,stainless);break;
+   case 'desk': box(0,2.5,0,fw,.2,fd,fin,false,.04);for(const side of [-1,1])box(side*(fw/2-.25),1.25,0,.12,2.4,fd*.8,trim);box(0,3.1,-.3,1.6,1,.08,dark,false,.02);box(0,2.65,.35,1.25,.025,.4,stainless);break;
    case 'laundry': for(const side of [-1,1]){box(side*1.22,1.6,0,2.35,3.1,fd,white,false,.06);const drum=mesh(new T.CylinderGeometry(.7,.7,.09,24),dark,side*1.22,1.7,fd/2+.02);drum.rotation.x=Math.PI/2;}break;
 
    case 'rug':{const rug=material(interior.fabric,.99);rug.bumpMap=surface('plaster');rug.bumpScale=.022;box(0,.23,0,fw,.035,fd,rug,false,.04);break;}
    case 'floorlamp':{cyl(0,.28,0,.62,.12,bronze);cyl(0,2.6,0,.055,4.6,bronze);mesh(new T.CylinderGeometry(.55,.75,1.05,32,1,true),linen,0,4.9,0);sphere(0,4.75,0,.18,white);break;}
    case 'side-table':{cyl(0,1.95,0,.94,.15,oak);for(const a of [0,Math.PI*2/3,Math.PI*4/3])cyl(Math.cos(a)*.62,1.1,Math.sin(a)*.62,.065,1.65,bronze);break;}
    case 'bench':{box(0,1.55,0,fw,.3,fd,linen,false,.12);for(const x of [-1,1])for(const z of [-1,1])box(x*(fw/2-.25),.9,z*(fd/2-.22),.12,1.2,.12,oak,false,.03);break;}
-   case 'bookcase':{for(const x of [-1,1])box(x*(fw/2-.07),3.05,0,.12,5.6,fd,oak);box(0,3.05,-fd/2+.04,fw,5.6,.08,oak);for(const yy of [.32,1.65,3.,4.35,5.85]){box(0,yy,0,fw,.1,fd,oak);if(yy<5.8)for(let i=0;i<7;i++){const cover=material(['#315e5b','#af7959','#c2aa75','#4e5871'][i%4],.9);box(-fw/2+.3+i*(fw-.6)/7,yy+.45,-.08,.2,.76,.63,cover,false,.015);}}break;}
+   case 'bookcase':{for(const x of [-1,1])box(x*(fw/2-.07),3.05,0,.12,5.6,fd,fin);box(0,3.05,-fd/2+.04,fw,5.6,.08,fin);for(const yy of [.32,1.65,3.,4.35,5.85]){box(0,yy,0,fw,.1,fd,oak);if(yy<5.8)for(let i=0;i<7;i++){const cover=material(['#315e5b','#af7959','#c2aa75','#4e5871'][i%4],.9);box(-fw/2+.3+i*(fw-.6)/7,yy+.45,-.08,.2,.76,.63,cover,false,.015);}}break;}
    case 'entry-console':{box(0,2.65,0,fw,.16,fd,oak,false,.035);box(0,2.35,0,fw-.15,.45,fd-.1,oak,false,.04);for(const x of [-1,1])for(const z of [-1,1])box(x*(fw/2-.2),1.45,z*(fd/2-.17),.1,2.15,.1,bronze);cyl(.6,2.96,0,.12,.5,white);sphere(.6,3.2,0,.2,white);break;}
    case 'floor-vase':{mesh(new T.LatheGeometry([new T.Vector2(.25,0),new T.Vector2(.4,.25),new T.Vector2(.46,.7),new T.Vector2(.35,1.2),new T.Vector2(.17,1.5),new T.Vector2(.2,1.65)],36),material('#aa8165',.7),0,.23,0);break;}
    case 'floor-mirror':{const mirror=material('#c0d5dc',.12,.85);box(0,3.2,0,fw,5.8,.12,oak,false,.065);box(0,3.2,-.085,fw-.28,5.5,.035,mirror,false,.05);for(const x of [-1,1])box(x*(fw/2-.17),.55,.1,.1,.65,fd,oak);break;}

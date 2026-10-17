@@ -11,6 +11,8 @@ pub fn validate(c:&Config)->Result<(),String>{
         (&c.dormer_side,vec!["Automatic","Front","Rear","Left","Right"],"dormer side"),
         (&c.balcony,vec!["Style matched","None","Rear balcony"],"upper balcony"),
         (&c.rear_outdoor,vec!["Style matched","None","Deck","Covered porch"],"rear outdoor space"),
+        (&c.front_porch,crate::porch::FORMS.to_vec(),"front porch"),
+        (&c.garage_size,vec!["Two-car","Three-car"],"garage size"),
         (&c.window_style,vec!["Style matched","Double hung","Casement","Picture"],"window style"),
         (&c.window_size,vec!["Style matched","Medium","Large"],"window size"),
         (&c.roof_edge_style,vec!["Style matched","Plain fascia","Crown fascia","Stepped cornice","Ogee cornice","Dentil cornice","Modillion cornice","Scrolled corbels","Craftsman brackets","Exposed beam ends","Boxed eave & frieze","Victorian fretwork"],"roof edge"),

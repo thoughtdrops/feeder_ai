@@ -7,7 +7,7 @@ import objects from '../rust-app/data/objects.json';
 export function addStagingObject(scene:T.Object3D,f:any,m:any,interior:any,wood:T.MeshStandardMaterial,cloth:T.MeshStandardMaterial,metal:T.MeshStandardMaterial,alive:()=>boolean){
  if(!objects.some(o=>o.kind===f.kind))return false;
  const group=new T.Group(),w=f.localWidth,d=f.localDepth;
- wood=wood.clone();wood.color.set('#ffffff');
+ wood=wood.clone();if(!wood.userData.finish)wood.color.set('#ffffff');
  const accent=cloth.clone();accent.color.set(interior.accent);
  const upholstery=cloth.clone();upholstery.color.set(interior.fabric);const ivory=new T.MeshPhysicalMaterial({color:'#e3e0d7',roughness:.2,clearcoat:.4,clearcoatRoughness:.17});
  const steel=new T.MeshStandardMaterial({color:'#929b9b',roughness:.24,metalness:.85});const black=new T.MeshStandardMaterial({color:'#1d2628',roughness:.38});

@@ -17,10 +17,13 @@ pub const FRIDGES:[&str;3]=["Style matched","Stainless French door","Panel-ready
 pub const SEATING:[&str;7]=["Style matched","Wraparound U sectional","L-shaped sectional","Sofa & lounge chairs","Chesterfield sofa","Curved sofa","Mid-century sofa"];
 pub const MEDIA:[&str;5]=["Style matched","TV console","Fireplace & TV","Built-in shelves & TV","Fireplace & art"];
 pub const COFFEE:[&str;5]=["Style matched","Walnut rectangle","Round marble","Upholstered ottoman","Glass & brass"];
+pub const CABINET_COLORS:[&str;8]=["Style matched","Warm white","Sage green","Navy blue","Charcoal","Natural oak","Walnut","Black"];
+pub const FINISHES:[&str;8]=["Style matched","White oak","Walnut","Painted white","Sage green","Navy blue","Charcoal","Black lacquer"];
+pub const STORAGE:[&str;5]=["Style matched","Wardrobe","Armoire","Built-in closet wall","Tall chest"];
 pub const RUGS:[&str;5]=["Style matched","Trellis wool","Vintage Persian","Natural jute","Solid plush"];
 
 /// Every choice as (config field, label, options, current value).
-pub fn fields(c:&Config)->[(&'static str,&'static str,&'static [&'static str],&str);15]{[
+pub fn fields(c:&Config)->[(&'static str,&'static str,&'static [&'static str],&str);18]{[
     ("kitchenCabinets","Cabinet doors",&CABINETS,&c.kitchen_cabinets),
     ("kitchenCounter","Countertops",&COUNTERS,&c.kitchen_counter),
     ("kitchenBacksplash","Backsplash",&BACKSPLASHES,&c.kitchen_backsplash),
@@ -36,10 +39,13 @@ pub fn fields(c:&Config)->[(&'static str,&'static str,&'static [&'static str],&s
     ("livingMedia","Media wall",&MEDIA,&c.living_media),
     ("livingCoffee","Coffee table",&COFFEE,&c.living_coffee),
     ("livingRug","Area rug",&RUGS,&c.living_rug),
+    ("cabinetColor","Kitchen cabinet color",&CABINET_COLORS,&c.cabinet_color),
+    ("furnitureFinish","Bedroom & living cabinetry finish",&FINISHES,&c.furniture_finish),
+    ("bedroomStorage","Bedroom storage",&STORAGE,&c.bedroom_storage),
 ]}
 
 /// A generated home arrives with the kitchen and living room of its interior scheme.
-pub fn match_style(c:&mut Config){for v in [&mut c.kitchen_cabinets,&mut c.kitchen_counter,&mut c.kitchen_backsplash,&mut c.kitchen_range,&mut c.kitchen_hood,&mut c.kitchen_sink,&mut c.kitchen_uppers,&mut c.kitchen_hardware,&mut c.kitchen_island,&mut c.kitchen_pendants,&mut c.kitchen_fridge,&mut c.living_seating,&mut c.living_media,&mut c.living_coffee,&mut c.living_rug]{*v="Style matched".into();}}
+pub fn match_style(c:&mut Config){for v in [&mut c.kitchen_cabinets,&mut c.kitchen_counter,&mut c.kitchen_backsplash,&mut c.kitchen_range,&mut c.kitchen_hood,&mut c.kitchen_sink,&mut c.kitchen_uppers,&mut c.kitchen_hardware,&mut c.kitchen_island,&mut c.kitchen_pendants,&mut c.kitchen_fridge,&mut c.living_seating,&mut c.living_media,&mut c.living_coffee,&mut c.living_rug,&mut c.cabinet_color,&mut c.furniture_finish,&mut c.bedroom_storage]{*v="Style matched".into();}}
 
 pub fn validate(c:&Config)->Result<(),String>{
     for(_,label,options,value)in fields(c){if !options.contains(&value){return Err(format!("Choose a listed {} option.",label.to_lowercase()));}}
@@ -47,15 +53,15 @@ pub fn validate(c:&Config)->Result<(),String>{
 }
 
 /// The scheme family's show-home kitchen and living room, in `fields` order.
-fn matched(c:&Config)->[&'static str;15]{
+fn matched(c:&Config)->[&'static str;18]{
     match c.interior_style.split(" · ").next().unwrap_or(""){
-        "Modern"=>["Flat slab","White quartz","Full-height slab","36 in pro range","Plaster hood","Undermount stainless","Upper cabinets","Matte black","Waterfall island","Linear chandelier","Panel-ready built-in","L-shaped sectional","TV console","Walnut rectangle","Solid plush"],
-        "Classic"=>["Raised panel","Calacatta marble","Subway tile","48 in pro range","Wood mantel hood","Farmhouse apron","Glass-front uppers","Brass","Seating island & stools","Lantern","Stainless French door","Chesterfield sofa","Fireplace & TV","Round marble","Vintage Persian"],
-        "Natural"=>["Shaker","Butcher block","Zellige","30 in slide-in","Plaster hood","Farmhouse apron","Open shelving","Brushed nickel","Butcher block work island","Dome","Stainless French door","Sofa & lounge chairs","Built-in shelves & TV","Upholstered ottoman","Natural jute"],
-        "Urban"=>["Flat slab","Concrete","Subway tile","36 in pro range","Stainless chimney","Undermount stainless","Open shelving","Matte black","Waterfall island","Glass globe","Stainless French door","Wraparound U sectional","TV console","Glass & brass","Solid plush"],
-        "Collected"=>["Beadboard","Soapstone","Hexagon","48 in pro range","Wood mantel hood","Farmhouse apron","Glass-front uppers","Brass","Seating island & stools","Lantern","Stainless French door","Curved sofa","Fireplace & art","Round marble","Vintage Persian"],
-        "Refined"=>["Fluted oak","Calacatta marble","Full-height slab","48 in pro range","Plaster hood","Undermount stainless","Glass-front uppers","Brass","Waterfall island","Glass globe","Panel-ready built-in","Wraparound U sectional","Fireplace & TV","Round marble","Trellis wool"],
-        _=>["Shaker","White quartz","Subway tile","30 in slide-in","Stainless chimney","Undermount stainless","Upper cabinets","Brushed nickel","Waterfall island","Dome","Stainless French door","L-shaped sectional","TV console","Walnut rectangle","Trellis wool"],
+        "Modern"=>["Flat slab","White quartz","Full-height slab","36 in pro range","Plaster hood","Undermount stainless","Upper cabinets","Matte black","Waterfall island","Linear chandelier","Panel-ready built-in","L-shaped sectional","TV console","Walnut rectangle","Solid plush","Charcoal","Walnut","Built-in closet wall"],
+        "Classic"=>["Raised panel","Calacatta marble","Subway tile","48 in pro range","Wood mantel hood","Farmhouse apron","Glass-front uppers","Brass","Seating island & stools","Lantern","Stainless French door","Chesterfield sofa","Fireplace & TV","Round marble","Vintage Persian","Warm white","Painted white","Armoire"],
+        "Natural"=>["Shaker","Butcher block","Zellige","30 in slide-in","Plaster hood","Farmhouse apron","Open shelving","Brushed nickel","Butcher block work island","Dome","Stainless French door","Sofa & lounge chairs","Built-in shelves & TV","Upholstered ottoman","Natural jute","Natural oak","White oak","Wardrobe"],
+        "Urban"=>["Flat slab","Concrete","Subway tile","36 in pro range","Stainless chimney","Undermount stainless","Open shelving","Matte black","Waterfall island","Glass globe","Stainless French door","Wraparound U sectional","TV console","Glass & brass","Solid plush","Black","Charcoal","Built-in closet wall"],
+        "Collected"=>["Beadboard","Soapstone","Hexagon","48 in pro range","Wood mantel hood","Farmhouse apron","Glass-front uppers","Brass","Seating island & stools","Lantern","Stainless French door","Curved sofa","Fireplace & art","Round marble","Vintage Persian","Sage green","Navy blue","Armoire"],
+        "Refined"=>["Fluted oak","Calacatta marble","Full-height slab","48 in pro range","Plaster hood","Undermount stainless","Glass-front uppers","Brass","Waterfall island","Glass globe","Panel-ready built-in","Wraparound U sectional","Fireplace & TV","Round marble","Trellis wool","Walnut","Black lacquer","Tall chest"],
+        _=>["Shaker","White quartz","Subway tile","30 in slide-in","Stainless chimney","Undermount stainless","Upper cabinets","Brushed nickel","Waterfall island","Dome","Stainless French door","L-shaped sectional","TV console","Walnut rectangle","Trellis wool","Warm white","White oak","Wardrobe"],
     }
 }
 

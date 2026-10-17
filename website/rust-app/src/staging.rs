@@ -26,7 +26,9 @@ fn stage_kitchen(out:&mut Vec<Furniture>,r:&Room,ws:&[Wall]){
  for len in [12.,10.,8.,6.,5.,4.]{if place(out,r,ws,"counter-run",len,2.,3.5,false){break}}
  for _ in 0..2{place(out,r,ws,"pantry-tower",2.5,2.,3.,false);}
  if r.w>=12.&&r.d>=12.{for(w,d)in[(8.,4.),(7.,3.5),(6.,3.5),(5.,3.)]{if place(out,r,ws,"island",w,d,3.5,true){break}}}
- if r.w*r.d>=180.{for len in [10.,8.,6.,5.,4.]{if place(out,r,ws,"counter-run",len,2.,3.5,false){break}}}
+ // Generous kitchens get a second and third run of counters on the remaining walls.
+ if r.w*r.d>=120.{for len in [10.,8.,6.,5.,4.]{if place(out,r,ws,"counter-run",len,2.,3.5,false){break}}}
+ if r.w*r.d>=200.{for len in [8.,6.,5.,4.]{if place(out,r,ws,"counter-run",len,2.,3.5,false){break}}}
 }
 
 // Search fixture arrangements together instead of letting the first shower
@@ -50,6 +52,7 @@ pub fn work_zone(f:&Furniture)->Option<[f64;4]>{let(c,round)=clearance(&f.kind)?
 /// bench at the foot of the bed, and cabinets that turn a corner (an L-shaped kitchen's second leg butts
 /// into the end of the first leg's aisle).
 pub fn may_share(body:&Furniture,owner:&Furniture)->bool{
- let line=|k:&str|["kitchen","counter-run","fridge","pantry-tower"].contains(&k);let quarter=|f:&Furniture|((f.rotation/std::f64::consts::FRAC_PI_2).round()as i64).rem_euclid(4);
+ // Counters may turn a corner into each other's aisle; a refrigerator never stands in front of a counter.
+ let line=|k:&str|["kitchen","counter-run","pantry-tower"].contains(&k);let quarter=|f:&Furniture|((f.rotation/std::f64::consts::FRAC_PI_2).round()as i64).rem_euclid(4);
  if line(&body.kind)&&line(&owner.kind)&&(quarter(body)-quarter(owner)).rem_euclid(2)==1{return true}
  matches!((body.kind.as_str(),owner.kind.as_str()),("coffee","sofa")|("coffee","sectional")|("bench","bed")|("nightstand","bed")|("armchair","coffee"))}

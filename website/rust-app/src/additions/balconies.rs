@@ -38,7 +38,11 @@ pub fn apply(c:&Config,m:&mut Value,t:&mut model::Takeoff){
  // running through it to the ground.
  let floors:Vec<Value>=["rearOutdoor","porch"].iter().flat_map(|k|m[*k]["rectangles"].as_array().cloned().unwrap_or_default()).collect();
  let base=|x:f64,z:f64|floors.iter().filter(|r|x>=n(r,"x")-0.3&&x<=n(r,"x")+n(r,"w")+0.3&&z>=n(r,"z")-0.3&&z<=n(r,"z")+n(r,"d")+0.3).filter_map(|r|r["deckYs"][0].as_f64()).fold(0.,f64::max);
- let posts:Vec<_>=(0..=(b.w/8.).ceil()as usize).map(|i|{let(x,z)=(b.x+b.w*i as f64/(b.w/8.).ceil(),b.z+b.d);let y=base(x,z);json!({"x":x,"z":z,"base":y,"height":deck_y-0.67-y})}).collect();
+ let mut posts:Vec<_>=(0..=(b.w/8.).ceil()as usize).map(|i|{let(x,z)=(b.x+b.w*i as f64/(b.w/8.).ceil(),b.z+b.d);let y=base(x,z);json!({"x":x,"z":z,"base":y,"height":deck_y-0.67-y})}).collect();
+ // Over a deck or porch the balcony hangs from the house on knee-braced brackets instead of standing a
+ // post on the floor below; its depth stays within a bracketed cantilever.
+ let mut brackets:Vec<Value>=vec![];
+ if !b.existing&&posts.iter().any(|p|n(p,"base")>0.01){let rows=(b.w/4.).ceil().max(1.)as usize;brackets=(0..=rows).map(|i|{let x=b.x+b.w*i as f64/rows as f64;let(wall_z,dir)=if b.side=="Rear"{(b.z,1.)}else{(b.z,1.)};json!({"a":[x,deck_y-0.67-b.d.min(4.),wall_z],"b":[x,deck_y-0.67,wall_z+dir*b.d*0.9]})}).collect();posts.clear();}
  let rails:Vec<_>=[([b.x,deck_y+3.5,b.z],[b.x,deck_y+3.5,b.z+b.d]),([b.x,deck_y+3.5,b.z+b.d],[b.x+b.w,deck_y+3.5,b.z+b.d]),([b.x+b.w,deck_y+3.5,b.z+b.d],[b.x+b.w,deck_y+3.5,b.z])].into_iter().map(|(a,b)|{let len=((b[0]-a[0]).powi(2)+(b[2]-a[2]).powi(2)).sqrt();json!({"a":a,"b":b,"length":len,"balusters":(len/(4./12.)).ceil()as usize})}).collect();
  let rail_lf:f64=rails.iter().map(|r|n(r,"length")).sum();let count=posts.len()as f64;let area=b.w*b.d;
  if !b.existing{
@@ -48,6 +52,7 @@ pub fn apply(c:&Config,m:&mut Value,t:&mut model::Takeoff){
    ("ledger","Balcony exterior-rated rim / flashed ledger",2.*(b.w+b.d),"linear ft",2.4,false),
    ("beam","Balcony doubled exterior beam stock",b.w*2.,"ply linear ft",3.,false),
    ("posts","Balcony exterior-rated 6×6 support posts",count,"posts",180.,true),
+   ("brackets","Balcony knee-braced steel / timber brackets",brackets.len()as f64,"brackets",240.,true),
    ("footings","Balcony post concrete footings · concept",count*4./27.,"cu yd",180.,false),
    ("postbases","Balcony rated post bases / beam caps",count*2.,"sets",65.,true),
    ("guards","Balcony 42 in guard upper / lower rails",rail_lf*2.,"linear ft",4.,false),
@@ -59,7 +64,7 @@ pub fn apply(c:&Config,m:&mut Value,t:&mut model::Takeoff){
    ("sealer","Balcony wood sealer · two coats",(area*2.8+rail_lf*3.+count*deck_y*2.)*2./350.,"gal",65.,true),
   ]{t.add(&format!("balcony-{}",id),"Outdoor living",name,net,unit,rate,"Displayed balcony geometry. Joist/member selections, elevated live load, ledger, guards, footings, drainage and weather exposure require engineering and local review.","Balcony geometry allowance",true,whole);}
  }
- let data=json!({"side":b.side,"x":b.x,"z":b.z,"w":b.w,"d":b.d,"deckY":deck_y,"area":area,"doorId":door["id"],"wallId":wall["id"],"existingGallery":b.existing,"columnStyle":if c.home_style=="Victorian"{"turned"}else{"square"},"joists":joists,"posts":posts,"rails":rails,"guardHeightInches":42,"note":if b.existing{"Upper veranda is counted in the existing reference porch schedule; its upper-floor doorway is connected."}else{"Post-supported balcony with a connected upper-floor door, exterior-rated framing and flashed ledger. Final structural/site detailing pending."}});
+ let data=json!({"side":b.side,"x":b.x,"z":b.z,"w":b.w,"d":b.d,"deckY":deck_y,"area":area,"doorId":door["id"],"wallId":wall["id"],"existingGallery":b.existing,"columnStyle":if c.home_style=="Victorian"{"turned"}else{"square"},"joists":joists,"posts":posts,"brackets":brackets,"rails":rails,"guardHeightInches":42,"note":if b.existing{"Upper veranda is counted in the existing reference porch schedule; its upper-floor doorway is connected."}else{"Post-supported balcony with a connected upper-floor door, exterior-rated framing and flashed ledger. Final structural/site detailing pending."}});
  m["balcony"]=data.clone();for level in m["levels"].as_array_mut().unwrap(){level["balcony"]=data.clone();}
  m["balconyArea"]=json!(area);super::add_bounds(m,c,b.x,b.z,b.w,b.d);
 }

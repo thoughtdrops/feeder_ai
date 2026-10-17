@@ -385,10 +385,14 @@ export function addLot(root:T.Object3D,o:{site:Site,groundY:number,lot:Lot,mobil
  const flat=(x0:number,x1:number,z0:number,z1:number,y:number,mat:string,tile:number,name:string)=>{const g=quad([V(x0,y,z1),V(x1,y,z1),V(x1,y,z0),V(x0,y,z0)],tile,tile);const mesh=new T.Mesh(g,mats[mat]);mesh.receiveShadow=true;mesh.name=name;group.add(mesh);};
  // Driveway: full width from the garage door to the sidewalk, then the apron across the tree lawn to the curb.
  let mailX=lot.door?lot.door.x+4.5:0;
- if(lot.garage){const g=lot.garage;flat(g.x-9,g.x+9,L.walkNear[1]!,g.z,.06,'concrete',6,'Driveway');flat(g.x-9,g.x+9,L.road[1]!,L.walkNear[0]!,.065,'concrete',6,'Driveway apron');
-  for(let z=g.z-12;z>L.walkNear[1]!+2;z-=12){const j=new T.Mesh(new T.BoxGeometry(18,.02,.08),mats.mailbox);j.position.set(g.x,.075,z);group.add(j);}
-  mailX=lot.door&&lot.door.x<g.x?g.x-10.5:g.x+10.5;}
+ if(lot.garage){const g=lot.garage,half=Math.max(9,(g.x1-g.x0)/2-3);flat(g.x-half,g.x+half,L.walkNear[1]!,g.z,.06,'concrete',6,'Driveway');flat(g.x-half,g.x+half,L.road[1]!,L.walkNear[0]!,.065,'concrete',6,'Driveway apron');
+  for(let z=g.z-12;z>L.walkNear[1]!+2;z-=12){const j=new T.Mesh(new T.BoxGeometry(half*2,.02,.08),mats.mailbox);j.position.set(g.x,.075,z);group.add(j);}
+  mailX=lot.door&&lot.door.x<g.x?g.x-half-1.5:g.x+half+1.5;}
  if(lot.door){const d=lot.door;flat(d.x-2,d.x+2,L.walkNear[1]!,d.z-5,.065,'slab',5,'Front walk');}
+ // A walk from the driveway to the front walk, in front of any porch steps and across the driveway's own
+ // stretch in front of the garage, so the car and the front door are joined like the sidewalk is.
+ if(lot.door&&lot.garage){const d=lot.door,g=lot.garage,half=Math.max(9,(g.x1-g.x0)/2-3),zc=Math.max(L.walkNear[1]!+3,Math.min(d.z-12,g.z-3));
+  const [a,b]=d.x<g.x?[d.x+2,g.x-half]:[g.x+half,d.x-2];if(b-a>.5)flat(a,b,zc-2,zc+2,.065,'slab',5,'Driveway to front door walk');}
  // Mailbox on a 4×4 post at the curb, with a rounded-top box and a red flag.
  const mz=L.road[1]!+1.4,post=new T.Mesh(new T.BoxGeometry(.33,3.8,.33),mats.trim);post.position.set(mailX,1.9,mz);
  const body=new T.Mesh(new T.BoxGeometry(.7,.45,1.75),mats.mailbox);body.position.set(mailX,3.75,mz-.2);

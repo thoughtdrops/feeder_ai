@@ -26,6 +26,7 @@ pub fn roof(a:&State)->String{
 }
 pub fn outdoor(a:&State)->String{
     let c=&a.c;let mut out=String::from("<details class=control-group data-section=outdoor><summary>Porches, decks &amp; balcony</summary>");
+    out.push_str(&select("frontPorch","Front porch",&strings(&crate::porch::FORMS),&c.front_porch));
     out.push_str(&select("columnStyle","Porch column style",&strings(&additions::character::COLUMNS),&c.column_style));
     out.push_str(&select("railingStyle","Railing style · porch, deck and balcony",&strings(&additions::character::RAILINGS),&c.railing_style));
     out.push_str(&select("rearOutdoor","Rear outdoor space",&strings(&["Style matched","None","Deck","Covered porch"]),&c.rear_outdoor));
@@ -36,7 +37,7 @@ pub fn outdoor(a:&State)->String{
     out.push_str(&select("balcony","Upper-floor balcony",&strings(&["Style matched","None","Rear balcony"]),&c.balcony));
     if let Some(note)=a.m["balconyNote"].as_str(){out.push_str(&format!("<p class=feature-note>{}</p>",esc(note)));}
     if a.m["balcony"].is_object(){out.push_str(&format!("<p class=muted>{} · {:.0} × {:.0} ft · connected upper-floor door. {}</p>",esc(s(&a.m["balcony"],"side")),n(&a.m["balcony"],"w"),n(&a.m["balcony"],"d"),esc(s(&a.m["balcony"],"note"))));}
-    out.push_str("<p class=muted>The source-informed front porch is retained. Rear additions coordinate with the selected style and appear in the takeoff.</p></details>");out
+    out.push_str("<p class=muted>Style matched keeps the catalog house's own front porch. Rear additions coordinate with the selected style and appear in the takeoff.</p></details>");out
 }
 pub fn windows(a:&State)->String{
     let c=&a.c;let mut out=String::from("<details class=control-group data-section=windows><summary>Windows, shutters &amp; front door</summary>");
@@ -51,7 +52,7 @@ pub fn windows(a:&State)->String{
 pub fn interiors(a:&State)->String{
     let c=&a.c;let picked=crate::interior_design::resolved(c);let fields=crate::interior_design::fields(c);
     let mut out=String::new();
-    for(section,title,range,note)in[("kitchen","Kitchen design",0..11,"Real product sizes: 36 in counters, 30 in uppers, 24 in dishwasher, 30 to 48 in ranges. Style matched follows the interior design scheme. Upgrades over the standard kitchen are priced in the estimate."),("living","Living room design",11..15,"Wraparound and L sectionals take the room only where they keep doors, walkways and windows clear; otherwise the sofa stays. Fireplaces and built-ins are priced on the media wall.")]{
+    for(section,title,range,note)in[("kitchen","Kitchen design",0..11,"Real product sizes: 36 in counters, 30 in uppers, 24 in dishwasher, 30 to 48 in ranges. Style matched follows the interior design scheme. Upgrades over the standard kitchen are priced in the estimate."),("living","Living room design",11..15,"Wraparound and L sectionals take the room only where they keep doors, walkways and windows clear; otherwise the sofa stays. Fireplaces and built-ins are priced on the media wall."),("cabinetry","Cabinetry & storage",15..18,"Kitchen cabinet color paints the cabinets and island; the cabinetry finish dresses wardrobes, dressers, nightstands, consoles, sideboards, bookcases and desks; bedroom storage chooses the piece each bedroom gets.")]{
         out.push_str(&format!("<details class=control-group data-section={}-design><summary>{}</summary>",section,title));
         for(key,label,options,value)in fields[range].iter(){
             let current=picked.get(key).copied().unwrap_or("");

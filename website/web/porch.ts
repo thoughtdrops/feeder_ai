@@ -21,7 +21,8 @@ export function addPorch(scene:T.Object3D,m:any,frame:boolean,wood:T.MeshStandar
   const height=post.height-p.deckY,returnPost=post.x<0||post.x>m.w;
   if(frame)box(post.x,p.deckY+height/2,post.z,.5,height,.5,wood,'Porch structural column');
   else addColumn(group,p.columnStyle,post.x-m.w/2,p.deckY,post.z-m.d/2,height,returnPost?'z':'x',wood,siding);
-  box(post.x,p.deckY+.09,post.z,.64,.18,.64,wood,'Porch column plinth');box(post.x,post.height-.08,post.z,.65,.16,.65,wood,'Porch column capital');
+  // Plain posts get a plinth and cap; the other styles carry their own base and capital.
+  if(frame||p.columnStyle==='square'){box(post.x,p.deckY+.09,post.z,.64,.18,.64,wood,'Porch column plinth');box(post.x,post.height-.08,post.z,.65,.16,.65,wood,'Porch column capital');}
   if(frame)box(post.x,-.5,post.z,2.,.5,2.,concrete,'Porch footing allowance');
  }
  if(!frame){const style=m.character?.railing||'square';for(const rail of p.rails){
