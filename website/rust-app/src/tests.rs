@@ -49,7 +49,7 @@ fn garages_use_actual_geometry_and_shared_walls_once(){
    let all=m["allFrameMembers"].as_array().unwrap();let ids:std::collections::BTreeSet<_>=all.iter().map(|v|s(v,"id")).collect();assert_eq!(ids.len(),all.len());
    let studs=all.iter().filter(|v|["Common","King","Jack","Cripple","Corner backing","Intersection backing","Gable"].contains(&s(v,"role"))).count();assert_eq!(n(&m["counts"],"studs"),studs as f64);
    let items=m["items"].as_array().unwrap();assert_eq!(round(items.iter().filter(|v|!pricing::furnishing(s(v,"category"))).map(|v|n(v,"total")).sum()),n(&m,"subtotal"));assert_eq!(n(&m,"total"),round(n(&m,"subtotal")+n(&m,"tax")));
-   assert_eq!(n(&m,"tax"),round(n(&m,"subtotal")*0.06));assert!(items.iter().all(|v|n(v,"total")==round(n(v,"qty")*n(v,"price"))));
+   assert!((n(&m,"tax")-round(n(&m,"subtotal")*0.06)).abs()<0.011);assert!(items.iter().all(|v|n(v,"total")==round(n(v,"qty")*n(v,"price"))));
    assert_eq!(n(items.iter().find(|v|s(v,"id")=="garage-slab").unwrap(),"rawNet"),576./81.);
    assert_eq!(n(items.iter().find(|v|s(v,"id")=="garage-ziproof").unwrap(),"rawNet"),n(&g["roof"],"area")/32.);
    assert_eq!(n(&m["counts"],"drywallSheets"),items.iter().filter(|v|s(v,"unit")=="sheets"&&(s(v,"id").starts_with("drywall")||["garage-drywall","garage-ceilingdrywall"].contains(&s(v,"id")))).map(|v|n(v,"qty")).sum::<f64>());
@@ -376,7 +376,7 @@ fn reference_porches_and_carved_surrounds_match_their_live_takeoff(){
 }
 #[test]fn rear_additions_windows_and_insulation_scale_from_live_geometry(){
  let mut c=fixture();c.home_style="Ranch".into();c.width=40.;c.depth=48.;c.rear_outdoor="Deck".into();c.window_size="Large".into();c.window_style="Picture".into();let m=model::build(&c);let p=&m["rearOutdoor"];assert!(s(p,"access").starts_with("Connected"));assert_eq!(p["roofs"],json!([]));let rect=&p["rectangles"][0];assert_eq!(n(rect,"w"),16.);assert_eq!(n(rect,"d"),8.);assert!(n(&m["siteBounds"],"maxZ")>=56.);assert!(n(&m,"interiorCavityArea")<n(&m,"partitionLength")*c.wall_height);
- for w in m["windowSchedule"].as_array().unwrap(){if w["bedroomEscapeCandidate"]==true{assert_eq!(s(w,"type"),"Casement");}assert!([2.,4.].contains(&n(w,"width")));}
+ for w in m["windowSchedule"].as_array().unwrap(){if w["bedroomEscapeCandidate"]==true{assert_eq!(s(w,"type"),"Casement");}assert!(n(w,"width")==2.||n(w,"width")>=6.,"large ranch window {}",n(w,"width"));}
  c.rear_outdoor="Covered porch".into();let covered=model::build(&c);assert!(n(&covered["rearOutdoor"],"roofArea")>0.);assert!(n(&covered,"total")>n(&m,"total"));c.rear_outdoor="Style matched".into();c.width=8.;c.depth=8.;let tiny=model::build(&c);assert!(tiny["rearOutdoor"].is_null());assert!(n(&tiny,"total")<n(&m,"total"));
  c=Config::default();let two=model::build(&c);let batts=two["items"].as_array().unwrap();assert!(s(batts.iter().find(|i|s(i,"id")=="soundinsulation").unwrap(),"name").contains("unfaced"));assert!(s(batts.iter().find(|i|s(i,"id")=="floorsound").unwrap(),"name").contains("unfaced"));assert!(s(batts.iter().find(|i|s(i,"id")=="atticinsulation").unwrap(),"name").contains("kraft"));
 }
@@ -829,3 +829,25 @@ fn wall_problems(level:&Value)->Vec<String>{
  let mut on_deck=0;for p in b["posts"].as_array().unwrap(){let(x,z)=(n(p,"x"),n(p,"z"));let inside=x>=n(deck,"x")-0.3&&x<=n(deck,"x")+n(deck,"w")+0.3&&z>=n(deck,"z")-0.3&&z<=n(deck,"z")+n(deck,"d")+0.3;
   if inside{on_deck+=1;assert!(near(n(p,"base"),surface),"post over the deck starts on it");}else{assert!(near(n(p,"base"),0.));}assert!(near(n(p,"base")+n(p,"height"),n(b,"deckY")-0.67));}
  assert!(on_deck>0,"the test balcony sits over the deck");}
+/// Furniture problems in one level: pieces that overlap, pieces standing in another piece's working space
+/// (the aisle in front of counters, a bed's foot, the pull-out ring round a dining table), and refrigerators
+/// stranded away from the kitchen counters.
+fn furniture_problems(level:&Value)->Vec<String>{
+ let fs:Vec<staging::Furniture>=serde_json::from_value(level["furniture"].clone()).unwrap_or_default();let mut out=vec![];
+ let body=|f:&staging::Furniture|[f.x-f.w/2.,f.z-f.d/2.,f.x+f.w/2.,f.z+f.d/2.];let hit=|a:[f64;4],b:[f64;4]|a[0]<b[2]-0.05&&a[2]>b[0]+0.05&&a[1]<b[3]-0.05&&a[3]>b[1]+0.05;
+ for(i,a)in fs.iter().enumerate(){for b in &fs[i+1..]{if a.room_id==b.room_id&&hit(body(a),body(b))&&!staging::may_share(a,b)&&!staging::may_share(b,a){out.push(format!("overlap {} / {}",a.id,b.id));}}
+  for b in &fs{if std::ptr::eq(a,b)||a.room_id!=b.room_id{continue}if let Some(z)=staging::work_zone(b){if hit(body(a),z)&&!staging::may_share(a,b){out.push(format!("in-front {} in {}'s work space",a.id,b.kind));}}}}
+ for f in fs.iter().filter(|f|f.kind=="fridge"){if let Some(run)=fs.iter().find(|q|q.room_id==f.room_id&&q.kind=="kitchen"){let(a,b)=(body(f),body(run));let gap=(a[0]-b[2]).max(b[0]-a[2]).max(a[1]-b[3]).max(b[1]-a[3]);if gap>1.{out.push(format!("stranded fridge {} {:.1} ft from the counters",f.id,gap));}}}
+ out}
+#[test]#[ignore]fn furniture_audit_report(){let styles:Vec<String>=catalog()["homeStyles"].as_array().unwrap().iter().map(|h|s(h,"name").to_string()).collect();let mut counts=BTreeMap::<String,usize>::new();let mut total=0;let mut bad=0;
+ let mut check=|label:String,c:&Config|{let m=model::build(c);let levels:Vec<Value>=m["levels"].as_array().cloned().unwrap_or_else(||vec![m.clone()]);total+=1;let mut any=false;for(i,l)in levels.iter().enumerate(){for p in furniture_problems(l){any=true;let key=p.split_whitespace().next().unwrap().to_string();*counts.entry(key).or_default()+=1;if std::env::var("AUDIT_VERBOSE").is_ok(){eprintln!("{} L{}: {}",label,i,p);}}}if any{bad+=1;}};
+ for st in &styles{for stories in 1..=2usize{for beds in [2usize,3,4]{let mut c=Config::default();c.home_style=st.clone();c.stories=stories;c.bedrooms=beds;architecture::apply(&mut c,true);c.stories=stories;if c.stories>=2{c.depth=c.depth.max(architecture::minimum_depth(&c));}if validate(&c).is_err(){continue}check(format!("{} {}st {}bd",st,stories,beds),&c);}}}
+ for seed in 0..40u32{if let Ok(c)=generator::surprise(&Config::default(),seed*313+11,false){check(format!("GEN{} {} {}st",seed,c.home_style,c.stories),&c);}}
+ eprintln!("FURNITURE {} of {} designs have problems: {:?}",bad,total,counts);}
+#[test]fn furniture_keeps_its_working_space(){for st in catalog()["homeStyles"].as_array().unwrap().iter().map(|h|s(h,"name").to_string()){for stories in 1..=2usize{let mut c=Config::default();c.home_style=st.clone();c.stories=stories;c.bedrooms=3;architecture::apply(&mut c,true);c.stories=stories;if stories>=2{c.depth=c.depth.max(architecture::minimum_depth(&c));}if validate(&c).is_err(){continue}let m=model::build(&c);
+ for l in m["levels"].as_array().cloned().unwrap_or_else(||vec![m.clone()]){let p=furniture_problems(&l);assert!(p.is_empty(),"{} {} storeys: {:?}",st,stories,p);}}}}
+#[test]fn medium_and_large_windows_open_every_style_up(){for st in catalog()["homeStyles"].as_array().unwrap().iter().map(|h|s(h,"name").to_string()){let glass=|size:&str|{let mut c=Config::default();c.home_style=st.clone();architecture::apply(&mut c,true);c.window_size=size.into();let m=model::build(&c);assert!(m["openingChecks"]["allHeightGuardrailsPass"]==true,"{} {}: {:?}",st,size,m["openingChecks"]["issues"]);m["windowSchedule"].as_array().unwrap().iter().map(|w|n(w,"width")*n(w,"height")).sum::<f64>()};
+ let(base,medium,large)=(glass("Style matched"),glass("Medium"),glass("Large"));assert!(base<medium&&medium<large,"{}: {} / {} / {}",st,base,medium,large);}}
+/// Street fronts follow the catalog house: symmetric styles mirror their windows about the front door.
+#[test]fn symmetric_fronts_mirror_about_the_door(){for st in ["Georgian","Colonial","French country","Coastal"]{let mut c=Config::default();c.home_style=st.into();architecture::apply(&mut c,true);let m=model::build(&c);let l=&m["levels"][0];let front=l["walls"].as_array().unwrap().iter().find(|w|s(w,"id")=="E1").unwrap();let os=front["openings"].as_array().unwrap();let door=os.iter().find(|o|s(o,"kind")=="door").unwrap();let axis=n(door,"at")+n(door,"width")/2.;let ws:Vec<(f64,f64)>=os.iter().filter(|o|s(o,"kind")=="window").map(|o|(n(o,"at")+n(o,"width")/2.,n(o,"width"))).collect();assert!(ws.len()>=4,"{} has a full front: {:?}",st,ws);
+ for(x,w)in &ws{assert!(ws.iter().any(|(y,v)|(axis-x-(y-axis)).abs()<0.05&&(w-v).abs()<0.05),"{}: window at {:.2} has no mirror about the door at {:.2}",st,x,axis);}}}

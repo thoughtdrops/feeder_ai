@@ -103,6 +103,8 @@ pub fn stage(c:&Config,rs:&[Room],ws:&[Wall],fs:&mut Vec<staging::Furniture>)->V
                 let mut f=base.clone();f.local_width=width;f.x=base.x+cos*slide;f.z=base.z+sin*slide;edit::rotate_item(&mut f,base.rotation);
                 if f.x-f.w/2.<room.x+0.25||f.z-f.d/2.<room.z+0.25||f.x+f.w/2.>room.x+room.w-0.25||f.z+f.d/2.>room.z+room.d-0.25||glass_behind(&f,ws){continue}
                 let others:Vec<staging::Furniture>=fs.iter().filter(|o|o.id!=base.id).cloned().collect();if edit::item_error(&f,c,ws,&others).is_some(){continue}
+                // The wider media wall still leaves its own walkway clear of the sofa and other pieces.
+                if let Some(z)=staging::work_zone(&f){if others.iter().any(|o|o.room_id==f.room_id&&o.x-o.w/2.<z[2]&&o.x+o.w/2.>z[0]&&o.z-o.d/2.<z[3]&&o.z+o.d/2.>z[1]){continue}}
                 fs[i]=f;break 'wide;
             }}
         }
@@ -126,12 +128,14 @@ pub fn stage(c:&Config,rs:&[Room],ws:&[Wall],fs:&mut Vec<staging::Furniture>)->V
                 if f.x-f.w/2.<room.x+0.25||f.z-f.d/2.<room.z+0.25||f.x+f.w/2.>room.x+room.w-0.25||f.z+f.d/2.>room.z+room.d-0.25{continue}
                 let others:Vec<staging::Furniture>=fs.iter().filter(|o|o.id!=sofa.id&&Some(&o.id)!=coffee.as_ref()&&!movable(o)).cloned().collect();
                 if edit::item_error(&f,c,ws,&others).is_some(){continue}
+                let body=[f.x-f.w/2.,f.z-f.d/2.,f.x+f.w/2.,f.z+f.d/2.];let hits=|z:[f64;4]|body[0]<z[2]&&body[2]>z[0]&&body[1]<z[3]&&body[3]>z[1];
+                if others.iter().any(|o|o.room_id==f.room_id&&staging::work_zone(o).is_some_and(hits)){continue}
                 // The coffee table must sit inside the seating, not under a return.
                 if let Some(table)=fs.iter().find(|o|Some(&o.id)==coffee.as_ref()){
                     let lx=(table.x-f.x)*cos+(table.z-f.z)*sin;let inner=match kind{"l"=>(-width/2.+0.4,width/2.-2.6),_=>(-width/2.+2.6,width/2.-2.6)};
                     if lx-table.local_width/2.<inner.0+0.6||lx+table.local_width/2.>inner.1-0.6{continue}
                 }
-                placed=true;let pad=[f.x-f.w/2.-0.3,f.z-f.d/2.-0.3,f.x+f.w/2.+0.3,f.z+f.d/2.+0.3];fs[i]=f;fs.retain(|o|!(movable(o)&&o.x-o.w/2.<pad[2]&&o.x+o.w/2.>pad[0]&&o.z-o.d/2.<pad[3]&&o.z+o.d/2.>pad[1]));break 'size;
+                placed=true;let pad=[f.x-f.w/2.-0.3,f.z-f.d/2.-0.3,f.x+f.w/2.+0.3,f.z+f.d/2.+0.3];fs[i]=f;fs.retain(|o|!(movable(o)&&(o.x-o.w/2.<pad[2]&&o.x+o.w/2.>pad[0]&&o.z-o.d/2.<pad[3]&&o.z+o.d/2.>pad[1]||staging::work_zone(o).is_some_and(hits))));break 'size;
             }
         }
         if !placed{notes.push(format!("The {} has no room for a {} with clear walkways and doorways, so a sofa is staged.",room.name.to_lowercase(),get(c,"livingSeating").to_lowercase()));}
