@@ -104,7 +104,8 @@ function modelScene(root:T.Object3D){
   else{const tone=.9+.08*hsl.l;c=new T.MeshStandardMaterial({color:new T.Color().setRGB(tone,tone*.995,tone*.98,T.SRGBColorSpace),roughness:.92,side:m.side,transparent:m.transparent,opacity:m.opacity,alphaTest:any.alphaTest||0});}
   c.userData.modelCopy=true;modelSource.set(m,c);return c;
  };
- root.traverse(object=>{const mesh=object as T.Mesh;if(!mesh.isMesh||mesh.name==='Sky')return;mesh.material=Array.isArray(mesh.material)?mesh.material.map(swap):swap(mesh.material);});
+ // The cached street is hidden in this style and must keep its own materials for the other styles.
+ const walk=(object:T.Object3D)=>{if(object.userData.persistentAsset)return;const mesh=object as T.Mesh;if(mesh.isMesh&&mesh.name!=='Sky')mesh.material=Array.isArray(mesh.material)?mesh.material.map(swap):swap(mesh.material);for(const child of object.children)walk(child);};walk(root);
 }
 
 /** Photoreal: a fresher lawn for the real-time preview (tints materials that use the grass photo). */

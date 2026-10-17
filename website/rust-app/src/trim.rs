@@ -2,17 +2,25 @@ use crate::*;
 pub fn library()->&'static Value{static L:OnceLock<Value>=OnceLock::new();L.get_or_init(||serde_json::from_str(include_str!("../data/millwork.json")).unwrap())}
 pub fn profiles()->&'static Vec<Value>{library()["profiles"].as_array().unwrap()}
 pub fn part_allowed(role:&str,p:&Value)->bool{match role{"base"=>s(p,"role")=="baseboard","cap"=>s(p,"role")=="base-cap","shoe"=>s(p,"role")=="base-shoe","casing"|"window"=>s(p,"role")=="casing","crown"|"cornice"=>["crown","sprung-cove","bed-moulding"].contains(&s(p,"role")),"corner"|"frieze"=>["casing","bed-moulding"].contains(&s(p,"role")),"hood"=>s(p,"role")=="drip-cap",_=>false}}
+// Per trim package (profile index): exterior window/door surround width and projection factors on the
+// home style's own surround, and the under-eave frieze board height in inches (0 = none).
+const SURROUND:[(f64,f64);10]=[(0.55,0.6),(0.7,0.8),(1.2,1.1),(1.,1.),(1.25,1.2),(1.3,1.25),(1.05,1.1),(1.15,1.1),(0.9,0.9),(1.2,1.2)];
+const FRIEZE:[f64;10]=[0.,3.,9.,6.,10.,11.,7.,8.,6.,8.];
+/// The carved relief that dresses each opening for a trim package.
+fn ornament_style(c:&Config)->&'static str{match c.trim_package.as_str(){"Victorian ornate"=>"rosette","Georgian grand"=>"dentil-keystone","Colonial ogee"|"French panelled"=>"keystone","Craftsman layered"|"Art Deco stepped"=>"layered-cap","Coastal beadboard"=>"bead",_=>"none"}}
 pub fn selected(c:&Config)->Value{
  let mut trim=lookup("trimPackages",&c.trim_package);let index=n(&trim,"profile")as usize;let oversized=c.trim_size=="Oversized";let scale=if oversized{1.5}else{1.};
  let finishes=["Sealed smoked oak","Sealed pale oak","Sealed honey oak","Sealed ivory-tinted oak","Sealed golden oak","Sealed dark walnut tone","Sealed amber oak","Sealed washed oak","Sealed seafoam-tinted oak","Sealed cedar tone"];
  let defaults=[(8417,8308,0,8283),(8417,8309,8024,8283),(8426,8304,8032,8284),(8419,8293,8000,8285),(8424,8299,8001,8286),(8415,8315,8013,8287),(8428,8300,8016,8284),(8421,8323,8021,8286),(8417,8329,8025,8284),(8426,8308,8031,8284)];let(base,casing,crown,hood)=defaults[index.min(9)];let mut parts=serde_json::Map::new();
  for(role,number)in[("base",base),("cap",0),("shoe",0),("casing",casing),("window",casing),("crown",crown),("corner",8308),("frieze",8308),("hood",hood),("cornice",if [0,1,6].contains(&index){8031}else{crown})]{
   let override_id=c.trim_overrides.get(role);if override_id.is_some_and(|id|id=="none"){parts.insert(role.into(),Value::Null);continue}
+  // The package sets the exterior character too: clean modern packages drop the cornice, drip caps and frieze.
+  if override_id.is_none()&&(["cornice","hood"].contains(&role)&&index<=1||role=="frieze"&&FRIEZE[index.min(9)]==0.){parts.insert(role.into(),Value::Null);continue}
   let profile=override_id.and_then(|id|profiles().iter().find(|p|s(p,"id")==id&&part_allowed(role,p))).or_else(||profiles().iter().find(|p|n(p,"catalogNumber")==number as f64&&part_allowed(role,p)));
-  if let Some(p)=profile{let mut part=p.clone();let mut height=n(p,"installedHeightInches");let mut projection=n(p,"installedProjectionInches");if override_id.is_none(){if role=="base"&&index<=1{height=if index==0{3.0}else{4.0};}if role=="casing"&&index<=1{height=3.0;}if role=="corner"{height=1.5;}if role=="frieze"{height=4.0;}}
+  if let Some(p)=profile{let mut part=p.clone();let mut height=n(p,"installedHeightInches");let mut projection=n(p,"installedProjectionInches");if override_id.is_none(){if role=="base"&&index<=1{height=if index==0{3.0}else{4.0};}if role=="casing"&&index<=1{height=3.0;}if role=="corner"{height=1.5;}if role=="frieze"{height=FRIEZE[index.min(9)];}}
    // Exterior surrounds use deeper carved stock; interior source sections stay
    // at their selected dimensions. Overrides retain their own section sizes.
-   if role=="window"&&override_id.is_none(){let(hw,pd)=match c.home_style.as_str(){"Victorian"=>(5.5,1.75),"Georgian"=>(6.,1.5),"Colonial"=>(4.75,1.25),"French country"=>(5.5,1.625),"Craftsman"=>(5.,1.5),"Tudor"|"English cottage"=>(5.,1.875),"Coastal"=>(4.5,1.25),"Modern farmhouse"=>(4.5,1.125),_ =>(3.25,1.)};height=hw;projection=pd;}
+   if role=="window"&&override_id.is_none(){let(hw,pd)=match c.home_style.as_str(){"Victorian"=>(5.5,1.75),"Georgian"=>(6.,1.5),"Colonial"=>(4.75,1.25),"French country"=>(5.5,1.625),"Craftsman"=>(5.,1.5),"Tudor"|"English cottage"=>(5.,1.875),"Coastal"=>(4.5,1.25),"Modern farmhouse"=>(4.5,1.125),_ =>(3.25,1.)};let(fw,fp)=SURROUND[index.min(9)];height=hw*fw;projection=pd*fp;}
    height=(height*scale).min(c.wall_height*12.*0.12);projection*=scale;part["width"]=json!(height/12.);part["projection"]=json!(projection/12.);part["installedHeightInches"]=json!(height);part["installedProjectionInches"]=json!(projection);part["priceLF"]=json!(round((1.1+height/12.*5.+projection/12.*4.+if index>=3{0.65}else{0.})*if oversized{1.3}else{1.}));parts.insert(role.into(),part);
   }else{parts.insert(role.into(),Value::Null);}
  }
@@ -65,17 +73,17 @@ pub fn ornaments(c:&Config,ws:&[Wall],t:&Value)->Vec<Value>{
     };
     for w in ws.iter().filter(|w|w.exterior){let interior_side=if near(if w.axis=="x"{w.z}else{w.x},0.){1.}else{-1.};let side=-interior_side;let norm=normal(w,side);
         for o in &w.openings{let top=o.bottom+o.height;let y=top+cw/2.;
-            match c.home_style.as_str(){
-                "Victorian"=>{for at in[o.at-cw/2.,o.at+o.width+cw/2.]{add("rosette",w,o,at,y,cw*1.18,cw*1.18,projection+0.06,norm,side);}}
-                "Georgian"|"Colonial"|"French country"=>{
+            match ornament_style(c){
+                "rosette"=>{for at in[o.at-cw/2.,o.at+o.width+cw/2.]{add("rosette",w,o,at,y,cw*1.18,cw*1.18,projection+0.06,norm,side);}}
+                style@("dentil-keystone"|"keystone")=>{
                     let span=o.width+cw*2.;let count=(span/0.45).floor()as usize;
-                    if !t["parts"]["hood"].is_null(){for i in 0..count{add("dentil",w,o,o.at-cw+(i as f64+0.5)*span/count as f64,top+cw+0.04,0.15*scale,0.16*scale,projection+0.05,norm,side);}}
+                    if style=="dentil-keystone"&&!t["parts"]["hood"].is_null(){for i in 0..count{add("dentil",w,o,o.at-cw+(i as f64+0.5)*span/count as f64,top+cw+0.04,0.15*scale,0.16*scale,projection+0.05,norm,side);}}
                     add("keystone",w,o,o.at+o.width/2.,y,cw*0.7,cw*1.25,projection+0.09,norm,side);
                 }
-                "Craftsman"|"Tudor"|"English cottage"=>{
+                "layered-cap"=>{
                     add("layered-cap",w,o,o.at+o.width/2.,top+cw*0.85,o.width+cw*2.6,cw*0.24,projection+0.06,norm,side);
                 }
-                "Coastal"=>{let count=((o.width+cw)/0.32).floor()as usize;for i in 0..count{add("bead",w,o,o.at-cw/2.+(i as f64+0.5)*(o.width+cw)/count as f64,y,0.11*scale,0.11*scale,projection+0.025,norm,side);}}
+                "bead"=>{let count=((o.width+cw)/0.32).floor()as usize;for i in 0..count{add("bead",w,o,o.at-cw/2.+(i as f64+0.5)*(o.width+cw)/count as f64,y,0.11*scale,0.11*scale,projection+0.025,norm,side);}}
                 _=>{}
             }
         }
