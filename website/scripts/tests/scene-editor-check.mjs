@@ -284,7 +284,7 @@ console.log('PASS: distinct staging geometry/material colors and complete furnit
 // Every kitchen and living-room choice draws inside its planned footprint without being shrunk to fit.
 {const interiorsModule=await import('../../'+work+'/interiors.mjs');const source=fs.readFileSync('rust-app/src/interior_design.rs','utf8');
  const lists=Object.fromEntries([...source.matchAll(/\("(\w+)","[^"]+",&(\w+),&c\.\w+\)/g)].map(([,key,name])=>[key,JSON.parse(source.match(new RegExp(`pub const ${name}:\\[&str;\\d+\\]=(\\[[^\\]]+\\]);`))[1]).filter(v=>v!=='Style matched')]));
- assert.equal(Object.keys(lists).length,15,'All 15 kitchen and living choices are listed');
+ assert.equal(Object.keys(lists).length,18,'All 18 kitchen, living and cabinetry choices are listed');
  const base=Object.fromEntries(Object.entries(lists).map(([k,v])=>[k,v[0]]));base.seatingKind='u';
  const sizes={kitchen:[[12,2.5],[8,2.5],[6,2.5]],island:[[5,3],[6,3.5]],fridge:[[2.7,2.7]],console:[[4,1.2],[7,1.2],[9,1.2]],sofa:[[8,2.8],[6,2.8],[4.5,2.8]],sectional:[[12,7],[9.5,6],[10,6.5]],coffee:[[3.5,2]],rug:[[6,4]],floorlamp:[[1.6,1.6]],plant:[[1.3,1.3]],'counter-run':[[12,2],[6,2],[4,2]],'pantry-tower':[[2.5,2]]};
  for(const [key,values] of Object.entries(lists))for(const value of values)for(const seatingKind of key==='livingSeating'?['u','l','chairs']:['u']){const design={...base,[key]:value,seatingKind};

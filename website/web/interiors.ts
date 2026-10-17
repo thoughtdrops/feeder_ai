@@ -83,7 +83,8 @@ export function addInteriorPiece(scene:T.Object3D,f:any,ctx:Ctx):boolean{
  if(f.kind==='coffee'&&!d.livingCoffee)return false;
  const group=new T.Group(),w=f.localWidth,dp=f.localDepth,front=dp/2;
  const std=(color:string,roughness:number,metalness=0,extra:Partial<T.MeshPhysicalMaterialParameters>={})=>new T.MeshPhysicalMaterial({color,roughness,metalness,...extra});
- const cabColor=config.colors?.cabinetry||'#e8e4da';
+ const cabinetColors:Record<string,string>={'Warm white':'#ece6d8','Sage green':'#8d9c84','Navy blue':'#2f3f58','Charcoal':'#3d4042','Natural oak':'#b78f62','Walnut':'#6b4a33','Black':'#1f2021'};
+ const cabColor=cabinetColors[d.cabinetColor||'']||config.colors?.cabinetry||'#e8e4da';
  const oak=std('#ffffff',.55,0,{map:flutedOak()});
  const cab=d.kitchenCabinets==='Fluted oak'?std('#c69a6b',.5,0,{clearcoat:.2}):std(cabColor,.45,0,{clearcoat:.25,clearcoatRoughness:.4});
  const counter=(()=>{switch(d.kitchenCounter){

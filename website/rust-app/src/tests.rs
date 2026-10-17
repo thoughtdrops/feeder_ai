@@ -826,11 +826,20 @@ fn wall_problems(level:&Value)->Vec<String>{
  for st in &styles{for stories in 1..=3usize{for beds in [2usize,4]{let mut c=Config::default();c.home_style=st.clone();c.stories=stories;c.bedrooms=beds;architecture::apply(&mut c,true);c.stories=stories;if c.stories>=2{c.depth=c.depth.max(architecture::minimum_depth(&c));}if validate(&c).is_ok(){check(format!("{} {}st {}bd",st,stories,beds),&c);}}}}
  for seed in 0..16u32{if let Ok(c)=generator::surprise(&Config::default(),seed*313+11,false){check(format!("generated {} {}",seed,c.home_style),&c);}}
  assert!(problems.is_empty(),"{}",problems.join("\n"));}
-#[test]fn balcony_posts_stand_on_the_deck_below_instead_of_piercing_it(){let mut c=generator::starter();c.balcony="Rear balcony".into();c.rear_outdoor="Deck".into();c.rear_width=20.;c.rear_depth=10.;assert!(validate(&c).is_ok());let m=model::build(&c);
- let deck=&m["rearOutdoor"]["rectangles"][0];let b=&m["balcony"];assert!(b.is_object()&&deck.is_object());let surface=deck["deckYs"][0].as_f64().unwrap();
- let mut on_deck=0;for p in b["posts"].as_array().unwrap(){let(x,z)=(n(p,"x"),n(p,"z"));let inside=x>=n(deck,"x")-0.3&&x<=n(deck,"x")+n(deck,"w")+0.3&&z>=n(deck,"z")-0.3&&z<=n(deck,"z")+n(deck,"d")+0.3;
-  if inside{on_deck+=1;assert!(near(n(p,"base"),surface),"post over the deck starts on it");}else{assert!(near(n(p,"base"),0.));}assert!(near(n(p,"base")+n(p,"height"),n(b,"deckY")-0.67));}
- assert!(on_deck>0,"the test balcony sits over the deck");}
+/// A balcony over the rear deck hangs from the house on knee-braced brackets: no post stands on the deck
+/// or pierces it.
+#[test]fn balcony_over_a_deck_hangs_on_brackets(){let mut c=generator::starter();c.balcony="Rear balcony".into();c.rear_outdoor="Deck".into();c.rear_width=20.;c.rear_depth=10.;assert!(validate(&c).is_ok());let m=model::build(&c);
+ let b=&m["balcony"];assert!(b.is_object()&&m["rearOutdoor"].is_object());assert!(b["posts"].as_array().unwrap().is_empty());let brackets=b["brackets"].as_array().unwrap();assert!(brackets.len()>=2);
+ for k in brackets{assert!(n(&k["a"],"1")<n(&k["b"],"1")||k["a"][1].as_f64().unwrap()<k["b"][1].as_f64().unwrap());assert!(k["b"][1].as_f64().unwrap()<=n(b,"deckY"));}
+ assert!(m["items"].as_array().unwrap().iter().any(|i|s(i,"id")=="balcony-brackets"&&n(i,"qty")>=2.));}
+#[test]fn three_car_garage_widens_and_adds_a_single_door(){let mut c=generator::starter();c.garage="Attached".into();let two=model::build(&c);c.garage_size="Three-car".into();assert!(validate(&c).is_ok());let three=model::build(&c);
+ let(g2,g3)=(&two["garage"],&three["garage"]);assert_eq!(n(g2,"w"),24.);assert_eq!(n(g3,"w"),34.);assert_eq!(n(g3,"area"),816.);assert_eq!(n(g3,"cars"),3.);
+ assert!(g3["openings"].as_array().unwrap().iter().any(|o|s(o,"id")=="G-OVERHEAD-2"&&n(o,"width")==9.));for w in serde_json::from_value::<Vec<Wall>>(g3["walls"].clone()).unwrap(){assert!(model::valid_openings(&w.openings,w.length,n(g3,"h")),"{}",w.id);}
+ assert!(n(&three,"total")>n(&two,"total"));assert!(three["items"].as_array().unwrap().iter().any(|i|s(i,"id")=="garage-overheaddoor-single"));}
+#[test]fn front_porch_options_change_the_porch(){let mut c=generator::starter();let mut forms=std::collections::BTreeSet::new();for f in crate::porch::FORMS{c.front_porch=f.into();assert!(validate(&c).is_ok());let m=model::build(&c);let p=&m["porch"];
+ let key=if p.is_null(){"none".to_string()}else{format!("{} {:.0}",s(p,"form"),p["rectangles"].as_array().unwrap().iter().map(|r|n(r,"w")*n(r,"d")).sum::<f64>())};if f=="None"{assert!(p.is_null());}forms.insert(key);}
+ assert_eq!(forms.len(),crate::porch::FORMS.len(),"each porch option looks different: {:?}",forms);}
+
 /// Furniture problems in one level: pieces that overlap, pieces standing in another piece's working space
 /// (the aisle in front of counters, a bed's foot, the pull-out ring round a dining table), and refrigerators
 /// stranded away from the kitchen counters (further than a galley aisle).
@@ -879,3 +888,6 @@ fn furniture_problems(level:&Value)->Vec<String>{
 #[test]fn windows_fit_and_bedrooms_keep_daylight(){for st in catalog()["homeStyles"].as_array().unwrap().iter().map(|h|s(h,"name").to_string()){for stories in [1usize,2]{for size in ["Medium","Large"]{let mut c=Config::default();c.home_style=st.clone();architecture::apply(&mut c,true);c.stories=stories;c.window_size=size.into();c.wall_height=8.;if stories>=2{c.depth=c.depth.max(architecture::minimum_depth(&c));}if validate(&c).is_err(){continue}let m=model::build(&c);
  for l in m["levels"].as_array().cloned().unwrap_or_else(||vec![m.clone()]){let ws:Vec<Wall>=serde_json::from_value(l["walls"].clone()).unwrap();for w in &ws{assert!(model::valid_openings(&w.openings,w.length,8.),"{} {}st {}: {} openings invalid",st,stories,size,w.id);}
   for r in serde_json::from_value::<Vec<Room>>(l["rooms"].clone()).unwrap().iter().filter(|r|r.kind=="bedroom"){assert!(ws.iter().filter(|w|w.exterior).any(|w|{let along=w.axis=="x";let line=if along{w.z}else{w.x};let touch=if along{near(line,r.z)||near(line,r.z+r.d)}else{near(line,r.x)||near(line,r.x+r.w)};let(lo,hi)=if along{(r.x,r.x+r.w)}else{(r.z,r.z+r.d)};let s0=if along{w.x}else{w.z};touch&&w.openings.iter().any(|o|o.kind=="window"&&s0+o.at>=lo&&s0+o.at+o.width<=hi)}),"{} {}st {}: {} has no window",st,stories,size,r.name);}}}}}}
+/// Formal catalog homes (Colonial, Georgian, French country, Coastal) give the living room the front of the
+/// west hall, so it is a real room rather than a 10 ft strip.
+#[test]fn formal_living_rooms_are_wide(){for st in ["Colonial","Georgian","French country","Coastal"]{let mut c=generator::starter();c.home_style=st.into();c.stories=2;architecture::apply(&mut c,true);let m=model::build(&c);let l=&m["levels"][0];let living=l["rooms"].as_array().unwrap().iter().find(|r|s(r,"type")=="living").unwrap();assert!(n(living,"w")>=14.,"{} living room is {} ft wide",st,n(living,"w"));}}

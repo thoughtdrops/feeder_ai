@@ -49,7 +49,9 @@ export function addDormers(root:T.Object3D,m:any,framing:boolean,wood:T.MeshStan
 }
 
 export function addRearOutdoor(root:T.Object3D,m:any,framing:boolean,wood:T.MeshStandardMaterial,roof:T.MeshStandardMaterial,siding:T.MeshStandardMaterial){
- const p=m.rearOutdoor;if(!p||m.floorIndex)return;addPorch(root,{...m,porch:p},framing,wood,roof,siding);
+ const p=m.rearOutdoor;if(!p||m.floorIndex)return;
+ // An open deck's posts stand under its boards; only a covered porch shows columns above the floor.
+ addPorch(root,{...m,porch:p.kind==='Covered porch'||framing?p:{...p,posts:[]}},framing,wood,roof,siding);
  for(const b of p.beams||[])beam(root,point(b.a,m),point(b.b,m),.25,.75,wood,'Rear deck doubled support beam');
 }
 
@@ -63,6 +65,7 @@ export function addBalcony(root:T.Object3D,m:any,framing:boolean,wood:T.MeshStan
  for(const x of[p.x,p.x+p.w])box(x,p.deckY-.33,p.z+p.d/2,.125,7.25/12,p.d,'Balcony rim');
  beam(group,pt([p.x,p.deckY-.67,p.z+p.d]),pt([p.x+p.w,p.deckY-.67,p.z+p.d]),.25,.75,wood,'Balcony doubled beam');
  if(whole)for(const post of p.posts){const base=post.base||0;if(framing)box(post.x,base+post.height/2,post.z,.5,post.height,.5,'Balcony support post');else{const column=new T.Group();column.name='Balcony support post';group.add(column);addColumn(column,m.character?.column||'square',post.x-m.w/2,base,post.z-m.d/2,post.height,'x',wood,wood);}}
+ if(whole)for(const k of p.brackets||[])beam(group,pt(k.a),pt(k.b),.25,.25,wood,'Balcony knee brace');
  if(!framing){for(let z=p.z+.22;z<p.z+p.d;z+=.47)box(p.x+p.w/2,p.deckY-.04,z,p.w,.08,Math.min(.455,p.z+p.d-z+.22),'Sealed balcony decking');
   for(const r of p.rails)addGuard(group,pt(r.a),pt(r.b),p.deckY+.25+offset,r.balusters,m.character?.railing||'square',wood,'Balcony');
   for(const [x,z]of[[p.x,p.z],[p.x+p.w,p.z],[p.x,p.z+p.d],[p.x+p.w,p.z+p.d]])box(x,p.deckY+1.75,z,.3,3.5,.3,'Balcony guard post');

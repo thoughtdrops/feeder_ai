@@ -2,6 +2,7 @@ use crate::*;
 
 // Reference porch footprints, scaled with the house. They are adaptations of the
 // selected catalog drawing, not construction/engineering approval of that plan.
+pub const FORMS:[&str;5]=["Style matched","None","Entry portico","Full-width veranda","Wraparound veranda"];
 pub fn design(c: &Config, ground: &Value) -> Value {
     if c.design_mode == "Blank slate" || c.width < 12. || c.depth < 12. { return Value::Null; }
     let entry = ground["walls"].as_array().unwrap().iter().find(|w|s(w,"id")=="E1")
@@ -19,22 +20,34 @@ pub fn design(c: &Config, ground: &Value) -> Value {
         "Coastal" => (1., 8., "Deep coastal veranda", "classical", true, ""),
         "Ranch" => (0.48, 6., "Low front porch", "square", false, ""),
         // Styles whose selected reference lacks a veranda retain their entrance surround.
-        _ => return Value::Null,
+        _ => (0., 0., "", "square", false, ""),
     };
-    let width = grid(c.width * ratio).clamp(5.,c.width);
+    // A chosen porch form replaces the catalog house's own; "Style matched" keeps the reference porch.
+    let garage_left=c.garage=="Attached"&&c.garage_side=="Left";
+    let (ratio, original_depth, form, railing, return_side) = match c.front_porch.as_str() {
+        "None" => return Value::Null,
+        "Entry portico" => (0.2, 5., "Columned entry portico", false, ""),
+        "Full-width veranda" => (1., 8., "Full-width front veranda", true, ""),
+        "Wraparound veranda" => (1., 8., "Wraparound veranda", true, if garage_left {"Right"} else {"Left"}),
+        _ if form.is_empty() => return Value::Null,
+        _ => (ratio, original_depth, form, railing, return_side),
+    };
+    let width = grid(c.width * ratio).max(if form=="Columned entry portico"{8.}else{5.}).min(c.width);
     let depth = original_depth.min((c.depth / 3.).max(4.));
     let x = if ratio > 0.85 {(c.width-width)/2.} else {(center-width/2.).clamp(0.,c.width-width)};
     let garage=&ground["garage"];
     let garage_same_side=garage.is_object()&&if return_side=="Left"{n(garage,"x")+24.<=0.01}else{n(garage,"x")>=c.width-0.01};
     let wrap = !return_side.is_empty() && !garage_same_side;
     let mut rectangles=vec![json!({"x":x,"z":-depth,"w":width,"d":depth,"roofType":"Hip","deckYs":[0.2]})];
+    // The catalog's own side verandas (Colonial, English cottage) only apply to the style-matched porch.
+    let reference=if c.front_porch=="Style matched"{c.home_style.as_str()}else{""};
     if wrap {
-        let rw=match c.home_style.as_str(){"Colonial"=>12_f64.min(c.width/3.),"English cottage"=>8.,_=>depth.min(8.)};
-        let rd=match c.home_style.as_str(){"Colonial"=>c.depth*28./36.,"English cottage"=>c.depth*19./28.,_ =>(c.depth*0.45).min(20.)};
-        if !["Colonial","English cottage"].contains(&c.home_style.as_str()){
+        let rw=match reference{"Colonial"=>12_f64.min(c.width/3.),"English cottage"=>8.,_=>depth.min(8.)};
+        let rd=match reference{"Colonial"=>c.depth*28./36.,"English cottage"=>c.depth*19./28.,_ =>(c.depth*0.45).min(20.)};
+        if !["Colonial","English cottage"].contains(&reference){
             rectangles[0]["x"]=json!(if return_side=="Left"{-rw}else{x});rectangles[0]["w"]=json!(width+rw);
         }
-        let deck_ys=if c.home_style=="Colonial"&&c.stories>=2{vec![0.2,0.2+c.wall_height+structural::floor_gap(c)]}else{vec![0.2]};
+        let deck_ys=if reference=="Colonial"&&c.stories>=2{vec![0.2,0.2+c.wall_height+structural::floor_gap(c)]}else{vec![0.2]};
         rectangles.push(json!({"x":if return_side=="Left"{-rw}else{c.width},"z":0.,"w":rw,"d":rd,"roofType":"Hip","deckYs":deck_ys}));
     }
     let roof_height=c.wall_height-0.3;

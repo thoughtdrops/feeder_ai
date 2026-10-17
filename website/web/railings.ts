@@ -14,24 +14,30 @@ function glass(){if(!shared.glass){shared.glass=new T.MeshPhysicalMaterial({colo
 /** One column from `baseY` up `height` feet. `brace` is the beam direction braces reach along (timber style). */
 export function addColumn(root:T.Object3D,style:string,x:number,baseY:number,z:number,height:number,brace:'x'|'z',wood:T.Material,siding:T.Material){
  if(style==='turned'){
-  const profile=[[.19,0],[.19,.65],[.15,.68],[.18,.76],[.14,.84],[.105,1.05],[.14,1.2],[.105,1.4],[.11,height-.45],[.19,height-.3],[.19,height]].map(([r,y])=>new T.Vector2(r,y));
+  const profile=[[.26,0],[.26,.8],[.2,.84],[.24,.95],[.18,1.05],[.14,1.3],[.19,1.5],[.14,1.75],[.15,height-.6],[.24,height-.4],[.26,height]].map(([r,y])=>new T.Vector2(r,y));
   solid(root,new T.LatheGeometry(profile,16),wood,x,baseY,z,'Turned porch column');
+  // Sawn gingerbread brackets spring from the post to the beam.
+  for(const s of [-1,1]){const b=solid(root,new T.BoxGeometry(brace==='x'?1.25:.1,.1,brace==='z'?1.25:.1),wood,x+(brace==='x'?s*.5:0),baseY+height-.55,z+(brace==='z'?s*.5:0),'Victorian gingerbread bracket');if(brace==='x')b.rotation.z=s*Math.PI/5;else b.rotation.x=-s*Math.PI/5;}
  }else if(style==='tapered'){
-  solid(root,new T.BoxGeometry(1.3,1.7,1.3),siding,x,baseY+.85,z,'Craftsman column pedestal');solid(root,new T.BoxGeometry(1.4,.12,1.4),wood,x,baseY+1.76,z,'Pedestal cap');
-  const col=solid(root,new T.CylinderGeometry(.27,.5,height-1.7,4),wood,x,baseY+1.7+(height-1.7)/2,z,'Tapered Craftsman porch column');col.rotation.y=Math.PI/4;
+  solid(root,new T.BoxGeometry(1.55,2.8,1.55),siding,x,baseY+1.4,z,'Craftsman column pedestal');solid(root,new T.BoxGeometry(1.75,.16,1.75),wood,x,baseY+2.88,z,'Pedestal cap');
+  const col=solid(root,new T.CylinderGeometry(.34,.62,height-2.96,4),wood,x,baseY+2.96+(height-2.96)/2,z,'Tapered Craftsman porch column');col.rotation.y=Math.PI/4;
+  solid(root,new T.BoxGeometry(.75,.22,.75),wood,x,baseY+height-.11,z,'Craftsman column cap');
  }else if(style==='classical'||style==='fluted'){
-  const geo=new T.CylinderGeometry(style==='fluted'?.21:.2,style==='fluted'?.245:.25,height-.5,style==='fluted'?64:28,1);
+  const r0=style==='fluted'?.31:.3,r1=style==='fluted'?.37:.36;
+  const geo=new T.CylinderGeometry(r0,r1,height-.75,style==='fluted'?64:28,1);
   if(style==='fluted'){const p=geo.getAttribute('position') as T.BufferAttribute;for(let i=0;i<p.count;i++){const px=p.getX(i),pz=p.getZ(i),r=Math.hypot(px,pz);if(r<1e-4)continue;const a=Math.atan2(pz,px),k=1-.07*Math.max(0,Math.cos(a*16));p.setXYZ(i,px*k,p.getY(i),pz*k);}geo.computeVertexNormals();}
-  solid(root,geo,wood,x,baseY+.25+(height-.5)/2,z,style==='fluted'?'Fluted Doric column':'Classical round column');
-  solid(root,new T.TorusGeometry(.27,.06,8,24),wood,x,baseY+.28,z,'Column base torus').rotation.x=Math.PI/2;
-  solid(root,new T.CylinderGeometry(.32,.24,.22,24),wood,x,baseY+height-.4,z,'Column echinus');
+  solid(root,new T.BoxGeometry(.95,.22,.95),wood,x,baseY+.11,z,'Column plinth');
+  solid(root,geo,wood,x,baseY+.4+(height-.75)/2,z,style==='fluted'?'Fluted Doric column':'Classical round column');
+  solid(root,new T.TorusGeometry(.38,.07,8,24),wood,x,baseY+.3,z,'Column base torus').rotation.x=Math.PI/2;
+  solid(root,new T.CylinderGeometry(.46,.33,.24,24),wood,x,baseY+height-.32,z,'Column echinus');
+  solid(root,new T.BoxGeometry(1.,.18,1.),wood,x,baseY+height-.09,z,'Column abacus');
  }else if(style==='stone'){
-  const pier=Math.min(3,height*.38);solid(root,new T.BoxGeometry(1.35,pier,1.35),stone(),x,baseY+pier/2,z,'Stone pier');solid(root,new T.BoxGeometry(1.55,.18,1.55),stone(),x,baseY+pier+.09,z,'Stone pier cap');
-  const col=solid(root,new T.CylinderGeometry(.24,.36,height-pier-.18,4),wood,x,baseY+pier+.18+(height-pier-.18)/2,z,'Tapered post on stone pier');col.rotation.y=Math.PI/4;
+  const pier=Math.min(3.4,height*.45);solid(root,new T.BoxGeometry(1.7,pier,1.7),stone(),x,baseY+pier/2,z,'Stone pier');solid(root,new T.BoxGeometry(1.95,.2,1.95),stone(),x,baseY+pier+.1,z,'Stone pier cap');
+  const col=solid(root,new T.CylinderGeometry(.3,.46,height-pier-.2,4),wood,x,baseY+pier+.2+(height-pier-.2)/2,z,'Tapered post on stone pier');col.rotation.y=Math.PI/4;
  }else if(style==='timber'){
-  solid(root,new T.BoxGeometry(.55,height,.55),wood,x,baseY+height/2,z,'Timber post');
-  for(const s of [-1,1]){const reach=1.6,top=baseY+height-.25;const a=new T.Vector3(x,top-reach,z),b=new T.Vector3(x+(brace==='x'?s*reach:0),top,z+(brace==='z'?s*reach:0)),mid=a.clone().lerp(b,.5).add(new T.Vector3(brace==='x'?-s*.25:0,.25,brace==='z'?-s*.25:0));
-   solid(root,new T.TubeGeometry(new T.QuadraticBezierCurve3(a,mid,b),12,.12,4,false),wood,0,0,0,'Curved timber brace');}
+  solid(root,new T.BoxGeometry(.7,height,.7),wood,x,baseY+height/2,z,'Timber post');
+  for(const s of [-1,1]){const reach=2.1,top=baseY+height-.25;const a=new T.Vector3(x,top-reach,z),b=new T.Vector3(x+(brace==='x'?s*reach:0),top,z+(brace==='z'?s*reach:0)),mid=a.clone().lerp(b,.5).add(new T.Vector3(brace==='x'?-s*.3:0,.3,brace==='z'?-s*.3:0));
+   solid(root,new T.TubeGeometry(new T.QuadraticBezierCurve3(a,mid,b),12,.15,4,false),wood,0,0,0,'Curved timber brace');}
  }else solid(root,new T.BoxGeometry(.5,height,.5),wood,x,baseY+height/2,z,'Square porch post');
 }
 
