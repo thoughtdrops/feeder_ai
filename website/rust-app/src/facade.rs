@@ -53,7 +53,9 @@ pub fn front(c:&Config,rs:&[Room],floors:&[Vec<Room>],door:(f64,f64),ground:bool
   let mut best:Option<(f64,Vec<(Vec<f64>,f64)>)>=None;
   // The style's own bay count is preferred; another count wins only by opening clearly more of its bays.
   for(rank,n)in cands.iter().enumerate(){let sets=bays(*n);let total:usize=sets.iter().map(|x|x.len()).sum::<usize>().max(1);let mut score=-(rank as f64)*15.;let mut chosen=vec![];
-   for set in sets{let mut pick:Option<(usize,Vec<f64>,f64,f64)>=None;for &uw in &widths{if pick.is_some(){break}let gw=group_width(group,uw);for step in 0..=8{for sign in [1.,-1.]{let d=sign*step as f64*0.25;if step==0&&sign<0.{continue}
+   // A unit never outgrows its bay, so neighbouring bays cannot run into each other.
+   let spacing=len/ *n as f64;
+   for set in sets{let mut pick:Option<(usize,Vec<f64>,f64,f64)>=None;for &uw in &widths{if pick.is_some(){break}let gw=group_width(group,uw);if gw>spacing-0.8&&uw>lk.unit+1e-9{continue}for step in 0..=8{for sign in [1.,-1.]{let d=sign*step as f64*0.25;if step==0&&sign<0.{continue}
      // A pair moves in mirror image so the front stays symmetric; the smallest shift that opens on the
      // most floors wins, and only a bay whose whole set opens on the ground floor is kept.
      let xs:Vec<f64>=set.iter().map(|x|if *x<centre{x-d}else{x+d}).collect();let hits:usize=floors.iter().enumerate().map(|(f,fl)|xs.iter().filter(|x|fits(fl,f==0,**x,gw).is_some()).count()).sum();
@@ -62,7 +64,9 @@ pub fn front(c:&Config,rs:&[Room],floors:&[Vec<Room>],door:(f64,f64),ground:bool
     if let Some((hits,xs,d,uw))=pick{score+=100.*hits as f64/(floors.len()*total)as f64-d.abs();chosen.push((xs,uw));}}
    if best.as_ref().is_none_or(|(s,_)|score>*s){best=Some((score,chosen));}}
   let(_,chosen)=best.unwrap_or((0.,vec![]));
-  for(xs,uw)in chosen{let gw=group_width(group,uw);for x in xs{if let Some(kind)=fits(rs,ground,x,gw){if kind=="bath"{out.push((x-1.,2.,true,2.));}else{let(u,hh)=escape(&kind,uw,lk.height);let(u,n)=if u>uw&&group>1{(uw,group)}else{(u,group)};if holder(rs,len,x-group_width(n,u)/2.,x+group_width(n,u)/2.,&door_span(ground)).is_none(){continue}for(at,w)in units(x,n,u){out.push((at,w,false,hh));}}}}}
+  for(xs,uw)in chosen{let gw=group_width(group,uw);for x in xs{if let Some(kind)=fits(rs,ground,x,gw){if kind=="bath"{out.push((x-1.,2.,true,2.));}else{let(u,hh)=escape(&kind,uw,lk.height);let(u,n)=if u>uw&&group>1{(uw,group)}else{(u,group)};let mut taken=door_span(ground);taken.extend(out.iter().map(|(a,w,_,_)|(*a,a+w)));
+   // Narrow toward the historic width when a neighbouring bay sits too close for the full size.
+   let mut u=u;while holder(rs,len,x-group_width(n,u)/2.,x+group_width(n,u)/2.,&taken).is_none()&&u-0.5>=lk.unit.max(if kind=="bedroom"{3.}else{0.})-1e-9{u-=0.5;}if holder(rs,len,x-group_width(n,u)/2.,x+group_width(n,u)/2.,&taken).is_none(){continue}for(at,w)in units(x,n,u){out.push((at,w,false,hh));}}}}}
   // Upper floors of a symmetric front carry one window over the door.
   if !ground&&lk.mode==Mode::Symmetric&&holder(rs,len,centre-unit/2.,centre+unit/2.,&[]).is_some()&&!out.iter().any(|(a,w,_,_)|*a<centre+unit/2.+0.6&&a+w>centre-unit/2.-0.6){out.push((centre-unit/2.,unit,false,lk.height));}
  },Mode::Rooms=>{

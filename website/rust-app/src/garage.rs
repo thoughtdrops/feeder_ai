@@ -48,7 +48,10 @@ fn placement(c: &Config, rooms: &[Room]) -> Placement {
             if hi - lo < 38. / 12. { continue }
             let at = (r.z + r.d / 2. - 19. / 12.).clamp(lo, hi - 38. / 12.);
             let rank = match r.kind.as_str() { "hall" => 0., "flex" => 1., "kitchen" => 2., "living" | "studio" => 3., _ => 4. };
-            candidates.push((rank * 100. + r.z + if left { 0.1 } else { 0. }, Placement { x: if left { -SIZE } else { c.width }, z, left, entry: Some(at) }));
+            // A garage over a bedroom's side wall takes away its windows (and its escape opening), so any
+            // placement that leaves every bedroom its daylight wins over the best connecting room.
+            let covered = rooms.iter().filter(|b| b.kind == "bedroom" && near(if left { b.x } else { b.x + b.w }, if left { 0. } else { c.width }) && b.z < z + SIZE && b.z + b.d > z.max(0.)).count() as f64;
+            candidates.push((covered * 10000. + rank * 100. + r.z + if left { 0.1 } else { 0. }, Placement { x: if left { -SIZE } else { c.width }, z, left, entry: Some(at) }));
         }
     }
     candidates.sort_by(|a, b| a.0.total_cmp(&b.0));
