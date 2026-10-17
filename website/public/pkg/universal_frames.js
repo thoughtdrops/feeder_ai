@@ -434,7 +434,7 @@ function __wbg_adapter_4(arg0, arg1, arg2) {
     wasm.__wbindgen_export_5(arg0, arg1, addHeapObject(arg2));
 }
 
-function __wbg_adapter_9(arg0, arg1) {
+function __wbg_adapter_11(arg0, arg1) {
     wasm.__wbindgen_export_6(arg0, arg1);
 }
 
@@ -842,6 +842,9 @@ function __wbg_get_imports() {
     imports.wbg.__wbg_setvalue_4c91a711c0108335 = function(arg0, arg1, arg2) {
         getObject(arg0).value = getStringFromWasm0(arg1, arg2);
     };
+    imports.wbg.__wbg_setvalue_62c6a57a4254987d = function(arg0, arg1, arg2) {
+        getObject(arg0).value = getStringFromWasm0(arg1, arg2);
+    };
     imports.wbg.__wbg_shiftKey_7793232603bd5f81 = function(arg0) {
         const ret = getObject(arg0).shiftKey;
         return ret;
@@ -953,7 +956,7 @@ function __wbg_get_imports() {
     };
     imports.wbg.__wbindgen_cast_3e0f7cd5ff36de98 = function(arg0, arg1) {
         // Cast intrinsic for `Closure(Closure { dtor_idx: 5, function: Function { arguments: [], shim_idx: 6, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-        const ret = makeMutClosure(arg0, arg1, 5, __wbg_adapter_9);
+        const ret = makeMutClosure(arg0, arg1, 5, __wbg_adapter_11);
         return addHeapObject(ret);
     };
     imports.wbg.__wbindgen_cast_95d13c41ef29a3dd = function(arg0, arg1) {

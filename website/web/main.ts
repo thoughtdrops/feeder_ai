@@ -8,10 +8,6 @@ import {layoutEditor} from './context-menu';
 import {createSceneController} from './scene-controller';
 import {releaseRenderer} from './graphics';
 import {initAccounts,prepareSplash,saveBuild,openBuilds} from './account';
-import {markViewStyle,openStylePicker,setViewStyle,viewStyleLabel} from './view-styles';
-// The graphics-style button lives in the Rust-rendered viewer overlay; its label comes from <html data-view-style>.
-markViewStyle();
-document.addEventListener('click',event=>{const button=(event.target as Element|null)?.closest?.('.view-style-toggle') as HTMLElement|null;if(!button)return;openStylePicker(button,id=>{setViewStyle(id);stage?.refresh();app?.show_status(`Graphics style: ${viewStyleLabel(id)}.`);});});
 let unbindTextures:undefined|(()=>void);
 let unbindAccessibility:undefined|(()=>void);
 let reportBusy=false;
