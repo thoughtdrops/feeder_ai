@@ -11,7 +11,8 @@ export function batchStatic(root:T.Object3D,minimum=3){
   const mesh=o as T.Mesh;
   if(!mesh.isMesh||(mesh as any).isInstancedMesh||(mesh as any).isSkinnedMesh||!mesh.visible||Array.isArray(mesh.material))return;
   const material=mesh.material as T.Material;if(material.transparent||material.opacity<1||mesh.morphTargetInfluences)return;
-  for(let n:T.Object3D|null=mesh.parent;n&&n!==root;n=n.parent)if(!n.visible)return;
+  // Cached scenery (the modeled street) outlives this scene, so it is never merged into this scene's batches.
+  for(let n:T.Object3D|null=mesh.parent;n&&n!==root;n=n.parent)if(!n.visible||n.userData.persistentAsset)return;
   if(editable(mesh,root)||!mesh.geometry.getAttribute('position')||!mesh.geometry.getAttribute('normal'))return;
   const key=material.uuid+(mesh.geometry.getAttribute('uv')?':uv':'')+':'+mesh.layers.mask;let g=groups.get(key);if(!g){g={material,meshes:[]};groups.set(key,g);}g.meshes.push(mesh);
  });

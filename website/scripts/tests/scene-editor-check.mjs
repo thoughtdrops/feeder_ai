@@ -258,7 +258,7 @@ console.log('PASS: exact dormer window headers/sills, roof-opening support plies
  for(const view of ['exterior','framing']){
   const finish=renderHouse(el,{config:c,model:m,view});const balconies=[],joists=[],posts=[];rendered.scene.traverse(o=>{if(o.name==='Connected upper balcony')balconies.push(o);if(o.name==='Balcony deck joist')joists.push(o);if(o.name==='Balcony support post')posts.push(o);});
   assert.equal(balconies.length,1,'A balcony appears once in '+view);assert.equal(joists.length,m.balcony.joists.length);assert.equal(posts.length,m.balcony.posts.length);
-  const bounds=new T.Box3().setFromObject(balconies[0]);assert.ok(bounds.max.y>m.floorHeight+(view==='framing'?-.5:3)&&bounds.min.y<.3,'Whole-house balcony spans from ground to upper deck / guard');
+  const bounds=new T.Box3().setFromObject(balconies[0]);assert.ok(bounds.max.y>m.floorHeight+(view==='framing'?-.5:3)&&bounds.min.y<Math.min(...m.balcony.posts.map(p=>p.base||0))+.3,'Whole-house balcony spans from its supports (ground, deck or porch) to upper deck / guard');assert.ok(m.balcony.posts.every(p=>p.base+p.height>m.floorHeight-1),'Every post reaches the balcony');
   const door=m.levels[1].openings.find(o=>o.id===m.balcony.doorId);assert.ok(door&&door.kind==='door'&&door.bottom===0);assert.ok(m.levels[1].frameMembers.some(f=>f.openingId===door.id&&f.role==='Header ply'));finish();
  }
  const dc={...config,width:100,depth:100,homeStyle:'Colonial',stories:2,pitch:8,dormerStyle:'Gable',dormerWidth:4,dormerDepth:16,dormerCount:6,dormerSide:'Front',garage:'None',balcony:'None'};

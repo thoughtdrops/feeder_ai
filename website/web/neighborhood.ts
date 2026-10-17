@@ -277,7 +277,7 @@ function layout(s:Site){
 /** The street, houses and trees around a lot; `site` is the lot in world feet (front of the house at minZ, facing -z). */
 export function addNeighborhood(root:T.Object3D,o:Opts,wake:()=>void){
  const s=o.site,key=[s.minX,s.minZ,s.maxX,s.maxZ].map(v=>Math.round(v/4)*4).join(',')+(o.mobile?'m':'');
- const hit=cache.get(key);if(hit){hit.position.y=o.groundY;root.add(hit);return hit;}
+ const hit=cache.get(key);if(hit){hit.traverse(x=>{if(x.userData.batchedOriginal){x.visible=true;delete x.userData.batchedOriginal;}});hit.position.y=o.groundY;root.add(hit);return hit;}
  const group=new T.Group();group.name='Modeled neighborhood';group.userData.persistentAsset=true;group.position.y=o.groundY;root.add(group);cache.set(key,group);
  if(cache.size>3){const [oldKey,old]=cache.entries().next().value as [string,T.Group];cache.delete(oldKey);old.traverse(x=>{const m=x as T.Mesh;if(m.geometry&&!(x instanceof T.InstancedMesh))m.geometry.dispose();});}
  const mats=sharedMats(o),roofMats=new Map<string,T.Material>();const roofFor=(c:string)=>{let m=roofMats.get(c);if(!m){if(c.startsWith('metal:')){const t=seamTex();m=new T.MeshStandardMaterial({color:c.slice(6),map:t,bumpMap:t,bumpScale:2,roughness:.5,metalness:.15,envMapIntensity:.6,side:T.DoubleSide});}else{m=roofMaterial('Architectural asphalt shingles',c,[],o.anisotropy);m.side=T.DoubleSide;(m as T.MeshStandardMaterial).map!.userData.persistent=true;((m as T.MeshStandardMaterial).bumpMap as T.Texture).userData.persistent=true;}m.userData.persistent=true;roofMats.set(c,m);}return m;};

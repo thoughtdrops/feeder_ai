@@ -789,3 +789,43 @@ fn audit_regressions_stair_rails_and_metric_loads(){
  let m=model::build(&c);assert!(m["garage"].is_object());assert!(generator::practical(&c,&m));
  for seed in 0..6{let next=generator::surprise(&c,100+seed,false).unwrap();assert_eq!(next.garage,"Attached");}
 }
+/// Wall-logic problems in one level: interior wall ends that stop short of another wall (gaps), walls that
+/// overlap a collinear wall (duplicates), walls with the same room on both sides (extra walls), stubs, and
+/// walls that run through the middle of a room.
+fn wall_problems(level:&Value)->Vec<String>{
+ let ws:Vec<Wall>=serde_json::from_value(level["walls"].clone()).unwrap();let rs:Vec<Room>=serde_json::from_value(level["rooms"].clone()).unwrap();let mut out=vec![];
+ let end=|w:&Wall,t:f64|if w.axis=="x"{(w.x+t,w.z)}else{(w.x,w.z+t)};
+ let touches=|p:(f64,f64),me:&Wall|ws.iter().any(|o|!std::ptr::eq(o,me)&&if o.axis=="x"{(o.z-p.1).abs()<0.35&&p.0>=o.x-0.35&&p.0<=o.x+o.length+0.35}else{(o.x-p.0).abs()<0.35&&p.1>=o.z-0.35&&p.1<=o.z+o.length+0.35});
+ let room_at=|x:f64,z:f64|rs.iter().find(|r|x>r.x+1e-6&&x<r.x+r.w-1e-6&&z>r.z+1e-6&&z<r.z+r.d-1e-6).map(|r|r.id.clone());
+ for w in &ws{
+  if w.length<1.4&&!w.exterior{out.push(format!("stub {} {:.2} ft",w.id,w.length));}
+  if !w.exterior{for t in [0.,w.length]{if !touches(end(w,t),w){out.push(format!("dangling end {} ({}) at {:?}",w.id,w.name,end(w,t)));}}}
+  for o in &ws{if std::ptr::eq(o,w)||o.axis!=w.axis{continue}let same=if w.axis=="x"{(o.z-w.z).abs()<0.2}else{(o.x-w.x).abs()<0.2};if !same{continue}
+   let(a0,a1,b0,b1)=if w.axis=="x"{(w.x,w.x+w.length,o.x,o.x+o.length)}else{(w.z,w.z+w.length,o.z,o.z+o.length)};if a1.min(b1)-a0.max(b0)>0.3&&w.id<o.id{out.push(format!("overlap {} / {} ({:.1} ft)",w.id,o.id,a1.min(b1)-a0.max(b0)));}}
+  if !w.exterior&&w.length>=2.{let mid=w.length/2.;let(px,pz)=end(w,mid);let(l,r)=if w.axis=="x"{(room_at(px,pz-0.5),room_at(px,pz+0.5))}else{(room_at(px-0.5,pz),room_at(px+0.5,pz))};
+   if l.is_some()&&l==r{out.push(format!("wall {} ({}) inside room {}",w.id,w.name,l.clone().unwrap()));}
+   if l.is_none()&&r.is_none(){out.push(format!("wall {} ({}) touches no room",w.id,w.name));}}
+ }
+ for r in &rs{let area=r.w*r.d;let(short,long)=(r.w.min(r.d),r.w.max(r.d));let k=r.kind.as_str();let name=r.name.to_lowercase();
+  let limit=if name.contains("powder"){Some(96.)}else if k=="bath"{Some(230.)}else if name.contains("pantry"){Some(90.)}else if k=="closet"||name.contains("closet")||name.contains("linen"){Some(70.)}else if k=="laundry"||name.contains("laundry"){Some(110.)}else{None};
+  if let Some(max)=limit{if area>max+1e-6{out.push(format!("oversize {} {} {:.0}x{:.0}",r.id,r.name,r.w,r.d));}}
+  if !["hall","stairs","blank"].contains(&k)&&!name.contains("gallery")&&!name.contains("landing")&&!name.contains("hall")&&long/short.max(0.1)>4.5&&area>40.{out.push(format!("sliver {} {} {:.0}x{:.0}",r.id,r.name,r.w,r.d));}
+  if k=="bedroom"&&(area<70.||short<7.){out.push(format!("tiny-bedroom {} {:.0}x{:.0}",r.id,r.w,r.d));}
+  if r.id.contains("-entry-return")&&short<3.{out.push(format!("scrap {} {:.0}x{:.0}",r.id,r.w,r.d));}}
+ out}
+#[test]#[ignore]fn wall_audit_report(){let styles:Vec<String>=catalog()["homeStyles"].as_array().unwrap().iter().map(|h|s(h,"name").to_string()).collect();let mut counts=BTreeMap::<String,usize>::new();let mut total=0;let mut bad=0;
+ let mut check=|label:String,c:&Config|{let m=model::build(c);let levels:Vec<Value>=m["levels"].as_array().cloned().unwrap_or_else(||vec![m.clone()]);total+=1;let mut any=false;for(i,l)in levels.iter().enumerate(){for p in wall_problems(l){any=true;let key=p.split_whitespace().next().unwrap().to_string();*counts.entry(key).or_default()+=1;if std::env::var("AUDIT_VERBOSE").is_ok(){eprintln!("{} L{}: {}",label,i,p);}}}if any{bad+=1;}};
+ for st in &styles{for stories in 1..=3usize{for beds in [2usize,3,4,5]{let mut c=Config::default();c.home_style=st.clone();c.stories=stories;c.bedrooms=beds;architecture::apply(&mut c,true);c.stories=stories;if c.stories>=2{c.depth=c.depth.max(architecture::minimum_depth(&c));}if validate(&c).is_err(){continue}check(format!("{} {}st {}bd {}x{}",st,stories,beds,c.width,c.depth),&c);}}}
+ for seed in 0..60u32{if let Ok(c)=generator::surprise(&Config::default(),seed*313+11,false){check(format!("GEN{} {} {}st {}x{} {}",seed,c.home_style,c.stories,c.width,c.depth,c.shape),&c);}}
+ for mode in ["Affordable","Premium"]{for seed in 0..30u32{if let Ok(c)=generator::generate(&Config::default(),mode,seed*97+5,false){check(format!("{}{} {} {}st {}x{}",mode,seed,c.home_style,c.stories,c.width,c.depth),&c);}}}
+ eprintln!("AUDIT {} of {} designs have wall problems: {:?}",bad,total,counts);}
+#[test]fn walls_meet_and_rooms_are_sized_for_their_use(){let styles:Vec<String>=catalog()["homeStyles"].as_array().unwrap().iter().map(|h|s(h,"name").to_string()).collect();let mut problems=vec![];
+ let mut check=|label:String,c:&Config|{let m=model::build(c);for(i,l)in m["levels"].as_array().cloned().unwrap_or_else(||vec![m.clone()]).iter().enumerate(){for p in wall_problems(l){problems.push(format!("{} L{}: {}",label,i,p));}}};
+ for st in &styles{for stories in 1..=3usize{for beds in [2usize,4]{let mut c=Config::default();c.home_style=st.clone();c.stories=stories;c.bedrooms=beds;architecture::apply(&mut c,true);c.stories=stories;if c.stories>=2{c.depth=c.depth.max(architecture::minimum_depth(&c));}if validate(&c).is_ok(){check(format!("{} {}st {}bd",st,stories,beds),&c);}}}}
+ for seed in 0..16u32{if let Ok(c)=generator::surprise(&Config::default(),seed*313+11,false){check(format!("generated {} {}",seed,c.home_style),&c);}}
+ assert!(problems.is_empty(),"{}",problems.join("\n"));}
+#[test]fn balcony_posts_stand_on_the_deck_below_instead_of_piercing_it(){let mut c=generator::starter();c.balcony="Rear balcony".into();c.rear_outdoor="Deck".into();c.rear_width=20.;c.rear_depth=10.;assert!(validate(&c).is_ok());let m=model::build(&c);
+ let deck=&m["rearOutdoor"]["rectangles"][0];let b=&m["balcony"];assert!(b.is_object()&&deck.is_object());let surface=deck["deckYs"][0].as_f64().unwrap();
+ let mut on_deck=0;for p in b["posts"].as_array().unwrap(){let(x,z)=(n(p,"x"),n(p,"z"));let inside=x>=n(deck,"x")-0.3&&x<=n(deck,"x")+n(deck,"w")+0.3&&z>=n(deck,"z")-0.3&&z<=n(deck,"z")+n(deck,"d")+0.3;
+  if inside{on_deck+=1;assert!(near(n(p,"base"),surface),"post over the deck starts on it");}else{assert!(near(n(p,"base"),0.));}assert!(near(n(p,"base")+n(p,"height"),n(b,"deckY")-0.67));}
+ assert!(on_deck>0,"the test balcony sits over the deck");}

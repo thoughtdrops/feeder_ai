@@ -34,7 +34,11 @@ pub fn apply(c:&Config,m:&mut Value,t:&mut model::Takeoff){
  if !b.existing{let center=n(wall,"x")+n(door,"at")+n(door,"width")/2.;b.x=(center-b.w/2.).clamp(0.,c.width-b.w);}
  let deck_y=c.wall_height+structural::floor_gap(c)+0.2;let stations=(b.w/(16./12.)).ceil()as usize;
  let joists:Vec<_>=(0..=stations).map(|i|json!({"a":[b.x+b.w*i as f64/stations as f64,deck_y-0.33,b.z],"b":[b.x+b.w*i as f64/stations as f64,deck_y-0.33,b.z+b.d],"length":b.d,"stockLength":(b.d/2.).ceil()*2.})).collect();
- let posts:Vec<_>=(0..=(b.w/8.).ceil()as usize).map(|i|json!({"x":b.x+b.w*i as f64/(b.w/8.).ceil(),"z":b.z+b.d,"height":deck_y-0.67})).collect();
+ // A post over the rear deck or a porch stands on that floor (bolted through to its framing) instead of
+ // running through it to the ground.
+ let floors:Vec<Value>=["rearOutdoor","porch"].iter().flat_map(|k|m[*k]["rectangles"].as_array().cloned().unwrap_or_default()).collect();
+ let base=|x:f64,z:f64|floors.iter().filter(|r|x>=n(r,"x")-0.3&&x<=n(r,"x")+n(r,"w")+0.3&&z>=n(r,"z")-0.3&&z<=n(r,"z")+n(r,"d")+0.3).filter_map(|r|r["deckYs"][0].as_f64()).fold(0.,f64::max);
+ let posts:Vec<_>=(0..=(b.w/8.).ceil()as usize).map(|i|{let(x,z)=(b.x+b.w*i as f64/(b.w/8.).ceil(),b.z+b.d);let y=base(x,z);json!({"x":x,"z":z,"base":y,"height":deck_y-0.67-y})}).collect();
  let rails:Vec<_>=[([b.x,deck_y+3.5,b.z],[b.x,deck_y+3.5,b.z+b.d]),([b.x,deck_y+3.5,b.z+b.d],[b.x+b.w,deck_y+3.5,b.z+b.d]),([b.x+b.w,deck_y+3.5,b.z+b.d],[b.x+b.w,deck_y+3.5,b.z])].into_iter().map(|(a,b)|{let len=((b[0]-a[0]).powi(2)+(b[2]-a[2]).powi(2)).sqrt();json!({"a":a,"b":b,"length":len,"balusters":(len/(4./12.)).ceil()as usize})}).collect();
  let rail_lf:f64=rails.iter().map(|r|n(r,"length")).sum();let count=posts.len()as f64;let area=b.w*b.d;
  if !b.existing{

@@ -30,7 +30,7 @@ balcony.joists.forEach((j:any,i:number)=>piece('BALCONY-JOIST-'+i,'Balcony deck 
 for(const z of[balcony.z,balcony.z+balcony.d])piece('BALCONY-RIM-Z'+z,'Balcony rim / flashed ledger','Exterior-rated treated 2 x 8',[balcony.x,balcony.deckY-.33,z],[balcony.x+balcony.w,balcony.deckY-.33,z],'');
 for(const x of[balcony.x,balcony.x+balcony.w])piece('BALCONY-RIM-X'+x,'Balcony side rim','Exterior-rated treated 2 x 8',[x,balcony.deckY-.33,balcony.z],[x,balcony.deckY-.33,balcony.z+balcony.d],'');
 for(let ply=0;ply<2;ply++)piece('BALCONY-BEAM-PLY'+ply,'Balcony support beam ply','Exterior-rated treated wood; size pending',[balcony.x,balcony.deckY-.67,balcony.z+balcony.d],[balcony.x+balcony.w,balcony.deckY-.67,balcony.z+balcony.d],'');
-balcony.posts.forEach((post:any,i:number)=>piece('BALCONY-POST-'+i,'Balcony support post','Exterior-rated 6 x 6; length pending',[post.x,0,post.z],[post.x,post.height,post.z],''));}
+balcony.posts.forEach((post:any,i:number)=>piece('BALCONY-POST-'+i,'Balcony support post','Exterior-rated 6 x 6; length pending',[post.x,post.base||0,post.z],[post.x,(post.base||0)+post.height,post.z],''));}
 download(csv(rows),'text/csv',`Universal-Frame-UF-${c.seed}-framing-pieces.csv`);}
 export function engineerSummary(c:Config,site:string){const m=model(c);return `Panel defaults: 2x6 SPF #2 @ 24 in OC; 16 in I-joist floor/roof @ 16 in OC; ZIP 7/16 walls and 5/8 roof; pre-painted 4 x 16 drywall. Crawlspace floor R30 + R19 unfaced; R21 faced exterior; roof ${c.roofInsulation||'R-49'} faced innermost layer.
 
