@@ -167,7 +167,9 @@ pub fn surprise(current:&Config, seed:u32, keep_size:bool) -> Result<Config,Stri
         c.dormer_style=if c.pitch>=8.&&r.pick(10)<4{"Style matched".into()}else{"None".into()};c.dormer_count=2;c.dormer_width=4.;c.dormer_depth=8.;c.dormer_side="Automatic".into();
         c.garage="Attached".into();c.garage_side="Automatic".into();
         c.ceiling=if roof::cathedral_ok(&c)&&r.pick(10)<3{"Cathedral".into()}else{"Flat ceiling".into()};
-        c.rear_outdoor="Style matched".into();c.balcony="Style matched".into();c.window_style="Style matched".into();c.window_size="Style matched".into();
+        c.rear_outdoor="Style matched".into();c.balcony="Style matched".into();c.window_style="Style matched".into();c.window_size="Style matched".into();c.front_porch="Style matched".into();
+        // Wide premium homes come with a third garage bay.
+        c.garage_size=if mode=="Premium"&&c.width>=40.{"Three-car"}else{"Two-car"}.into();
         c.layout=heritage::plan_name(&c.home_style);
         // Shapes: about half the homes stay rectangles, the rest get L, T or U additions in 2-ft steps.
         c.shape=["Rectangle","Rectangle","L-shape","T-shape","U-shape","Rectangle"][r.pick(6)].into();c.wing_width=12.+2.*r.pick(5)as f64;c.wing_depth=14.+2.*r.pick(5)as f64;
