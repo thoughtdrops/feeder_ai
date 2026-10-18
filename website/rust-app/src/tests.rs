@@ -891,3 +891,28 @@ fn furniture_problems(level:&Value)->Vec<String>{
 /// Formal catalog homes (Colonial, Georgian, French country, Coastal) give the living room the front of the
 /// west hall, so it is a real room rather than a 10 ft strip.
 #[test]fn formal_living_rooms_are_wide(){for st in ["Colonial","Georgian","French country","Coastal"]{let mut c=generator::starter();c.home_style=st.into();c.stories=2;architecture::apply(&mut c,true);let m=model::build(&c);let l=&m["levels"][0];let living=l["rooms"].as_array().unwrap().iter().find(|r|s(r,"type")=="living").unwrap();assert!(n(living,"w")>=14.,"{} living room is {} ft wide",st,n(living,"w"));}}
+#[test]#[ignore]fn combo_sweep(){let mut seen=BTreeMap::<String,usize>::new();let mut note=|k:String,detail:String|{if !seen.contains_key(&k){eprintln!("{} :: {}",k,detail);}*seen.entry(k).or_default()+=1;};
+ let rect=|v:&Value|[n(v,"x"),n(v,"z"),n(v,"x")+n(v,"w"),n(v,"z")+n(v,"d")];let hit=|a:[f64;4],b:[f64;4]|a[0]<b[2]-0.05&&a[2]>b[0]+0.05&&a[1]<b[3]-0.05&&a[3]>b[1]+0.05;
+ let styles:Vec<String>=catalog()["homeStyles"].as_array().unwrap().iter().map(|h|s(h,"name").to_string()).collect();let mut i=0u32;
+ for st in &styles{for porch in crate::porch::FORMS{for(garage,size,side)in[("Attached","Two-car","Automatic"),("Attached","Three-car","Left"),("Attached","Three-car","Right"),("Detached","Three-car","Automatic"),("None","Two-car","Automatic")]{i+=1;
+  let mut c=Config::default();c.home_style=st.clone();architecture::apply(&mut c,true);c.front_porch=porch.into();c.garage=garage.into();c.garage_size=size.into();c.garage_side=side.into();c.shape=["Rectangle","L-shape","T-shape","U-shape"][(i%4)as usize].into();c.balcony=["Style matched","Rear balcony","None"][(i%3)as usize].into();c.rear_outdoor=["Style matched","Deck","Covered porch","None"][(i%4)as usize].into();c.stories=1+(i%3)as usize;if c.stories>=2{c.depth=c.depth.max(architecture::minimum_depth(&c));}
+  let tag=format!("{} {} {} {} {} {} {}st",st,porch,garage,size,side,c.shape,c.stories);
+  if let Err(e)=validate(&c){note(format!("invalid: {}",e),tag);continue}
+  let Ok(m)=std::panic::catch_unwind(||model::build(&c))else{note("PANIC".into(),tag);continue};
+  let g=&m["garage"];let wings:Vec<[f64;4]>=crate::wings::rects(&c).iter().map(|r|[r.x,r.z,r.x+r.w,r.z+r.d]).collect();
+  let house=[0.,0.,c.width,c.depth];
+  let porch_rects:Vec<[f64;4]>=m["porch"]["rectangles"].as_array().cloned().unwrap_or_default().iter().map(rect).collect();
+  let rear_rects:Vec<[f64;4]>=m["rearOutdoor"]["rectangles"].as_array().cloned().unwrap_or_default().iter().map(rect).collect();
+  if g.is_object(){let gr=rect(g);if hit(gr,house){note("garage overlaps house".into(),tag.clone());}for w in &wings{if hit(gr,*w){note("garage overlaps wing".into(),tag.clone());}}for p in porch_rects.iter().chain(&rear_rects){if hit(gr,*p){note("garage overlaps porch/deck".into(),format!("{} g{:?} p{:?}",tag,gr,p));}}
+   for w in serde_json::from_value::<Vec<Wall>>(g["walls"].clone()).unwrap(){if !model::valid_openings(&w.openings,w.length,n(g,"h")){note("garage openings invalid".into(),tag.clone());}}}
+  for p in porch_rects.iter().chain(&rear_rects){if hit(*p,house){note("porch/deck inside house".into(),format!("{} {:?}",tag,p));}for w in &wings{if hit(*p,*w){note("porch/deck overlaps wing".into(),format!("{} {:?} {:?}",tag,p,w));}}}
+  for p in &porch_rects{for r in &rear_rects{if hit(*p,*r){note("front porch overlaps rear deck".into(),tag.clone());}}}
+  let b=&m["balcony"];if b.is_object(){let br=rect(b);for w in &wings{if hit(br,*w){note("balcony overlaps wing".into(),tag.clone());}}if g.is_object()&&hit(br,rect(g)){note("balcony over garage".into(),tag.clone());}}
+  for(li,l)in m["levels"].as_array().cloned().unwrap_or_else(||vec![m.clone()]).iter().enumerate(){for w in serde_json::from_value::<Vec<Wall>>(l["walls"].clone()).unwrap(){if !model::valid_openings(&w.openings,w.length,c.wall_height){note("house openings invalid".into(),format!("{} L{} {}",tag,li,w.id));}}
+   for p in furniture_problems(l).into_iter().filter(|p|!p.starts_with("stranded")){note(format!("furniture {}",p.split_whitespace().next().unwrap()),format!("{} L{}: {}",tag,li,p));}}
+  if m["openingChecks"]["allHeightGuardrailsPass"]!=true{note("guardrail".into(),format!("{} {}",tag,m["openingChecks"]["issues"][0]));}
+  let sb=&m["siteBounds"];if g.is_object()&&sb.is_object(){let gr=rect(g);if gr[0]<n(sb,"minX")-0.01||gr[2]>n(sb,"maxX")+0.01{note("site bounds miss garage".into(),tag.clone());}}
+ }}}eprintln!("COMBO {} designs: {:?}",i,seen);}
+/// A chosen wraparound veranda wraps the side the attached garage is not on, wherever the garage lands.
+#[test]fn wraparound_veranda_wraps_away_from_the_garage(){for side in ["Automatic","Left","Right"]{let mut c=generator::starter();c.garage="Attached".into();c.garage_side=side.into();c.front_porch="Wraparound veranda".into();let m=model::build(&c);let p=&m["porch"];let rs=p["rectangles"].as_array().unwrap();assert_eq!(rs.len(),2,"{} garage: the veranda wraps a side",side);let g=&m["garage"];let wrap=&rs[1];let on_left=n(wrap,"x")<0.;assert_ne!(on_left,n(g,"x")<0.,"{} garage: wrap is opposite the garage",side);}}
+#[test]fn rear_balcony_avoids_wings(){for shape in ["L-shape","T-shape","U-shape"]{let mut c=generator::starter();c.shape=shape.into();c.balcony="Rear balcony".into();let m=model::build(&c);if let Some(b)=m["balcony"].as_object(){let(bx,bw)=(b["x"].as_f64().unwrap(),b["w"].as_f64().unwrap());for g in crate::wings::rects(&c).iter().filter(|g|g.z+g.d>c.depth+1e-6){assert!(bx+bw<=g.x+1e-6||bx>=g.x+g.w-1e-6,"{}: balcony inside a rear wing",shape);}}}}
