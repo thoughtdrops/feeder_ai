@@ -4,7 +4,8 @@ use crate::*;
 // selected catalog drawing, not construction/engineering approval of that plan.
 pub const FORMS:[&str;5]=["Style matched","None","Entry portico","Full-width veranda","Wraparound veranda"];
 pub fn design(c: &Config, ground: &Value) -> Value {
-    if c.design_mode == "Blank slate" || c.width < 12. || c.depth < 12. { return Value::Null; }
+    // An empty shell has no catalog porch, but a porch the visitor picks is built at their front door.
+    if (c.design_mode == "Blank slate" && c.front_porch == "Style matched") || c.width < 12. || c.depth < 12. { return Value::Null; }
     let entry = ground["walls"].as_array().unwrap().iter().find(|w|s(w,"id")=="E1")
         .and_then(|w|w["openings"].as_array().unwrap().iter().find(|o|s(o,"kind")=="door"));
     let Some(entry) = entry else { return Value::Null; };

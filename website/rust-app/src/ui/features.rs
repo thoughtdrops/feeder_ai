@@ -27,6 +27,7 @@ pub fn roof(a:&State)->String{
 pub fn outdoor(a:&State)->String{
     let c=&a.c;let mut out=String::from("<details class=control-group data-section=outdoor><summary>Porches, decks &amp; balcony</summary>");
     out.push_str(&select("frontPorch","Front porch",&strings(&crate::porch::FORMS),&c.front_porch));
+    if !["Style matched","None"].contains(&c.front_porch.as_str())&&a.m["porch"].is_null(){out.push_str("<p class=feature-note>Add a door on the front wall to attach this porch.</p>");}
     out.push_str(&select("columnStyle","Porch column style",&strings(&additions::character::COLUMNS),&c.column_style));
     out.push_str(&select("railingStyle","Railing style · porch, deck and balcony",&strings(&additions::character::RAILINGS),&c.railing_style));
     out.push_str(&select("rearOutdoor","Rear outdoor space",&strings(&["Style matched","None","Deck","Covered porch"]),&c.rear_outdoor));
