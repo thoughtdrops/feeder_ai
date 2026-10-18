@@ -23,7 +23,7 @@ pub fn design(c: &Config, ground: &Value) -> Value {
         _ => (0., 0., "", "square", false, ""),
     };
     // A chosen porch form replaces the catalog house's own; "Style matched" keeps the reference porch.
-    let garage_left=c.garage=="Attached"&&c.garage_side=="Left";
+    let garage_left=c.garage=="Attached"&&ground["garage"].is_object()&&n(&ground["garage"],"x")<0.;
     let (ratio, original_depth, form, railing, return_side) = match c.front_porch.as_str() {
         "None" => return Value::Null,
         "Entry portico" => (0.2, 5., "Columned entry portico", false, ""),

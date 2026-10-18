@@ -7,13 +7,16 @@ pub fn planned(c:&Config)->Option<Spec>{
  if c.balcony=="Style matched"&&(c.design_mode=="Blank slate"||c.design_mode=="Affordable"||!["Victorian","Colonial","French country","Coastal"].contains(&c.home_style.as_str())){return None}
  let existing=c.balcony=="Style matched"&&c.home_style=="Colonial"&&(c.garage!="Attached"||c.garage_side=="Left");
  let side=if existing{"Right"}else{"Rear"};let mut cc=c.clone();cc.active_floor=1;let(rs,_)=layout(&cc);
- let room=rs.iter().filter(|r|!["stairs","bath"].contains(&r.kind.as_str())&&if existing{near(r.x+r.w,c.width)&&r.d>=4.5&&r.z+r.d/2.<c.depth*28./36.-2.}else{near(r.z+r.d,c.depth)&&r.w>=4.5}).min_by(|a,b|{
+ let room=rs.iter().filter(|r|!["stairs","bath"].contains(&r.kind.as_str())&&if existing{near(r.x+r.w,c.width)&&r.d>=4.5&&r.z+r.d/2.<c.depth*28./36.-2.}else{near(r.z+r.d,c.depth)&&r.w>=4.5&&crate::wings::rects(c).iter().all(|g|g.z+g.d<=c.depth+1e-6||r.x+r.w/2.+3.<=g.x||r.x+r.w/2.-3.>=g.x+g.w)}).min_by(|a,b|{
   let rank=|r:&Room|(if r.kind=="hall"{0.}else if r.kind=="flex"{50.}else if r.kind=="bedroom"{100.}else{20.})+(if existing{r.z+r.d/2.-c.depth/2.}else{r.x+r.w/2.-c.width/2.}).abs();rank(a).total_cmp(&rank(b))
  })?;
  let center=if existing{room.z+room.d/2.}else{room.x+room.w/2.};let at=center-19./12.;
+ // A rear balcony stays on rear wall that no L, T or U wing covers, like the rear deck.
+ let free=|lo:f64,hi:f64|crate::wings::rects(c).iter().all(|g|g.z+g.d<=c.depth+1e-6||hi<=g.x+1e-6||lo>=g.x+g.w-1e-6);
  if existing{let width=12_f64.min(c.width/3.);return Some(Spec{side,at,x:c.width,z:0.,w:width,d:c.depth*28./36.,existing})}
  let w=if c.home_style=="Coastal"{12_f64.min(c.width-4.)}else{8_f64.min(c.width-4.)};let d=if c.home_style=="Coastal"{6.}else{4.};
- Some(Spec{side,at,x:(center-w/2.).clamp(0.,c.width-w),z:c.depth,w,d,existing:false})
+ let x=(center-w/2.).clamp(0.,c.width-w);if !free(x,x+w)||!free(at,at+38./12.){return None}
+ Some(Spec{side,at,x,z:c.depth,w,d,existing:false})
 }
 pub fn prepare_walls(c:&Config,mut ws:Vec<Wall>)->Vec<Wall>{
  if c.active_floor!=1{return ws}let Some(b)=planned(c)else{return ws};

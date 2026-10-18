@@ -1,6 +1,6 @@
 import * as T from 'three';
 export function addNorthArrow(scene:T.Object3D,m:any,bearing:number,textures:T.Texture[]){
- const g=new T.Group();g.name='North arrow';g.position.set(Math.max(m.w,m.garage&&m.garage.x>=m.w?m.garage.x+24:m.w)-m.w/2+7,-.47,0);g.rotation.y=(180-bearing)*Math.PI/180;
+ const g=new T.Group();g.name='North arrow';g.position.set(Math.max(m.w,m.garage&&m.garage.x>=m.w?m.garage.x+(m.garage.w||24):m.w)-m.w/2+7,-.47,0);g.rotation.y=(180-bearing)*Math.PI/180;
  const gold=new T.MeshStandardMaterial({color:'#f1c747',roughness:.7});
  const shaft=new T.Mesh(new T.BoxGeometry(.25,.07,3.2),gold);shaft.position.z=-.6;g.add(shaft);
  const head=new T.Mesh(new T.ConeGeometry(.7,1.3,3),gold);head.rotation.x=Math.PI/2;head.position.z=1.5;g.add(head);
