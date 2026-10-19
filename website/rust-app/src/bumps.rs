@@ -90,7 +90,7 @@ fn plan(c:&Config)->Vec<Bump>{
   let span=|r:&Room|if ["front","rear"].contains(&side){(r.x,r.x+r.w)}else{(r.z,r.z+r.d)};
   hosts.sort_by(|a,b|rank(a).total_cmp(&rank(b)).then((span(b).1-span(b).0).total_cmp(&(span(a).1-span(a).0))));
   for r in hosts{
-   let(r0,r1)=span(r);let(min_lo,max_hi)=((r0+1.).max(2.),(r1-1.).min(len-2.));
+   let(r0,r1)=span(r);let(min_lo,max_hi)=((r0+2.).max(2.),(r1-2.).min(grid(len)-2.));
    let(lo,hi)=match want{
     Some((at,width,_))=>{let lo=grid(at).max(min_lo);let hi=grid(at+width).min(max_hi);if at+width/2.<r0||at+width/2.>r1{continue}(lo,hi)}
     None=>{let width=grid((if depth>=4.{10.0_f64}else{8.}).min(max_hi-min_lo));let lo=min_lo+grid(((max_hi-min_lo)-width)/2.).min((max_hi-min_lo-width).max(0.));(lo,lo+width)}

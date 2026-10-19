@@ -1126,4 +1126,22 @@ fn colonial_plan()->Value{json!({"mainWidthFt":40.6,"mainDepthFt":31.5,"floors":
   }
  }
 }
-#[test]#[ignore]fn bump_probe(){let c=generator::starter();let m=model::build(&c);println!("bumps {:?}",bumps::list(&c));println!("issues {}",m["openingChecks"]["issues"]);println!("bed {} baths {}",m["counts"]["bedrooms"],m["counts"]["baths"]);println!("practical {}",generator::practical(&c,&m));println!("garage {} wings {}",format!("x {} z {} w {}",m["garage"]["x"],m["garage"]["z"],m["garage"]["w"]),m["wings"].to_string().chars().take(300).collect::<String>());}
+#[test]#[ignore]fn bump_probe(){let mut c=generator::starter();c.home_style="Cape Cod".into();c.stories=heritage::default_stories("Cape Cod");c.bedrooms=heritage::default_bedrooms("Cape Cod");architecture::apply(&mut c,true);c.seed=2;c.bump_outs=std::env::var("BO").unwrap_or("Style matched".into());let m=model::build(&c);println!("bumps {:?}",bumps::list(&c));println!("issues {}",m["openingChecks"]["issues"]);println!("bed {} baths {}",m["counts"]["bedrooms"],m["counts"]["baths"]);println!("practical {}",generator::practical(&c,&m));let f=m["furniture"].as_array().unwrap();for r in m["rooms"].as_array().unwrap(){println!("room {} {} {}x{} : {:?}",s(r,"id"),s(r,"type"),n(r,"w"),n(r,"d"),f.iter().filter(|x|s(x,"roomId")==s(r,"id")).map(|x|s(x,"kind")).collect::<Vec<_>>());}println!("garage {} wings {}",format!("x {} z {} w {}",m["garage"]["x"],m["garage"]["z"],m["garage"]["w"]),m["wings"].to_string().chars().take(300).collect::<String>());}
+#[test]fn bump_outs_pop_out_on_the_grid_with_their_own_roofs(){
+ for style in ["Colonial","Victorian","Contemporary","Cape Cod","Georgian","Ranch","Tudor"]{for seed in [1u32,2]{
+  let mut c=generator::starter();c.home_style=style.into();c.stories=heritage::default_stories(style);c.bedrooms=heritage::default_bedrooms(style);architecture::apply(&mut c,true);c.seed=seed;c.bump_outs="Style matched".into();
+  if validate(&c).is_err(){continue}
+  // Bump-outs never turn a workable home into one the generator would reject.
+  let mut plain=c.clone();plain.bump_outs="None".into();let m=model::build(&c);if generator::practical(&plain,&model::build(&plain)){assert!(generator::practical(&c,&m),"{style} {seed} practical");}
+  let ground=if c.stories>=2{&m["levels"][0]}else{&m};let walls=ground["walls"].as_array().unwrap();
+  for(i,b)in bumps::list(&c).iter().enumerate(){
+   let id=format!("wingb{i}");assert!([b.lo,b.hi,b.depth].iter().all(|v|near(*v/2.,(*v/2.).round())),"{style} on grid {:?}",b);
+   let g=m["wings"].as_array().unwrap().iter().find(|g|s(g,"id")==id).unwrap();assert!(g["roof"]["facets"].as_array().unwrap().len()>=1);assert!(n(&g["roof"],"area")>0.);
+   assert_eq!(walls.iter().filter(|w|s(w,"id").ends_with(&format!("-{id}"))).count(),3,"{style} three bump walls");
+   let host=walls.iter().find(|w|s(w,"id")==bumps::host_wall(b.side)).unwrap();assert!(host["openings"].as_array().unwrap().iter().any(|o|s(o,"kind")=="passage"&&n(o,"at")>=b.lo&&n(o,"at")+n(o,"width")<=b.hi),"{style} opens into the bump-out");
+   assert!(ground["rooms"].as_array().unwrap().iter().any(|r|s(r,"id")==format!("{id}-bay")&&s(r,"type")=="bay"));
+  }
+  if !bumps::list(&c).is_empty(){assert!(m["items"].as_array().unwrap().iter().any(|i|s(i,"id")=="bump-tie-in"));}
+ }}
+ let mut c=generator::starter();c.bump_outs="None".into();assert!(bumps::list(&c).is_empty());c.bump_outs="Sideways".into();assert!(validate(&c).is_err());
+}
