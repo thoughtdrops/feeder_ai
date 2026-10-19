@@ -3,8 +3,8 @@
 // then reads those photos and plans with /api/photo-design.
 //   POST /api/listing {url} -> {listing:{found, reason, address, livingAreaSqft, bedrooms, bathrooms, stories,
 //                               yearBuilt, description, photoUrls[], floorPlanUrls[]}}
-// Some sites (Zillow among them) block automated readers; the answer then says so and the visitor can save
-// the photos and floor plan from the listing and add them by hand.
+// Some sites (Zillow among them) block automated readers. Claude then searches the web for the address in the
+// link so the square footage, beds and baths still arrive, and the visitor adds the photos and floor plan by hand.
 import { assertMutationAllowed, handler, HttpError, isPlainObject, json, readJsonBody } from './_lib/http.js';
 import { MODEL, claudeError, clientFor, jsonAnswer, publicUrl } from './_lib/claude.js';
 
@@ -18,7 +18,8 @@ const FIELDS = {
   found: { type: 'boolean', description: 'True when the page loaded and is a home listing.' },
   reason: { type: 'string', description: 'When found is false, a short plain reason (e.g. "The site blocked automated reading").' },
   address: { type: 'string', description: 'The listed address, or empty.' },
-  livingAreaSqft: num('Finished living area in square feet, or 0.'),
+  livingAreaSqft: num('Finished living area in square feet (the "sqft" figure, not the lot size), or 0 only when no source states it.'),
+  sqftSource: { type: 'string', description: 'Where the square footage came from, e.g. "listing facts" or "county records via search", or empty.' },
   bedrooms: num('Bedrooms, or 0.'),
   bathrooms: num('Bathrooms (half baths as 0.5), or 0.'),
   stories: num('Stories above ground, or 0.'),
@@ -30,9 +31,11 @@ const FIELDS = {
 export const LISTING_SCHEMA = { type: 'object', properties: FIELDS, required: Object.keys(FIELDS), additionalProperties: false };
 
 const SYSTEM = `You read real-estate listing pages for Universal Frame, a home design studio. Fetch the page the visitor linked and report the facts that size the home and the links of its best photos and floor plans.
-- Copy photo and floor-plan links exactly as they appear in the page (full-size versions when the page offers them). Never invent a link.
+- The finished living area in square feet matters most: the studio sizes the house from it. Look in the facts and features, the summary line (e.g. "4 bd | 2.5 ba | 2,140 sqft") and any structured data on the page. Never report the lot size as living area.
+- If the page will not load or is blocked, the link itself usually contains the address (for example zillow.com/homedetails/12-Elm-St-Springfield-IL-62704/...). Search the web for that address and take the living area, bedrooms, bathrooms, stories and year built from another public listing or the county's property records. Note the source in sqftSource.
+- Copy photo and floor-plan links exactly as they appear in a page you read (full-size versions when offered). Never invent a link.
 - Floor plans are drawings of the rooms; list them separately from photos.
-- If the page will not load, is blocked, or is not a single home listing, set found to false and give a short reason.`;
+- Set found to true only when you read the linked listing page itself; if you could not, set found to false, give a short reason, and still report any facts you found by searching.`;
 
 function sanitize(raw) {
   const n = (v, max) => (typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= max ? v : 0);
@@ -47,6 +50,7 @@ function sanitize(raw) {
     bathrooms: n(raw.bathrooms, 30),
     stories: n(raw.stories, 5),
     yearBuilt: n(raw.yearBuilt, 2100),
+    sqftSource: text(raw.sqftSource, 120),
     description: text(raw.description, 1500),
     photoUrls: links(raw.photoUrls, MAX_LISTING_PHOTOS),
     floorPlanUrls: links(raw.floorPlanUrls, MAX_PLANS),
@@ -67,7 +71,10 @@ export const POST = handler(async (request) => {
     fallbacks: 'default',
     thinking: { type: 'adaptive' },
     output_config: { effort: 'low', format: { type: 'json_schema', schema: LISTING_SCHEMA } },
-    tools: [{ type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 3 }],
+    tools: [
+      { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 3 },
+      { type: 'web_search_20260209', name: 'web_search', max_uses: 3 },
+    ],
     system: SYSTEM,
     messages: [{ role: 'user', content: `Read this home listing: ${url}` }],
   };
@@ -83,6 +90,7 @@ export const POST = handler(async (request) => {
   }
   if (response.stop_reason === 'pause_turn') throw new HttpError(504, 'The listing took too long to read. Save its photos and floor plan and add them instead.');
   const listing = sanitize(jsonAnswer(response, 'This listing could not be read. Save its photos and floor plan and add them instead.'));
+  // A page that could not be read gives no photo links; facts found by searching for its address still count.
   if (!listing.found) {
     listing.reason ||= 'The page could not be read as a home listing.';
     listing.photoUrls = [];

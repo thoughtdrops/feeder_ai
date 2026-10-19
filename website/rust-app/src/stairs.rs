@@ -54,9 +54,15 @@ pub fn clear_upper_walls(mut ws:Vec<Wall>,c:&Config)->Vec<Wall>{
     ws
 }
 pub fn room(c:&Config)->Option<Room>{let f=custom(c)?;Some(Room{id:format!("custom-stairs{}",floor_tag(c.active_floor)),name:"Stairwell".into(),kind:"stairs".into(),x:f.x-f.w/2.,z:f.z-f.d/2.,w:f.w,d:f.d})}
+pub const STYLES:[&str;5]=["Style matched","Straight","L-shaped","U-shaped switchback","Spiral"];
+/// The stair built: the visitor's pick, or the one the house style calls for.
+pub fn style(c:&Config)->&'static str{
+ if let Some(s)=STYLES[1..].iter().find(|s|**s==c.stair_style){return s}
+ match c.home_style.as_str(){"Contemporary"|"Mid-century"|"Industrial"|"Scandinavian"|"Modern farmhouse"=>"Straight","Craftsman"|"Tudor"|"Cape Cod"|"English cottage"|"Ranch"=>"L-shaped",_=>"U-shaped switchback"}
+}
 pub fn info(c:&Config,rooms:&Value,floor_height:f64)->Value {
     let (x,z,w,d,cx,cz,rotation,id)=if let Some(f)=custom(c){(f.x-f.w/2.,f.z-f.d/2.,f.w,f.d,f.x,f.z,f.rotation,Some(f.id.clone()))}else if c.design_mode!="Blank slate" {let Some(r)=rooms.as_array().unwrap().iter().find(|r|s(r,"type")=="stairs")else{return Value::Null};let(x,z,w,d)=(n(r,"x"),n(r,"z"),n(r,"w"),n(r,"d"));(x,z,w,d,x+4.,z+8.,if z<1.{std::f64::consts::PI}else{0.},None)}else{return Value::Null};
     let f=staging::Furniture{id:id.clone().unwrap_or_default(),kind:"stairs".into(),room_id:"stairs".into(),x:cx,z:cz,w,d,rotation,local_width:8.,local_depth:16.};
     let b=bounds(&f,[0.,4.,8.,16.]);let risers=(floor_height*12./7.75).ceil()as usize;
-    json!({"x":x,"z":z,"w":w,"d":d,"centerX":cx,"centerZ":cz,"rotation":rotation,"itemId":id,"floorHeight":floor_height,"risers":risers,"treads":risers-2,"riserInches":floor_height*12./risers as f64,"treadInches":10.,"flightWidth":3.5,"landingDepth":4.,"reversed":rotation.cos()<0.,"opening":{"x":b[0],"z":b[1],"w":b[2]-b[0],"d":b[3]-b[1],"area":96.}})
+    json!({"x":x,"z":z,"w":w,"d":d,"centerX":cx,"centerZ":cz,"rotation":rotation,"itemId":id,"floorHeight":floor_height,"style":style(c),"risers":risers,"treads":match style(c){"Straight"|"Spiral"=>risers-1,_=>risers-2},"riserInches":floor_height*12./risers as f64,"treadInches":10.,"flightWidth":3.5,"landingDepth":4.,"reversed":rotation.cos()<0.,"opening":{"x":b[0],"z":b[1],"w":b[2]-b[0],"d":b[3]-b[1],"area":96.}})
 }

@@ -6,7 +6,7 @@
 type Engine={apply_photo(read:string):string;show_status(text:string):void};
 type PhotoConfig={available:boolean;signIn:boolean};
 type Photo={file:File;url:string};
-type Listing={found:boolean;reason:string;address:string;livingAreaSqft:number;bedrooms:number;bathrooms:number;stories:number;yearBuilt:number;description:string;photoUrls:string[];floorPlanUrls:string[]};
+type Listing={found:boolean;reason:string;address:string;sqftSource?:string;livingAreaSqft:number;bedrooms:number;bathrooms:number;stories:number;yearBuilt:number;description:string;photoUrls:string[];floorPlanUrls:string[]};
 
 const MAX_PHOTOS=8,MAX_PLANS=3,MAX_PDF=3_600_000,KEY_STORE='uf-anthropic-key';
 // Vercel accepts request bodies up to 4.5 MB; leave room for JSON and notes.
@@ -92,7 +92,7 @@ export async function openPhotoHome(engine:Engine){
  const say=(text:string,error=false)=>{status.textContent=text;status.classList.toggle('error',error);};
  const tiles=(list:Photo[],label:string)=>list.map((p,i)=>{const del=el('button',{type:'button','aria-label':`Remove ${label} ${i+1}`,text:'×'});del.onclick=()=>{URL.revokeObjectURL(p.url);list.splice(i,1);draw();};
   return el('li',{},p.file.type==='application/pdf'?el('span',{class:'photo-pdf',text:`PDF · ${p.file.name}`}):el('img',{src:p.url,alt:`${label} ${i+1}: ${p.file.name}`}),del);});
- const sources=()=>photos.length+plans.length+(listing?listing.photoUrls.length+listing.floorPlanUrls.length:0);
+ const sources=()=>photos.length+plans.length+(listing?listing.photoUrls.length+listing.floorPlanUrls.length+(listing.livingAreaSqft?1:0):0);
  const draw=()=>{grid.replaceChildren(...tiles(photos,'photo'));planGrid.replaceChildren(...tiles(plans,'floor plan'));
   drop.classList.toggle('full',photos.length>=MAX_PHOTOS);planDrop.classList.toggle('full',plans.length>=MAX_PLANS);go.disabled=!sources()||!!busy;find.disabled=!!busy;};
  const add=(list:Photo[],max:number,files:FileList|File[],pdf:boolean)=>{let skipped=0;for(const f of Array.from(files)){if(!f.type.startsWith('image/')&&!(pdf&&f.type==='application/pdf')){skipped++;continue}if(list.length>=max){say(`Up to ${max} at a time.`);break}list.push({file:f,url:URL.createObjectURL(f)});}if(skipped)say(pdf?'Floor plans can be images or PDFs.':'Only image files can be read.',true);draw();};
@@ -117,8 +117,13 @@ export async function openPhotoHome(engine:Engine){
   const key=keyFor();if(key===null)return;
   busy=new AbortController();box.classList.add('working');draw();listing=null;found.textContent='';
   try{say('Opening the listing… this usually takes 10–30 seconds.');const out=await post('/api/listing/',{url},key,busy.signal);const l=out?.listing as Listing;
-   if(!l?.found){found.textContent=`${l?.reason||'The listing could not be read.'} Save its photos and floor plan from the page and add them below.`;say('');return}
-   listing=l;const facts=[l.address,l.livingAreaSqft&&`${Math.round(l.livingAreaSqft).toLocaleString()} sq ft`,l.bedrooms&&`${l.bedrooms} bd`,l.bathrooms&&`${l.bathrooms} ba`].filter(Boolean).join(' · ');
+   const size=(x:Listing)=>[x.address,x.livingAreaSqft&&`${Math.round(x.livingAreaSqft).toLocaleString()} sq ft`,x.bedrooms&&`${x.bedrooms} bd`,x.bathrooms&&`${x.bathrooms} ba`].filter(Boolean).join(' · ');
+   if(!l?.found){
+    // The page was blocked, but facts found for its address still size the home.
+    if(l?.livingAreaSqft){listing={...l,photoUrls:[],floorPlanUrls:[]};found.textContent=`The listing page could not be opened, but its size was found${l.sqftSource?` (${l.sqftSource})`:''}: ${size(l)}. Save the listing's photos and floor plan and add them below.`;}
+    else found.textContent=`${l?.reason||'The listing could not be read.'} Save its photos and floor plan from the page and add them below.`;
+    say('');draw();return}
+   listing=l;const facts=size(l);
    found.textContent=`Found ${l.photoUrls.length} photo${l.photoUrls.length===1?'':'s'} and ${l.floorPlanUrls.length||'no'} floor plan${l.floorPlanUrls.length===1?'':'s'}${facts?` · ${facts}`:''}. They are added to your build.`;say('');}
   catch(e:any){if(e?.name==='AbortError')return;fail(e);say(e?.message||'The listing could not be read.',true);}
   finally{busy=null;box.classList.remove('working');draw();}
@@ -147,7 +152,7 @@ export async function openPhotoHome(engine:Engine){
    if(home.status==='rejected'){fail(home.reason);problems.push(`The photos could not be read: ${home.reason?.message||'unknown error'}`);}
    if(plan.status==='rejected'){fail(plan.reason);problems.push(`The floor plan could not be read: ${plan.reason?.message||'unknown error'}`);}
    else if(planRead&&!planRead.found)problems.push('No floor plan was found in those pictures, so the rooms follow the style\u2019s plan.');
-   if(!homeRead&&!planRead?.found)throw new Error(problems.join(' ')||'Nothing could be read from those pictures.');
+   if(!homeRead&&!planRead?.found&&!listing?.livingAreaSqft)throw new Error(problems.join(' ')||'Nothing could be read from those pictures.');
    const read={...(homeRead||{}),...(planRead?.found?{floorPlan:planRead}:{}),
     ...(!homeRead?.livingAreaSqft&&listing?.livingAreaSqft?{livingAreaSqft:listing.livingAreaSqft}:{}),...(!homeRead&&listing?.stories?{stories:listing.stories}:{}),...(!homeRead&&listing?.bedrooms?{bedrooms:listing.bedrooms}:{})};
    say('Building your home…');

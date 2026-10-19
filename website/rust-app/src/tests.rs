@@ -1063,3 +1063,66 @@ fn colonial_plan()->Value{json!({"mainWidthFt":40.6,"mainDepthFt":31.5,"floors":
  for _ in 0..300{let(w,d)=(grid(16.+rnd(60.)),grid(16.+rnd(60.)));let raws:Vec<traced::Raw>=(0..(2+rnd(14.)as usize)).map(|i|traced::Raw{name:format!("R{}",i),kind:["bedroom","bath","living","hall","kitchen"][i%5].into(),x:rnd(w)-2.,z:rnd(d)-2.,w:2.+rnd(20.),d:2.+rnd(20.)}).collect();
   let rs=traced::tile(&raws,&[],w,d);assert!(tiles(&rs,w,d),"{}x{} {:?}",w,d,raws);assert!(rs.iter().all(|r|r.w>=2.&&r.d>=2.&&traced::KINDS.contains(&r.kind.as_str())));}
 }
+
+/// Diagnostic: which items can be placed in which homes (prints, never fails).
+#[test]#[ignore]fn item_placement_report(){
+ let builtin=["stairs","sofa","bed","chair","armchair","toilet","vanity","shower","kitchen","island","counter-run","pantry-tower","fridge","dining","coffee","desk","wardrobe","nightstand","laundry","plant","rug","floorlamp","side-table","bench","bookcase","entry-console","floor-vase","floor-mirror","tall-plant"];
+ let kinds:Vec<String>=builtin.iter().map(|s|s.to_string()).chain(objects::all().iter().map(|o|o.kind.clone())).collect();
+ let mut homes:Vec<(String,Config)>=catalog()["options"]["homeStyle"].as_array().unwrap().iter().map(|v|{let st=v.as_str().unwrap();let mut c=generator::starter();c.home_style=st.into();let h=lookup("homeStyles",st);c.siding=s(&h,"cladding").into();c.stories=heritage::default_stories(st);c.bedrooms=heritage::default_bedrooms(st);architecture::apply(&mut c,true);(st.to_string(),c)}).collect();
+ for stories in [1,2]{let mut b=generator::starter();b.design_mode="Blank slate".into();b.stories=stories;b.width=40.;b.depth=32.;architecture::reset_edits(&mut b);homes.push((format!("Blank slate {}",stories),b));}
+ for(name,c)in &homes{if validate(c).is_err(){println!("{}: invalid {:?}",name,validate(c));continue}let m=model::build(c);let ws:Vec<Wall>=serde_json::from_value(m["walls"].clone()).unwrap();let fs:Vec<staging::Furniture>=serde_json::from_value(m["furniture"].clone()).unwrap();let rs:Vec<Room>=serde_json::from_value(m["rooms"].clone()).unwrap();
+  let mut missing=vec![];for k in &kinds{let(w,d)=edit::item_dimensions(k);let ok=rs.iter().any(|r|{let f=staging::Furniture{id:"preview".into(),kind:k.clone(),room_id:r.id.clone(),x:r.x+r.w/2.,z:r.z+r.d/2.,w,d,rotation:0.,local_width:w,local_depth:d};let(_,_,e)=edit::snap_item(f,c,&ws,&fs);e.is_none()});if !ok{missing.push(k.clone());}}
+  println!("{}: {} of {} items cannot be placed: {:?}",name,missing.len(),kinds.len(),missing);}
+}
+
+/// Diagnostic: furniture kinds staged per room type in each catalog home (prints, never fails).
+#[test]#[ignore]fn staging_kinds_report(){
+ let mut per:std::collections::BTreeMap<String,std::collections::BTreeMap<String,usize>>=Default::default();let mut rooms:std::collections::BTreeMap<String,usize>=Default::default();
+ for st in catalog()["options"]["homeStyle"].as_array().unwrap().iter().filter_map(|v|v.as_str()){let mut c=generator::starter();c.home_style=st.into();c.stories=heritage::default_stories(st);c.bedrooms=heritage::default_bedrooms(st);architecture::apply(&mut c,true);
+  for floor in 0..c.stories{let mut cc=c.clone();cc.active_floor=floor;let m=model::build(&cc);let rs:Vec<Room>=serde_json::from_value(m["rooms"].clone()).unwrap();let fs:Vec<staging::Furniture>=serde_json::from_value(m["furniture"].clone()).unwrap();
+   for r in &rs{*rooms.entry(r.kind.clone()).or_default()+=1;let mut seen=std::collections::BTreeSet::new();for f in fs.iter().filter(|f|f.room_id==r.id){if seen.insert(f.kind.clone()){*per.entry(r.kind.clone()).or_default().entry(f.kind.clone()).or_default()+=1;}}}}}
+ for(k,n)in &rooms{println!("{} ({} rooms): {:?}",k,n,per.get(k));}
+}
+
+/// Furniture drawn on a floor plan lands where it was drawn, facing the way it was drawn, in place of
+/// the automatic piece; it scales with the house when the size changes.
+#[test]fn plan_furniture_is_placed_where_drawn(){
+ let mut plan=colonial_plan();
+ plan["floors"][0]["furniture"]=json!([{"type":"sofa","x":0.5,"z":8.,"w":3.,"d":7.,"backToward":"left"},{"type":"dining table","x":29.,"z":4.,"w":6.,"d":4.,"backToward":"front"},{"type":"toilet","x":15.5,"z":28.5,"w":2.,"d":2.5,"backToward":"back"}]);
+ plan["floors"][1]["furniture"]=json!([{"type":"bed","x":4.,"z":0.5,"w":6.4,"d":6.8,"backToward":"front"},{"type":"nightstand","x":1.5,"z":0.5,"w":1.6,"d":1.5,"backToward":"front"},{"type":"bathtub","x":0.5,"z":15.5,"w":5.,"d":2.6,"backToward":"left"}]);
+ let(c,notes)=photo::design(&generator::starter(),&json!({"homeStyle":"Colonial","floorPlan":plan})).unwrap();
+ assert!(notes.iter().any(|n|n.contains("6 pieces of furniture placed")),"{:?}",notes);assert!(validate(&c).is_ok());
+ let near_at=|fs:&[staging::Furniture],kind:&str,x:f64,z:f64,rot:f64|fs.iter().any(|f|f.kind==kind&&(f.x-x).abs()<=2.&&(f.z-z).abs()<=2.&&(f.rotation-rot).abs()<0.01);
+ let ground:Vec<staging::Furniture>=serde_json::from_value(model::build(&c)["furniture"].clone()).unwrap();
+ assert!(near_at(&ground,"sofa",2.,11.5,3.*std::f64::consts::FRAC_PI_2),"sofa: {:?}",ground.iter().filter(|f|f.kind=="sofa").collect::<Vec<_>>());
+ assert!(near_at(&ground,"dining",32.,6.,0.));
+ let lr=ground.iter().find(|f|f.id.starts_with("tf")&&f.kind=="sofa").unwrap().room_id.clone();assert_eq!(ground.iter().filter(|f|f.room_id==lr&&["sofa","sectional"].contains(&f.kind.as_str())).count(),1,"the drawn sofa replaces the automatic one");
+ let mut up=c.clone();up.active_floor=1;let upper:Vec<staging::Furniture>=serde_json::from_value(model::build(&up)["furniture"].clone()).unwrap();
+ assert!(near_at(&upper,"king-bed",7.2,3.9,0.),"bed: {:?}",upper.iter().filter(|f|f.kind.contains("bed")).collect::<Vec<_>>());
+ let room=upper.iter().find(|f|f.kind=="king-bed").unwrap().room_id.clone();assert_eq!(upper.iter().filter(|f|f.room_id==room&&f.kind.contains("bed")&&f.kind!="bench").count(),1,"one bed in the primary bedroom");
+ assert!(upper.iter().any(|f|f.kind=="bathtub"),"tub placed");
+ // Wider house: the drawn pieces move with their rooms.
+ let mut wide=c.clone();wide.width=48.;let g:Vec<staging::Furniture>=serde_json::from_value(model::build(&wide)["furniture"].clone()).unwrap();assert!(near_at(&g,"dining",38.4,6.,0.),"scaled dining");
+}
+#[test]#[ignore]fn debug_bath_walls(){let mut plan=colonial_plan();plan["floors"][1]["furniture"]=json!([]);let(c,_)=photo::design(&generator::starter(),&json!({"homeStyle":"Colonial","floorPlan":plan})).unwrap();let mut up=c.clone();up.active_floor=1;let m=model::build(&up);let ws:Vec<Wall>=serde_json::from_value(m["walls"].clone()).unwrap();
+ for w in ws.iter().filter(|w|{let(x0,z0,x1,z1)=if w.axis=="x"{(w.x,w.z,w.x+w.length,w.z)}else{(w.x,w.z,w.x,w.z+w.length)};x1>=0.&&x0<=10.&&z1>=16.&&z0<=24.}){println!("{} {} x{} z{} len{} {:?}",w.id,w.axis,w.x,w.z,w.length,w.openings.iter().map(|o|(&o.kind,o.at,o.width)).collect::<Vec<_>>());}}
+#[test]fn each_stair_style_prices_its_own_parts(){
+ let mut c=Config::default();c.stories=2;let raw=|c:&Config,id:&str|{let m=model::build(c);m["items"].as_array().unwrap().iter().find(|i|s(i,"id")==id).map_or(0.,|i|n(i,"rawNet"))};
+ assert_eq!(stairs::style(&c),"U-shaped switchback","a Victorian gets the switchback by default");
+ let risers=n(&stairs::info(&c,&model::build(&c)["levels"][0]["rooms"],c.wall_height+structural::floor_gap(&c)),"risers");
+ for(style,treads,landing,kit)in[("U-shaped switchback",risers-2.,32.,0.),("Straight",risers-1.,0.,0.),("L-shaped",risers-2.,12.25,0.),("Spiral",0.,0.,1.)]{
+  c.stair_style=style.into();assert!(validate(&c).is_ok(),"{style}");assert_eq!(stairs::style(&c),style);
+  assert_eq!(raw(&c,"stairtreads"),treads,"{style} treads");assert!(near(raw(&c,"stairlanding"),landing),"{style} landing");assert_eq!(raw(&c,"stairspiral"),kit,"{style} kit");
+ }
+ c.stair_style="Ladder".into();assert!(validate(&c).is_err());
+ c.stair_style="Style matched".into();c.home_style="Contemporary".into();assert_eq!(stairs::style(&c),"Straight");
+}
+#[test]#[ignore]fn bump_report(){
+ for style in ["Colonial","Victorian","Craftsman","Ranch","Contemporary","Tudor","Modern farmhouse","Cape Cod","Coastal","Georgian","French country","Mid-century"]{
+  for seed in [1u32,2]{let mut c=generator::starter();c.home_style=style.into();c.catalog_plan=true;architecture::apply(&mut c,true);c.stories=heritage::default_stories(style);c.bedrooms=heritage::default_bedrooms(style);architecture::apply(&mut c,true);c.seed=seed;c.bump_outs="Style matched".into();
+   if validate(&c).is_err(){println!("{style}: invalid {:?}",validate(&c));continue}
+   let bs=bumps::list(&c);let m=model::build(&c);
+   println!("{style} s{seed} {}st {}x{} garage {} -> {:?} | wings {} | warnings {:?}",c.stories,c.width,c.depth,c.garage_side,bs.iter().map(|b|format!("{} {}..{} d{} {} tie{:.2} [{}]",b.side,b.lo,b.hi,b.depth,b.roof,b.tie,b.room)).collect::<Vec<_>>(),m["wings"].as_array().map_or(0,|a|a.len()),m["warnings"].as_array().map(|a|a.len()));
+  }
+ }
+}

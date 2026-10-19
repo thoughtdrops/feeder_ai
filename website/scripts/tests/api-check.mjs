@@ -480,6 +480,7 @@ let firstId;
   reply = () => ({ stop_reason: 'end_turn', model: photo.MODEL, content: [{ type: 'text', text: JSON.stringify({ found: true, reason: '', address: '12 Elm St', livingAreaSqft: 2140, bedrooms: 4, bathrooms: 2.5, stories: 2, yearBuilt: 1998, description: 'Lovely home', photoUrls: ['https://photos.example-cdn.com/1.jpg', 'http://insecure.example.com/2.jpg', 'https://photos.example-cdn.com/1.jpg', 'https://10.0.0.1/x.jpg'], floorPlanUrls: ['https://photos.example-cdn.com/plan.png'] }) }] });
   r = await post(listing.POST, '/api/listing', { url: 'https://www.zillow.com/homedetails/12-Elm-St/1_zpid/' });
   p = sent.at(-1);
+  check('listing: can search the web for the address when the page is blocked', p.tools.some((t) => t.type === 'web_search_20260209') && /square feet/.test(p.system), p && p.tools);
   check('listing: fetched with the web fetch tool and the listing schema', r.status === 200 && p.tools[0].type === 'web_fetch_20260209' && p.output_config.format.schema === listing.LISTING_SCHEMA && /zillow\.com\/homedetails/.test(p.messages[0].content), p && p.tools);
   check('listing: only public https photo links, no duplicates', r.data.listing.photoUrls.length === 1 && r.data.listing.photoUrls[0] === 'https://photos.example-cdn.com/1.jpg' && r.data.listing.floorPlanUrls.length === 1 && r.data.listing.livingAreaSqft === 2140, r.data);
   reply = (n) => (n === 1 ? { stop_reason: 'pause_turn', model: photo.MODEL, content: [{ type: 'server_tool_use', id: 's1', name: 'web_fetch', input: {} }] } : { stop_reason: 'end_turn', model: photo.MODEL, content: [{ type: 'text', text: JSON.stringify({ found: false, reason: 'The site blocked automated reading', address: '', livingAreaSqft: 0, bedrooms: 0, bathrooms: 0, stories: 0, yearBuilt: 0, description: '', photoUrls: ['https://x.example.com/1.jpg'], floorPlanUrls: [] }) }] });
@@ -487,6 +488,9 @@ let firstId;
   r = await post(listing.POST, '/api/listing', { url: 'https://www.zillow.com/homedetails/x/2_zpid/' });
   check('listing: a paused fetch resumes once', sent.length === 2 && sent[1].messages.length === 2 && sent[1].messages[1].role === 'assistant', sent.length);
   check('listing: a blocked page says why and returns no links', r.status === 200 && r.data.listing.found === false && /blocked/.test(r.data.listing.reason) && r.data.listing.photoUrls.length === 0, r.data);
+  reply = () => ({ stop_reason: 'end_turn', model: photo.MODEL, content: [{ type: 'text', text: JSON.stringify({ found: false, reason: 'The site blocked automated reading', address: '12 Elm St', livingAreaSqft: 2140, sqftSource: 'county records via search', bedrooms: 4, bathrooms: 2.5, stories: 2, yearBuilt: 1998, description: '', photoUrls: ['https://x.example.com/1.jpg'], floorPlanUrls: [] }) }] });
+  r = await post(listing.POST, '/api/listing', { url: 'https://www.zillow.com/homedetails/12-Elm-St/3_zpid/' });
+  check('listing: a blocked page still returns the square footage found for its address', r.status === 200 && r.data.listing.found === false && r.data.listing.livingAreaSqft === 2140 && r.data.listing.sqftSource === 'county records via search' && r.data.listing.photoUrls.length === 0, r.data);
   for (const bad of ['zillow.com/x', 'http://www.zillow.com/x', 'https://localhost/x', 'https://192.168.1.4/x']) {
     r = await post(listing.POST, '/api/listing', { url: bad });
     check(`listing: rejects ${bad}`, r.status === 400, r.status);

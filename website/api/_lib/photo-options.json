@@ -57,6 +57,14 @@
     "Golden bamboo",
     "Celadon blossoms"
   ],
+  "bumpOuts": [
+    "None",
+    "Style matched",
+    "Front",
+    "Sides",
+    "Rear",
+    "All around"
+  ],
   "cabinetColor": [
     "Style matched",
     "Warm white",
@@ -414,6 +422,13 @@
     "Cedar shingles",
     "Stone veneer",
     "Vertical timber siding"
+  ],
+  "stairStyle": [
+    "Style matched",
+    "Straight",
+    "L-shaped",
+    "U-shaped switchback",
+    "Spiral"
   ],
   "trimPackage": [
     "Minimal shadow line",

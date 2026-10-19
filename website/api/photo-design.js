@@ -54,6 +54,8 @@ const FIELDS = {
   garage: pick('garage', 'Garage, if shown.'),
   garageSize: pick('garageSize', 'Garage bays.'),
   garageSide: pick('garageSide', 'Garage side, viewed from the street.'),
+  bumpOuts: pick('bumpOuts', 'Walls that pop out past the main box (bay windows, bump-outs): None for a plain box, Style matched when there are some, or the side they are on.'),
+  stairStyle: pick('stairStyle', 'Main stair form if an interior photo shows it (straight, L-shaped, U-shaped switchback or spiral); Style matched when unclear or one story.'),
   windowStyle: pick('windowStyle', 'How most windows open.'),
   windowSize: pick('windowSize', 'Main window size.'),
   windowGrilles: pick('windowGrilles', 'Window grille pattern.'),
@@ -117,14 +119,37 @@ const ROOM = {
   required: ['name', 'type', 'x', 'z', 'w', 'd'],
   additionalProperties: false,
 };
+const FURNITURE_TYPES = ['bed', 'twin bed', 'crib', 'sofa', 'sectional', 'armchair', 'coffee table', 'dining table', 'desk', 'dresser', 'nightstand', 'wardrobe', 'tv console', 'toilet', 'sink', 'double sink', 'shower', 'bathtub', 'washer dryer', 'kitchen island', 'bookcase'];
+const PIECE = {
+  type: 'object',
+  properties: {
+    type: { type: 'string', enum: FURNITURE_TYPES, description: 'What the symbol on the plan is.' },
+    x: num('Left edge in feet from the left exterior wall.'),
+    z: num('Front edge in feet from the front exterior wall.'),
+    w: num('Width in feet, left to right.'),
+    d: num('Depth in feet, front to back.'),
+    backToward: { type: 'string', enum: ['front', 'back', 'left', 'right'], description: 'Which side of the house the back of the piece faces: the headboard of a bed, the back of a sofa, the tank of a toilet, the wall a sink or tub is set against.' },
+  },
+  required: ['type', 'x', 'z', 'w', 'd', 'backToward'],
+  additionalProperties: false,
+};
 const PLAN_FIELDS = {
   found: { type: 'boolean', description: 'True when the images include a readable floor plan.' },
-  mainWidthFt: num('Width of the main house across the front, in feet, wall outside to wall outside (not the garage or porches).'),
-  mainDepthFt: num('Depth of the main house front to back, in feet (not the garage, porches or rear wings).'),
+  mainWidthFt: num('Width of the main house rectangle across the front, in feet, wall outside to wall outside (not the garage, porches or bump-outs).'),
+  mainDepthFt: num('Depth of the main house rectangle front to back, in feet (not the garage, porches, bump-outs or rear wings).'),
   floors: {
     type: 'array',
     description: 'Each above-ground floor, ground floor first. Leave out basements.',
-    items: { type: 'object', properties: { level: { type: 'integer', description: '1 for the ground floor, 2 above it.' }, rooms: { type: 'array', items: ROOM } }, required: ['level', 'rooms'], additionalProperties: false },
+    items: {
+      type: 'object',
+      properties: {
+        level: { type: 'integer', description: '1 for the ground floor, 2 above it.' },
+        rooms: { type: 'array', items: ROOM },
+        furniture: { type: 'array', items: PIECE, description: 'Furniture and fixtures drawn on this floor, in the same feet as the rooms. Empty when the plan shows none.' },
+      },
+      required: ['level', 'rooms', 'furniture'],
+      additionalProperties: false,
+    },
   },
   notes: { type: 'array', items: { type: 'string' }, description: 'Short notes on anything unclear or estimated.' },
 };
@@ -137,7 +162,9 @@ How to trace:
 - Use the written dimensions (e.g. 12'4" x 11'0" is 12.33 by 11 ft; width first is usually across the plan). Where a room has no label, measure it against labeled neighbors. Wall thickness is about half a foot; ignore it.
 - Rooms on each floor should cover the whole floor without overlapping. Include halls, closets, the stair and baths. An L-shaped room is two rectangles with the same name.
 - The main house is the largest rectangle. A garage, porch, deck or patio is listed with its type but is not part of the main house size. Rooms that project behind the main house belong to a rear wing; keep their real positions (z beyond the main depth).
+- Walls that step out past the main rectangle (a bay window, a bump-out, a projecting front room or a side pop-out) are part of their room: trace the room to the outside of the step, so it reaches past the main rectangle (negative x or z, or beyond the main width or depth). Do not count them in the main width or depth.
 - Multi-story homes: the stair is in the same place on each floor. List floors ground first.
+- Furniture and fixtures drawn on the plan (beds, sofas, tables, toilets, sinks, tubs, showers, washers, islands) go in each floor's furniture list with their rectangles in the same feet, and which side of the house their back faces. Built-in kitchen counters are not furniture.
 - If no floor plan is visible, set found to false and leave floors empty.`;
 
 /** Uploaded images (and, for floor plans, PDFs) as content blocks. */
