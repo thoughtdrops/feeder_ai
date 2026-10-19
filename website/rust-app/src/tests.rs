@@ -1104,8 +1104,6 @@ fn colonial_plan()->Value{json!({"mainWidthFt":40.6,"mainDepthFt":31.5,"floors":
  // Wider house: the drawn pieces move with their rooms.
  let mut wide=c.clone();wide.width=48.;let g:Vec<staging::Furniture>=serde_json::from_value(model::build(&wide)["furniture"].clone()).unwrap();assert!(near_at(&g,"dining",38.4,6.,0.),"scaled dining");
 }
-#[test]#[ignore]fn debug_bath_walls(){let mut plan=colonial_plan();plan["floors"][1]["furniture"]=json!([]);let(c,_)=photo::design(&generator::starter(),&json!({"homeStyle":"Colonial","floorPlan":plan})).unwrap();let mut up=c.clone();up.active_floor=1;let m=model::build(&up);let ws:Vec<Wall>=serde_json::from_value(m["walls"].clone()).unwrap();
- for w in ws.iter().filter(|w|{let(x0,z0,x1,z1)=if w.axis=="x"{(w.x,w.z,w.x+w.length,w.z)}else{(w.x,w.z,w.x,w.z+w.length)};x1>=0.&&x0<=10.&&z1>=16.&&z0<=24.}){println!("{} {} x{} z{} len{} {:?}",w.id,w.axis,w.x,w.z,w.length,w.openings.iter().map(|o|(&o.kind,o.at,o.width)).collect::<Vec<_>>());}}
 #[test]fn each_stair_style_prices_its_own_parts(){
  let mut c=Config::default();c.stories=2;let raw=|c:&Config,id:&str|{let m=model::build(c);m["items"].as_array().unwrap().iter().find(|i|s(i,"id")==id).map_or(0.,|i|n(i,"rawNet"))};
  assert_eq!(stairs::style(&c),"U-shaped switchback","a Victorian gets the switchback by default");
@@ -1126,7 +1124,6 @@ fn colonial_plan()->Value{json!({"mainWidthFt":40.6,"mainDepthFt":31.5,"floors":
   }
  }
 }
-#[test]#[ignore]fn bump_probe(){let mut c=generator::starter();c.home_style="Cape Cod".into();c.stories=heritage::default_stories("Cape Cod");c.bedrooms=heritage::default_bedrooms("Cape Cod");architecture::apply(&mut c,true);c.seed=2;c.bump_outs=std::env::var("BO").unwrap_or("Style matched".into());let m=model::build(&c);println!("bumps {:?}",bumps::list(&c));println!("issues {}",m["openingChecks"]["issues"]);println!("bed {} baths {}",m["counts"]["bedrooms"],m["counts"]["baths"]);println!("practical {}",generator::practical(&c,&m));let f=m["furniture"].as_array().unwrap();for r in m["rooms"].as_array().unwrap(){println!("room {} {} {}x{} : {:?}",s(r,"id"),s(r,"type"),n(r,"w"),n(r,"d"),f.iter().filter(|x|s(x,"roomId")==s(r,"id")).map(|x|s(x,"kind")).collect::<Vec<_>>());}println!("garage {} wings {}",format!("x {} z {} w {}",m["garage"]["x"],m["garage"]["z"],m["garage"]["w"]),m["wings"].to_string().chars().take(300).collect::<String>());}
 #[test]fn bump_outs_pop_out_on_the_grid_with_their_own_roofs(){
  for style in ["Colonial","Victorian","Contemporary","Cape Cod","Georgian","Ranch","Tudor"]{for seed in [1u32,2]{
   let mut c=generator::starter();c.home_style=style.into();c.stories=heritage::default_stories(style);c.bedrooms=heritage::default_bedrooms(style);architecture::apply(&mut c,true);c.seed=seed;c.bump_outs="Style matched".into();
