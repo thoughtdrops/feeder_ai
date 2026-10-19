@@ -6,6 +6,7 @@ export function start(): void;
 export function apply_location(zip: string, lat: number, lon: number): void;
 export function show_status(message: string): void;
 export function load_design(json: string): boolean;
+export function apply_photo(read: string): string;
 export function set_units(metric: boolean): void;
 export function pick_scene(input: string): void;
 export function apply_model(seq: number, json: string): void;
@@ -25,6 +26,7 @@ export interface InitOutput {
   readonly apply_location: (a: number, b: number, c: number, d: number) => void;
   readonly show_status: (a: number, b: number) => void;
   readonly load_design: (a: number, b: number) => number;
+  readonly apply_photo: (a: number, b: number, c: number) => void;
   readonly set_units: (a: number) => void;
   readonly pick_scene: (a: number, b: number) => void;
   readonly apply_model: (a: number, b: number, c: number) => void;

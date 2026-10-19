@@ -17,6 +17,7 @@
     "test:api": "node scripts/tests/api-check.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "jspdf": "^4.2.1",
     "three": "^0.186.1"
   },

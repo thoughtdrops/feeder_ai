@@ -28,6 +28,7 @@ let engineWorker:Worker|undefined,workerBroken=false;const engineReplies=new Map
  unitsChanged(metric:boolean){(globalThis as any).ufUnits?.set(metric);scopeNote();},
  saveBuild(design:string,summary:string){saveBuild(design,summary);},
  openBuilds(){openBuilds();},
+ openPhotoHome(){if(app)import('./photo-home').then(m=>m.openPhotoHome(app)).catch(e=>{console.error(e);app?.show_status('Model from photos could not open. Please try again.');});},
  requestModel(config:string,seq:number){
   // The worker needs module workers; without them the engine builds on the main thread as before.
   if(typeof Worker==='undefined'||workerBroken)return false;

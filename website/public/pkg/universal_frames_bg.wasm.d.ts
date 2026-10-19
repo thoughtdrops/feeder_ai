@@ -7,6 +7,7 @@ export const start: () => void;
 export const apply_location: (a: number, b: number, c: number, d: number) => void;
 export const show_status: (a: number, b: number) => void;
 export const load_design: (a: number, b: number) => number;
+export const apply_photo: (a: number, b: number, c: number) => void;
 export const set_units: (a: number) => void;
 export const pick_scene: (a: number, b: number) => void;
 export const apply_model: (a: number, b: number, c: number) => void;

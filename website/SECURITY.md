@@ -13,6 +13,14 @@ The published studio serves static HTML, JavaScript, WASM and local assets. It h
 - Sequential report creation, Safari-compatible attached download anchors and delayed object-URL cleanup; error isolation and bounded graphics context recovery.
 - Lockfile-based installs, supply-chain release-age policy and patched dependencies. The engine's source/output fingerprints are verified before production builds. No dependencies, credentials, environment files or git history are included in the download.
 
+## Model from photos (`/api/photo-design`)
+
+- The visitor's photos are sent to Anthropic to be read. They are shrunk in the browser first and are never stored or logged by the site. A request carries at most 8 JPEG/PNG/WebP/GIF images and 4 MB, and the answer is constrained to the studio's own option lists.
+- The site's key (`ANTHROPIC_API_KEY`) stays server-side and is never returned by `/api/config`. When Google sign-in is configured, it is only used for signed-in visitors.
+- A visitor's own key travels in the `X-Anthropic-Key` header for that one request. It is format-checked and never stored, logged or echoed back. It is kept in the visitor's browser only if they tick "Remember this key".
+- The endpoint uses the same CSRF header and same-origin check as the account API. Errors come back as plain messages, without upstream details.
+- The engine re-validates every value it reads before building, so a malformed or unexpected reading can't produce an invalid design.
+
 ## Dependency audit results
 
 The final `pnpm audit --prod` reports **zero known advisories** as of this release. A full development audit reports one high-severity advisory: `braces` 3.0.3, GHSA-vfj7-8cjw-p6xm, deeply nested brace-pattern denial of service. The upstream advisory lists no published patched version. It is present only through legacy lint/build tooling (`eslint-config-next` / `vinext`), is not in the deployed browser bundles or a deployed server, and is not fed visitor data. Do not run development tooling on untrusted patterns or expose development servers publicly. Track the upstream fix and re-audit before changing deployment architecture.

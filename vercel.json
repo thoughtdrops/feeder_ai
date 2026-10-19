@@ -5,6 +5,11 @@
   "buildCommand": "cd website && node scripts/build-rust-site.mjs",
   "outputDirectory": "website/dist",
   "trailingSlash": true,
+  "functions": {
+    "api/photo-design.mjs": {
+      "maxDuration": 120
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",
