@@ -58,7 +58,7 @@ safariTap('[data-view="dollhouse"]');q('[data-view="exterior"]').dispatchEvent(n
 
 change('[data-field="stories"]',1);change('#width',24);change('#depth',32);
 assert.equal(q('#width').value,'24','Draft dimensions must survive blur');
-click('[data-action="dimensions"]');assert.equal(lastScene.model.area,768);
+click('[data-action="dimensions"]');assert.equal(lastScene.model.area,768+(lastScene.model.bumpOutArea||0),'Floor area is the footprint plus any bump-outs');
 change('#width',7);click('[data-action="dimensions"]');assert.equal(lastScene.model.w,24);assert.match(q('#message').textContent,/8–100/);assert.equal(noticeTimers.size,1);const [noticeId,expire]=[...noticeTimers][0];noticeTimers.delete(noticeId);expire();assert.equal(q('#message').textContent,'');assert.ok(q('#message').classList.contains('hidden'));click('[data-view="exterior"]');assert.ok(q('#message').classList.contains('hidden'),'Expired notices stay cleared on later renders');
 change('#width',48);change('#depth',36);click('[data-action="dimensions"]');
 change('#width',47.2);change('#depth',35.1);click('[data-action="dimensions"]');assert.equal(lastScene.model.w,48);assert.equal(lastScene.model.d,36);assert.match(q('#message').textContent,/2-foot/);assert.ok(lastScene.model.rooms.every(r=>[r.x,r.z,r.w,r.d].every(n=>n%2===0)));let previous=lastScene.config.layout;click('[data-action="next"]');assert.notEqual(lastScene.config.layout,previous);click('[data-action="previous"]');assert.equal(lastScene.config.layout,previous);

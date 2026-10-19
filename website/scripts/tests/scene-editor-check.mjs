@@ -86,7 +86,7 @@ assert.equal(profiles.size,10,'All ten profiles have different geometry');assert
 const twoConfig={...config,stories:2,activeFloor:0},twoModel=JSON.parse(app.calculate(JSON.stringify(twoConfig)));
 const two=renderHouse(el,{config:twoConfig,model:twoModel,view:'exterior'});rendered.scene.updateMatrixWorld(true);
 const levels=rendered.scene.children.filter(o=>o.name.startsWith('House level '));assert.equal(levels.length,2);assert.equal(levels[1].position.y,twoModel.floorHeight);
-let roofCount=0;rendered.scene.traverse(o=>{if(o.name.startsWith('Roof plane ')){roofCount++;const bounds=new T.Box3().setFromObject(o);assert.ok(bounds.min.y>config.wallHeight*1.8);}});assert.equal(roofCount,twoModel.roof.facets.length);two();
+let roofCount=0;rendered.scene.traverse(o=>{if(o.name.startsWith('Roof plane ')&&!o.name.startsWith('Roof plane wing')){roofCount++;const bounds=new T.Box3().setFromObject(o);assert.ok(bounds.min.y>config.wallHeight*1.8);}});assert.equal(roofCount,twoModel.roof.facets.length);two();
 for(const floor of [0,1]){
  const c={...twoConfig,activeFloor:floor},m=JSON.parse(app.calculate(JSON.stringify(c))),floorHeight=m.floorHeight,base=floor*floorHeight;
  const check=renderHouse(el,{config:c,model:m,view:'dollhouse'});let treads=0;rendered.scene.traverse(o=>{if(o.name.includes('stair tread'))treads++;});assert.equal(treads,m.stair.treads);assert.equal(rendered.scene.children.filter(o=>o.name.startsWith('House level ')).length,1);check();
