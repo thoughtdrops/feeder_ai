@@ -7,7 +7,7 @@
   "trailingSlash": true,
   "functions": {
     "api/photo-design.mjs": {
-      "maxDuration": 120
+      "maxDuration": 60
     }
   },
   "headers": [

@@ -50,7 +50,7 @@ No server setup is needed for this path.
   - Uses structured output, so every answer is one of the studio's options. The schema is built
     from `api/_lib/photo-options.json`.
   - Server-side refusal fallback (`fallbacks: "default"`).
-  - Limits: up to 8 photos, 4 MB per request, 120 s function time (set in `vercel.json`).
+  - Limits: up to 8 photos, 4 MB per request, 60 s function time (set in `vercel.json`, the most Vercel's Hobby plan allows; a reading usually takes 15–40 s).
 - `rust-app/src/photo.rs`: turns the reading into a full design, starting from the visitor's
   current project. Location, prices and project costs carry over.
   - `api/_lib/photo-options.json` is generated from the engine's option lists, and a test keeps it

@@ -30,10 +30,12 @@ export function photoConfig() {
   return { available: serverKey() !== null, signIn: serverKey() !== null && accountsConfigured() };
 }
 
-let makeClient = (apiKey) => new Anthropic({ apiKey, timeout: 110_000, maxRetries: 1 });
+// Vercel's Hobby plan stops a function at 60 s (vercel.json maxDuration), so one try that ends in time.
+const newClient = (apiKey) => new Anthropic({ apiKey, timeout: 55_000, maxRetries: 0 });
+let makeClient = newClient;
 /** Tests swap in a fake client. */
 export function setClientFactory(factory) {
-  makeClient = factory || ((apiKey) => new Anthropic({ apiKey, timeout: 110_000, maxRetries: 1 }));
+  makeClient = factory || newClient;
 }
 
 const str = (description) => ({ type: 'string', description });
