@@ -19,6 +19,7 @@ The published studio serves static HTML, JavaScript, WASM and local assets. It h
 - The site's key (`ANTHROPIC_API_KEY`) stays server-side and is never returned by `/api/config`. Anyone may use it by default; with `PHOTO_REQUIRE_SIGN_IN=1` and Google sign-in configured, only signed-in visitors can. Keep a monthly spend limit on the key.
 - A visitor's own key travels in the `X-Anthropic-Key` header for that one request. It is format-checked and never stored, logged or echoed back. It is kept in the visitor's browser only if they tick "Remember this key".
 - The endpoint uses the same CSRF header and same-origin check as the account API. Errors come back as plain messages, without upstream details.
+- Listing links (`/api/listing`) are opened by Anthropic's web fetch tool, not by this site, so the site makes no outbound request to a visitor-supplied address. Only public `https` links (no IP addresses, local hosts, ports or credentials) are accepted, both from the visitor and in the answer.
 - The engine re-validates every value it reads before building, so a malformed or unexpected reading can't produce an invalid design.
 
 ## Dependency audit results

@@ -30,6 +30,8 @@ pub fn added_perimeter(c:&Config)->f64{if c.active_floor!=0{return 0.}rects(c).i
 pub fn rooms(c:&Config)->Vec<Room>{
  let mut out=vec![];if c.active_floor!=0{return out}
  for(i,g)in rects(c).iter().enumerate(){
+  // A traced plan's wing keeps the rooms read from the plan.
+  if let Some(t)=traced::active(c).and_then(|t|t.wings.get(i)).filter(|t|!t.rooms.is_empty()){out.extend(traced::scale(&t.rooms,(t.w,t.d),(g.w,g.d),&format!("{}-",g.id),"").into_iter().map(|mut r|{r.x+=g.x;r.z+=g.z;r}));continue}
   if c.design_mode=="Blank slate"{out.push(Room{id:format!("{}-blank",g.id),name:"Empty addition".into(),kind:"blank".into(),x:g.x,z:g.z,w:g.w,d:g.d});continue}
   // A two-story house keeps its bedrooms upstairs, so its second U wing is a den rather than a guest suite.
   let suite=i==1&&g.w>=10.&&g.d>=14.&&c.stories==1;
