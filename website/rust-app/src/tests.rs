@@ -1126,3 +1126,4 @@ fn colonial_plan()->Value{json!({"mainWidthFt":40.6,"mainDepthFt":31.5,"floors":
   }
  }
 }
+#[test]#[ignore]fn bump_probe(){let c=generator::starter();let m=model::build(&c);println!("bumps {:?}",bumps::list(&c));println!("issues {}",m["openingChecks"]["issues"]);println!("bed {} baths {}",m["counts"]["bedrooms"],m["counts"]["baths"]);println!("practical {}",generator::practical(&c,&m));println!("garage {} wings {}",format!("x {} z {} w {}",m["garage"]["x"],m["garage"]["z"],m["garage"]["w"]),m["wings"].to_string().chars().take(300).collect::<String>());}

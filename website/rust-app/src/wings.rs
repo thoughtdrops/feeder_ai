@@ -148,10 +148,10 @@ pub fn add_items(t:&mut model::Takeoff,c:&Config){
 /// A bump-out's walls: the host wall opens into it, and its front and two short returns (named by the way
 /// they face, like the wing walls) carry its windows.
 fn bump_walls(c:&Config,g:&Wing,b:&bumps::Bump,mut ws:Vec<Wall>,sill:&dyn Fn(bool)->(f64,f64))->Vec<Wall>{
- let h=c.wall_height;let(w,p)=(b.hi-b.lo,b.depth);
+ let(w,p)=(b.hi-b.lo,b.depth);
  if let Some(host)=ws.iter_mut().find(|wl|wl.id==bumps::host_wall(b.side)){
   host.openings.retain(|o|o.at+o.width<b.lo-0.3||o.at>b.hi+0.3);let num=host.openings.len()+90;
-  host.openings.push(Opening{id:format!("{}-P{}",host.id,num),kind:"passage".into(),at:b.lo+0.5,width:w-1.,bottom:0.,height:(h-1.).max(82.5/12.)});host.openings.sort_by(|a,b|a.at.total_cmp(&b.at));
+  host.openings.push(Opening{id:format!("{}-P{}",host.id,num),kind:"passage".into(),at:b.lo+0.5,width:w-1.,bottom:0.,height:82.5/12.});host.openings.sort_by(|a,b|a.at.total_cmp(&b.at));
  }
  let(dw,dd)=(c.width,c.depth);let id=&g.id;
  let(outer,returns):((String,f64,f64,&str),[(String,f64,f64,&str);2])=match b.side{
