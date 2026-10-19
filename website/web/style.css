@@ -161,6 +161,7 @@ input[type=checkbox]{accent-color:var(--green)}
 /* Segmented controls and prefixed inputs read as single units */
 .design-mode-buttons .button.secondary,.design-mode-buttons .button:not(.primary){border-color:transparent;background:transparent}
 .design-mode-buttons .button:not(.primary):hover{background:var(--accent-soft)}
+.design-mode-buttons .button.primary,.design-mode-buttons .button.primary:hover{color:var(--on-green)}
 .price-input input,.category-budget .price-input input{border:0;background:transparent;box-shadow:none;border-radius:0}
 .price-input input:focus{box-shadow:none}
 .price-input:focus-within{border-color:var(--green);box-shadow:0 0 0 4px var(--ring)}
@@ -259,6 +260,17 @@ details.framing-tools[open]>summary::after{content:" ▾"}
 .account-actions{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem}
 .account-actions.end{justify-content:flex-end}
 .save-panel input{font-size:16px}
+.photo-home{display:flex;align-items:center;justify-content:flex-end;gap:.75rem;flex-wrap:wrap}.photo-home .button{min-height:40px;font-size:.8125rem}.photo-home .muted{margin:0;font-size:.75rem;max-width:260px;text-align:right;line-height:1.5}
+.visually-hidden{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
+.photo-panel{width:min(640px,100%)}.photo-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1rem}.photo-head .close-modal{position:static;flex-shrink:0}
+.photo-drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.25rem;min-height:110px;padding:1rem;border:1.5px dashed var(--line-strong);border-radius:12px;background:var(--raised);cursor:pointer;text-align:center;transition:border-color .15s,background .15s}.photo-drop strong{color:var(--green);font-size:.9375rem}.photo-drop span{color:var(--muted);font-size:.75rem}.photo-drop:hover,.photo-drop.over,.photo-drop:focus-visible{border-color:var(--green);background:var(--hover);outline:none}.photo-drop.full{display:none}
+.photo-grid{list-style:none;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem;padding:0;margin:.75rem 0 1rem}.photo-grid:empty{display:none}.photo-grid li{position:relative;aspect-ratio:4/3;border-radius:9px;overflow:hidden;border:1px solid var(--line);background:var(--raised)}.photo-grid img{width:100%;height:100%;object-fit:cover;display:block}.photo-grid button{position:absolute;top:4px;right:4px;width:32px;height:32px;min-height:32px;border-radius:50%;background:#0b1510cc;color:#fff;font-size:1.1rem;line-height:1;padding:0}
+.photo-panel textarea{width:100%;min-height:64px;resize:vertical;background:var(--input);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:.6rem .7rem;font:inherit;font-size:16px;font-weight:400}.photo-panel textarea:focus{border-color:var(--green);box-shadow:0 0 0 4px var(--ring);outline:none}
+.photo-key{border-top:1px solid var(--line);padding-top:.4rem;margin-bottom:.5rem}.photo-key summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-size:.8125rem;font-weight:650;color:var(--green)}.photo-key .field{margin:.4rem 0 .6rem}.photo-key a{color:var(--green)}
+.photo-status{font-size:.8125rem;margin:.6rem 0 0;color:var(--muted);min-height:1.2em}.photo-status.error{color:var(--danger)}.photo-panel.working .photo-status::before{content:'';display:inline-block;width:.85em;height:.85em;margin-right:.5em;vertical-align:-.1em;border:2px solid var(--line);border-top-color:var(--green);border-radius:50%;animation:photo-spin .8s linear infinite}@keyframes photo-spin{to{transform:rotate(360deg)}}
+.photo-result:not(:empty){margin-top:.9rem;padding:.9rem 1rem;border:1px solid var(--accent-line);background:var(--accent-soft);border-radius:12px;font-size:.8125rem;line-height:1.6}.photo-result h3{color:var(--green);margin:0 0 .3rem;font-size:.9375rem}.photo-result p{margin:.3rem 0}.photo-result ul{margin:.4rem 0;padding-left:1.1rem}.photo-fine{margin-top:.9rem;font-size:.6875rem}
+@media(max-width:560px){.photo-home{flex-direction:column-reverse;align-items:stretch;width:100%;gap:.4rem}.photo-home .button{min-height:44px}.photo-home .muted{text-align:left;max-width:none}.photo-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){.photo-panel.working .photo-status::before{animation:none}}
 .build-library{display:flex;gap:.5rem;justify-content:flex-end;margin-top:.5rem;flex-wrap:wrap}
 @media (max-width:560px){.build-item{flex-direction:column;align-items:stretch}.build-actions .button{flex:1}}
 /* Welcome / sign-up: the loading screen's forest green and gold, with Google's button. */

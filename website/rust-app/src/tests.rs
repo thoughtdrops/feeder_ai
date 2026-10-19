@@ -973,3 +973,34 @@ fn furniture_problems(level:&Value)->Vec<String>{
 #[test]fn default_kitchens_have_working_counters(){for st in catalog()["homeStyles"].as_array().unwrap().iter().map(|h|s(h,"name").to_string()){let mut c=generator::starter();c.home_style=st.clone();architecture::apply(&mut c,true);c.stories=heritage::default_stories(&st);if c.stories>=2{c.depth=c.depth.max(architecture::minimum_depth(&c));}let m=model::build(&c);
  let lf:f64=m["levels"].as_array().cloned().unwrap_or_else(||vec![m.clone()]).iter().flat_map(|l|serde_json::from_value::<Vec<staging::Furniture>>(l["furniture"].clone()).unwrap_or_default()).filter(|f|f.kind=="kitchen"||f.kind=="counter-run").map(|f|f.local_width).sum();
  let need=if ["Colonial","Georgian","French country","Coastal"].contains(&st.as_str()){14.}else{10.};assert!(lf>=need,"{} kitchen has {} ft of counter",st,lf);}}
+
+/// Photos to a home: a read for every style builds a valid, practical design that carries the
+/// photo's own choices; values outside the menus are ignored rather than breaking the design.
+#[test]fn photo_reads_build_valid_homes_for_every_style(){
+ let base=generator::starter();
+ for(i,st)in catalog()["options"]["homeStyle"].as_array().unwrap().iter().filter_map(|v|v.as_str()).enumerate(){
+  let read=json!({"homeStyle":st,"stories":1+i%3,"bedrooms":2+i%4,"widthFt":30+i*3,"depthFt":28+i*2,"roofPitch":6+i%6,"siding":"Painted lap siding","sidingColor":"#2F3E4E","roofColor":"#343434","trimColor":"#f2efe6",
+   "frontPorch":"Full-width veranda","columnStyle":"Classical round","garage":if i%2==0{"Attached"}else{"None"},"garageSize":"Three-car","shutters":"Louvered","entryDoor":"Craftsman glass",
+   "interiorStyle":"Natural · Linen house","floor":"Natural oak","kitchenCabinets":"Shaker","kitchenIsland":"Waterfall island","livingSeating":"L-shaped sectional","cabinetColor":"Sage green"});
+  let (c,notes)=photo::design(&base,&read).unwrap_or_else(|e|panic!("{}: {}",st,e));
+  assert!(validate(&c).is_ok(),"{} invalid",st);assert!(generator::practical(&c,&model::build(&c)),"{} impractical",st);
+  assert_eq!(c.home_style,st);assert_eq!(c.siding,"Painted lap siding");assert_eq!(c.colors["siding"],"#2f3e4e");assert_eq!(c.front_porch,"Full-width veranda");
+  assert_eq!(c.kitchen_cabinets,"Shaker");assert_eq!(c.cabinet_color,"Sage green");assert_eq!(c.interior_style,"Natural · Linen house");assert_eq!(c.design_mode,"Custom");
+  assert!(notes[0].starts_with(st),"{:?}",notes);
+ }
+ // Garbage and missing values fall back to the style's own choices.
+ let (c,_)=photo::design(&base,&json!({"homeStyle":"Spaceship","stories":9,"widthFt":-4,"siding":"Gold leaf","sidingColor":"red","frontPorch":"Moat","kitchenCounter":42})).unwrap();
+ assert_eq!(c.home_style,base.home_style);assert!(validate(&c).is_ok());assert_eq!(c.front_porch,"Style matched");assert_eq!(c.kitchen_counter,"Style matched");
+ assert!(photo::design(&base,&json!("nope")).is_err());
+ // Too many bedrooms for a small read: the footprint grows instead of failing.
+ let (c,_)=photo::design(&base,&json!({"homeStyle":"Ranch","stories":1,"bedrooms":5,"widthFt":20,"depthFt":20})).unwrap();
+ assert!(c.width*c.depth>400.&&generator::practical(&c,&model::build(&c)));
+}
+/// The photo API's answer schema is built from website/api/_lib/photo-options.json; it must list
+/// exactly the engine's options. Regenerate with UPDATE_PHOTO_OPTIONS=1 cargo test photo_options.
+#[test]fn photo_options_file_matches_the_engine(){
+ let path=concat!(env!("CARGO_MANIFEST_DIR"),"/../api/_lib/photo-options.json");
+ let want=serde_json::to_string_pretty(&photo::options()).unwrap()+"\n";
+ if std::env::var("UPDATE_PHOTO_OPTIONS").is_ok(){std::fs::write(path,&want).unwrap();}
+ assert_eq!(std::fs::read_to_string(path).unwrap_or_default(),want,"run UPDATE_PHOTO_OPTIONS=1 cargo test photo_options");
+}

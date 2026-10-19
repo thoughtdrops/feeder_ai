@@ -1,6 +1,6 @@
 #![recursion_limit="512"]
 use serde::{Deserialize,Serialize};use serde_json::{json,Value};use std::{collections::BTreeMap,sync::OnceLock};
-mod panels;mod cladding;mod surfaces;mod objects;mod additions;mod pricing;mod porch;mod security;mod stairs;mod structural;mod accessibility;mod heritage;mod budget;mod generator;mod garage;mod architecture;mod roof;mod storeys;mod frame;mod model;mod facade;mod rules;mod staging;mod edit;mod finishes;mod materials;mod trim;mod piers;mod wings;mod roofing;mod units;mod interior_design;pub mod process;
+mod panels;mod cladding;mod surfaces;mod objects;mod additions;mod pricing;mod porch;mod security;mod stairs;mod structural;mod accessibility;mod heritage;mod budget;mod generator;mod garage;mod architecture;mod roof;mod storeys;mod frame;mod model;mod facade;mod rules;mod staging;mod edit;mod finishes;mod materials;mod trim;mod piers;mod wings;mod roofing;mod units;mod interior_design;mod photo;pub mod process;
 #[cfg(target_arch="wasm32")]mod ui;
 #[cfg(test)]mod tests;
 pub fn catalog()->&'static Value{static C:OnceLock<Value>=OnceLock::new();C.get_or_init(||serde_json::from_str(include_str!("../data/catalog.json")).unwrap())}
@@ -42,6 +42,7 @@ fn base_layout(c:&Config)->(Vec<Room>,Value){if c.design_mode=="Blank slate"{let
 #[cfg(target_arch="wasm32")]#[wasm_bindgen]pub fn apply_location(zip:&str,lat:f64,lon:f64){ui::location(zip,lat,lon)}
 #[cfg(target_arch="wasm32")]#[wasm_bindgen]pub fn show_status(message:&str){ui::status(message)}
 #[cfg(target_arch="wasm32")]#[wasm_bindgen]pub fn load_design(json:&str)->bool{json.len()<=security::MAX_DESIGN_BYTES&&ui::load_design(json)}
+#[cfg(target_arch="wasm32")]#[wasm_bindgen]pub fn apply_photo(read:&str)->String{if read.len()>65_536{return json!({"ok":false,"error":"The photo reading is too large."}).to_string()}ui::apply_photo(read)}
 #[cfg(target_arch="wasm32")]#[wasm_bindgen]pub fn set_units(metric:bool){ui::set_units(metric)}
 #[derive(Clone,Serialize,Deserialize,Debug)]#[serde(rename_all="camelCase")]pub struct WallRemoval{pub wall_id:String,pub at:f64,pub width:f64}
 

@@ -9,7 +9,7 @@ impl Random {
     }
 }
 
-fn scheme(c: &mut Config, name: &str) {
+pub(crate) fn scheme(c: &mut Config, name: &str) {
     c.interior_style = name.into();
     let interior = lookup("interiorSchemes", name);
     c.floor = s(&interior, "floor").into();

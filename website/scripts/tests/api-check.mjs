@@ -8,12 +8,16 @@ import * as google from '../../api/auth/google.js';
 import * as me from '../../api/auth/me.js';
 import * as logout from '../../api/auth/logout.js';
 import * as builds from '../../api/builds.js';
+import * as photo from '../../api/photo-design.js';
+import Anthropic from '@anthropic-ai/sdk';
+import { readFileSync } from 'node:fs';
 // Root-level wrappers must resolve to the same handlers.
 import * as rootConfig from '../../../api/config.mjs';
 import * as rootGoogle from '../../../api/auth/google.mjs';
 import * as rootMe from '../../../api/auth/me.mjs';
 import * as rootLogout from '../../../api/auth/logout.mjs';
 import * as rootBuilds from '../../../api/builds.mjs';
+import * as rootPhoto from '../../../api/photo-design.mjs';
 
 const CLIENT_ID = 'test-client.apps.googleusercontent.com';
 const SECRET = 'x'.repeat(40);
@@ -97,7 +101,7 @@ const stdHeaders = (r) =>
   (r.status === 204 || (r.headers.get('content-type') || '').startsWith('application/json'));
 
 function setEnv(env) {
-  for (const k of ['GOOGLE_CLIENT_ID', 'SESSION_SECRET', 'KV_REST_API_URL', 'KV_REST_API_TOKEN', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN']) {
+  for (const k of ['GOOGLE_CLIENT_ID', 'SESSION_SECRET', 'KV_REST_API_URL', 'KV_REST_API_TOKEN', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN', 'ANTHROPIC_API_KEY']) {
     delete process.env[k];
   }
   Object.assign(process.env, env);
@@ -338,6 +342,95 @@ let firstId;
   check('signed-out cookie no longer works -> 401', stale.status === 401, stale);
   const staleBuilds = await call(builds.GET, req('GET', '/api/builds', { cookie }));
   check('signed-out cookie cannot read builds -> 401', staleBuilds.status === 401, staleBuilds);
+}
+
+// ---- Photos to a home (/api/photo-design) -------------------------------------
+{
+  const VISITOR_KEY = 'sk-ant-api03-' + 'v'.repeat(40);
+  const SITE_KEY = 'sk-ant-api03-' + 's'.repeat(40);
+  const JPEG = Buffer.from('fake jpeg bytes').toString('base64');
+  const READ = { summary: 'A white Colonial.', homeStyle: 'Colonial', stories: 2, bedrooms: 4 };
+  let sent = [];
+  let reply = () => ({ stop_reason: 'end_turn', model: photo.MODEL, content: [{ type: 'text', text: JSON.stringify(READ) }] });
+  photo.setClientFactory((apiKey) => ({ beta: { messages: { create: async (params) => { sent.push({ apiKey, params }); return reply(); } } } }));
+  const post = (body, { key, cookie, csrf } = {}) => call(photo.POST, req('POST', '/api/photo-design', { body, cookie, csrf, headers: key ? { 'x-anthropic-key': key } : {} }));
+  const one = { photos: [{ mediaType: 'image/jpeg', data: JPEG }] };
+
+  setEnv({});
+  useMemoryStore();
+  let r = await call(config.GET, req('GET', '/api/config'));
+  check('photo config: unavailable without a site key', r.data.photo && r.data.photo.available === false && r.data.photo.signIn === false, r.data);
+  r = await post(one);
+  check('photo: 503 asks for a key when none is set', r.status === 503 && /API key/.test(r.data.error), r);
+  r = await post(one, { key: 'not-a-key' });
+  check('photo: malformed visitor key rejected', r.status === 400, r);
+  r = await post(one, { key: VISITOR_KEY, csrf: false });
+  check('photo: CSRF header required', r.status === 403 && sent.length === 0, r);
+
+  sent = [];
+  r = await post({ ...one, notes: 'Keep four bedrooms\u0000 please' }, { key: VISITOR_KEY });
+  const p = sent[0]?.params;
+  check('photo: visitor key reads photos', r.status === 200 && r.data.read.homeStyle === 'Colonial' && r.data.model === photo.MODEL, r);
+  check('photo: uses the visitor key for that request', sent.length === 1 && sent[0].apiKey === VISITOR_KEY);
+  check('photo: request shape (model, fallback, adaptive thinking, JSON schema)', p && p.model === 'claude-opus-5-5' && p.fallbacks === 'default' && p.betas.includes('server-side-fallback-2026-07-01') && p.thinking.type === 'adaptive' && p.output_config.format.type === 'json_schema' && p.output_config.format.schema === photo.SCHEMA, p && { model: p.model, fallbacks: p.fallbacks });
+  check('photo: image then text, notes cleaned', p && p.messages[0].content[0].type === 'image' && p.messages[0].content[0].source.media_type === 'image/jpeg' && /Keep four bedrooms  please/.test(p.messages[0].content.at(-1).text));
+  check('photo: response never echoes the key', !JSON.stringify(r.data).includes(VISITOR_KEY));
+
+  const options = JSON.parse(readFileSync(new URL('../../api/_lib/photo-options.json', import.meta.url), 'utf8'));
+  const schema = photo.SCHEMA;
+  check('photo schema: every option field uses the engine list', Object.entries(schema.properties).filter(([, v]) => v.type === 'string' && v.enum).every(([k, v]) => JSON.stringify(v.enum) === JSON.stringify(options[k])));
+  check('photo schema: strict object, all fields required, no numeric constraints', schema.additionalProperties === false && schema.required.length === Object.keys(schema.properties).length && !JSON.stringify(schema).match(/"(minimum|maximum|minLength|maxLength)"/));
+
+  sent = [];
+  for (const [name, body, status] of [
+    ['no photos', { photos: [] }, 400],
+    ['too many photos', { photos: Array(photo.MAX_PHOTOS + 1).fill(one.photos[0]) }, 400],
+    ['bad media type', { photos: [{ mediaType: 'image/svg+xml', data: JPEG }] }, 400],
+    ['bad base64', { photos: [{ mediaType: 'image/png', data: 'not base64!' }] }, 400],
+    ['oversized photo', { photos: [{ mediaType: 'image/png', data: 'A'.repeat(5_100_000) }] }, 413],
+    ['long notes', { ...one, notes: 'x'.repeat(501) }, 400],
+  ]) {
+    r = await post(body, { key: VISITOR_KEY });
+    check(`photo: ${name} -> ${status}`, r.status === status, r.status);
+  }
+  check('photo: invalid requests never reach Claude', sent.length === 0);
+
+  reply = () => ({ stop_reason: 'refusal', model: photo.MODEL, content: [] });
+  r = await post(one, { key: VISITOR_KEY });
+  check('photo: refusal -> 422', r.status === 422, r);
+  reply = () => ({ stop_reason: 'end_turn', model: photo.MODEL, content: [{ type: 'text', text: '{"homeStyle":' }] });
+  r = await post(one, { key: VISITOR_KEY });
+  check('photo: truncated JSON -> 502', r.status === 502, r);
+  reply = () => { throw new Anthropic.AuthenticationError(401, { type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } }, 'invalid x-api-key', new Headers()); };
+  r = await post(one, { key: VISITOR_KEY });
+  check('photo: rejected visitor key -> 401 with a plain message', r.status === 401 && /did not accept/.test(r.data.error) && !JSON.stringify(r.data).includes(VISITOR_KEY), r);
+  reply = () => { throw new Anthropic.RateLimitError(429, { type: 'error', error: { type: 'rate_limit_error', message: 'slow down' } }, 'slow down', new Headers()); };
+  r = await post(one, { key: VISITOR_KEY });
+  check('photo: rate limit -> 429', r.status === 429, r);
+  reply = () => ({ stop_reason: 'end_turn', model: photo.MODEL, content: [{ type: 'text', text: JSON.stringify(READ) }] });
+
+  // The site's own key: open when the site has no accounts, signed-in visitors only when it does.
+  setEnv({ ANTHROPIC_API_KEY: SITE_KEY });
+  sent = [];
+  r = await call(config.GET, req('GET', '/api/config'));
+  check('photo config: available with a site key, no sign-in without accounts', r.data.photo.available === true && r.data.photo.signIn === false && !JSON.stringify(r.data).includes(SITE_KEY), r.data);
+  r = await post(one);
+  check('photo: site key used when the visitor has none', r.status === 200 && sent[0]?.apiKey === SITE_KEY, r);
+  setEnv({ ANTHROPIC_API_KEY: SITE_KEY, GOOGLE_CLIENT_ID: CLIENT_ID, SESSION_SECRET: SECRET });
+  useMemoryStore();
+  sent = [];
+  r = await call(config.GET, req('GET', '/api/config'));
+  check('photo config: sign-in required when accounts exist', r.data.photo.available === true && r.data.photo.signIn === true, r.data);
+  r = await post(one);
+  check('photo: site key needs sign-in when accounts exist', r.status === 401 && sent.length === 0, r);
+  const login = await call(google.POST, req('POST', '/api/auth/google', { body: { credential: mintToken() } }));
+  r = await post(one, { cookie: cookieFrom(login) });
+  check('photo: signed-in visitor uses the site key', r.status === 200 && sent[0]?.apiKey === SITE_KEY, r);
+  r = await post(one, { key: VISITOR_KEY });
+  check('photo: own key works without signing in', r.status === 200 && sent[1]?.apiKey === VISITOR_KEY, r);
+  r = await call(rootPhoto.POST, req('POST', '/api/photo-design', { body: one, headers: { 'x-anthropic-key': VISITOR_KEY } }));
+  check('photo (root wrapper): same handler', r.status === 200, r);
+  photo.setClientFactory(null);
 }
 
 // Redis REST client shape (stubbed fetch)
