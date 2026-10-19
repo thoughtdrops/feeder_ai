@@ -28,9 +28,10 @@ together.
    Apply it to Production, and to Preview if you want it on preview links. Then **redeploy**.
 3. Check `https://<your-site>/api/config/`. It should include `"photo":{"available":true,…}`.
 
-When Google sign-in is also configured (see `google-sign-in.md`), the site's key is only spent for
-signed-in visitors, and `"signIn":true` shows in the config. Without accounts, anyone who visits
-can use it, so keep a spend limit on the key.
+By default anyone who visits can use the site's key, with no sign-in, so keep a spend limit on the
+key. To limit it to signed-in visitors later, set up Google sign-in (see `google-sign-in.md`), add
+`PHOTO_REQUIRE_SIGN_IN` = `1` in the same Environment Variables screen and redeploy. The config then
+shows `"signIn":true`, and visitors who are not signed in can still paste their own key.
 
 ### 2. A visitor's own key
 
