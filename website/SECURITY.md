@@ -16,7 +16,7 @@ The published studio serves static HTML, JavaScript, WASM and local assets. It h
 ## Model from photos (`/api/photo-design`)
 
 - The visitor's photos are sent to Anthropic to be read. They are shrunk in the browser first and are never stored or logged by the site. A request carries at most 8 JPEG/PNG/WebP/GIF images and 4 MB, and the answer is constrained to the studio's own option lists.
-- The site's key (`ANTHROPIC_API_KEY`) stays server-side and is never returned by `/api/config`. When Google sign-in is configured, it is only used for signed-in visitors.
+- The site's key (`ANTHROPIC_API_KEY`) stays server-side and is never returned by `/api/config`. Anyone may use it by default; with `PHOTO_REQUIRE_SIGN_IN=1` and Google sign-in configured, only signed-in visitors can. Keep a monthly spend limit on the key.
 - A visitor's own key travels in the `X-Anthropic-Key` header for that one request. It is format-checked and never stored, logged or echoed back. It is kept in the visitor's browser only if they tick "Remember this key".
 - The endpoint uses the same CSRF header and same-origin check as the account API. Errors come back as plain messages, without upstream details.
 - The engine re-validates every value it reads before building, so a malformed or unexpected reading can't produce an invalid design.

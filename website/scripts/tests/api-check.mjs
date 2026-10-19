@@ -101,7 +101,7 @@ const stdHeaders = (r) =>
   (r.status === 204 || (r.headers.get('content-type') || '').startsWith('application/json'));
 
 function setEnv(env) {
-  for (const k of ['GOOGLE_CLIENT_ID', 'SESSION_SECRET', 'KV_REST_API_URL', 'KV_REST_API_TOKEN', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN', 'ANTHROPIC_API_KEY']) {
+  for (const k of ['GOOGLE_CLIENT_ID', 'SESSION_SECRET', 'KV_REST_API_URL', 'KV_REST_API_TOKEN', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN', 'ANTHROPIC_API_KEY', 'PHOTO_REQUIRE_SIGN_IN']) {
     delete process.env[k];
   }
   Object.assign(process.env, env);
@@ -409,7 +409,7 @@ let firstId;
   check('photo: rate limit -> 429', r.status === 429, r);
   reply = () => ({ stop_reason: 'end_turn', model: photo.MODEL, content: [{ type: 'text', text: JSON.stringify(READ) }] });
 
-  // The site's own key: open when the site has no accounts, signed-in visitors only when it does.
+  // The site's own key: open to everyone, signed-in visitors only when PHOTO_REQUIRE_SIGN_IN is set.
   setEnv({ ANTHROPIC_API_KEY: SITE_KEY });
   sent = [];
   r = await call(config.GET, req('GET', '/api/config'));
@@ -420,9 +420,15 @@ let firstId;
   useMemoryStore();
   sent = [];
   r = await call(config.GET, req('GET', '/api/config'));
-  check('photo config: sign-in required when accounts exist', r.data.photo.available === true && r.data.photo.signIn === true, r.data);
+  check('photo config: no sign-in by default even with accounts', r.data.photo.available === true && r.data.photo.signIn === false, r.data);
   r = await post(one);
-  check('photo: site key needs sign-in when accounts exist', r.status === 401 && sent.length === 0, r);
+  check('photo: anyone can use the site key by default', r.status === 200 && sent[0]?.apiKey === SITE_KEY, r);
+  setEnv({ ANTHROPIC_API_KEY: SITE_KEY, GOOGLE_CLIENT_ID: CLIENT_ID, SESSION_SECRET: SECRET, PHOTO_REQUIRE_SIGN_IN: '1' });
+  sent = [];
+  r = await call(config.GET, req('GET', '/api/config'));
+  check('photo config: sign-in required with PHOTO_REQUIRE_SIGN_IN=1', r.data.photo.available === true && r.data.photo.signIn === true, r.data);
+  r = await post(one);
+  check('photo: site key needs sign-in when required', r.status === 401 && sent.length === 0, r);
   const login = await call(google.POST, req('POST', '/api/auth/google', { body: { credential: mintToken() } }));
   r = await post(one, { cookie: cookieFrom(login) });
   check('photo: signed-in visitor uses the site key', r.status === 200 && sent[0]?.apiKey === SITE_KEY, r);

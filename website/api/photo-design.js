@@ -2,8 +2,8 @@
 // studio's own design choices, and the studio builds a simpler, buildable rendition from them.
 //   POST /api/photo-design {photos:[{mediaType,data}], notes?} -> {read, model}
 // The site's key (ANTHROPIC_API_KEY) is used unless the visitor sends their own in X-Anthropic-Key;
-// a visitor's key is used for that one request only and is never stored or logged. When accounts are
-// configured, the site's key is only spent for signed-in visitors.
+// a visitor's key is used for that one request only and is never stored or logged. Anyone may use the
+// site's key unless PHOTO_REQUIRE_SIGN_IN=1 is set (and accounts are configured): then signed-in visitors only.
 import { readFileSync } from 'node:fs';
 import Anthropic from '@anthropic-ai/sdk';
 import { assertMutationAllowed, handler, HttpError, isPlainObject, json, readJsonBody } from './_lib/http.js';
@@ -25,9 +25,13 @@ export function serverKey() {
   const key = process.env.ANTHROPIC_API_KEY;
   return typeof key === 'string' && key.trim() ? key.trim() : null;
 }
+/** Sign-in to use the site's key is opt-in: PHOTO_REQUIRE_SIGN_IN=1 (only when accounts are configured). */
+export function signInRequired() {
+  return /^(1|true|yes)$/i.test((process.env.PHOTO_REQUIRE_SIGN_IN || '').trim()) && accountsConfigured();
+}
 /** The site can read photos with its own key: {available, signIn} (signIn: only for signed-in visitors). */
 export function photoConfig() {
-  return { available: serverKey() !== null, signIn: serverKey() !== null && accountsConfigured() };
+  return { available: serverKey() !== null, signIn: serverKey() !== null && signInRequired() };
 }
 
 // Vercel's Hobby plan stops a function at 60 s (vercel.json maxDuration), so one try that ends in time.
@@ -131,7 +135,7 @@ function cleanNotes(raw) {
   return notes;
 }
 
-/** The key for this request: the visitor's own, else the site's (signed-in visitors only when accounts exist). */
+/** The key for this request: the visitor's own, else the site's (signed-in visitors only when sign-in is required). */
 async function apiKey(request) {
   const own = (request.headers.get('x-anthropic-key') || '').trim();
   if (own) {
@@ -140,7 +144,7 @@ async function apiKey(request) {
   }
   const key = serverKey();
   if (!key) throw new HttpError(503, 'Photo modeling needs an Anthropic API key. Add yours in the dialog, or set ANTHROPIC_API_KEY on the site.', {});
-  if (accountsConfigured()) {
+  if (signInRequired()) {
     try {
       await requireActiveSession(request);
     } catch {
