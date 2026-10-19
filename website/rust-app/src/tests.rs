@@ -1004,3 +1004,62 @@ fn furniture_problems(level:&Value)->Vec<String>{
  if std::env::var("UPDATE_PHOTO_OPTIONS").is_ok(){std::fs::write(path,&want).unwrap();}
  assert_eq!(std::fs::read_to_string(path).unwrap_or_default(),want,"run UPDATE_PHOTO_OPTIONS=1 cargo test photo_options");
 }
+
+/// Rooms tile a floor exactly when every 1-ft cell is covered once.
+fn tiles(rs:&[Room],w:f64,d:f64)->bool{let mut hit=vec![0u8;(w as usize)*(d as usize)];for r in rs{for z in r.z as usize..(r.z+r.d)as usize{for x in r.x as usize..(r.x+r.w)as usize{if x>=w as usize||z>=d as usize{return false}hit[z*w as usize+x]+=1;}}}hit.iter().all(|h|*h==1)}
+fn plan_room(t:&str,name:&str,x:f64,z:f64,w:f64,d:f64)->Value{json!({"type":t,"name":name,"x":x,"z":z,"w":w,"d":d})}
+/// A two-story center-hall plan read with typical errors (gaps, overlaps, a missing hall upstairs).
+fn colonial_plan()->Value{json!({"mainWidthFt":40.6,"mainDepthFt":31.5,"floors":[
+ {"rooms":[plan_room("living","Living room",0.,0.,15.,18.),plan_room("foyer","Foyer",15.,0.,10.,12.),plan_room("stairs","Stairs",15.5,12.,8.,16.),plan_room("dining","Dining room",25.,0.,15.,14.),
+  plan_room("family","Family room",0.,18.,15.,13.5),plan_room("kitchen","Kitchen",25.,14.,15.,17.5),plan_room("powder","Powder",23.,24.,3.,6.),plan_room("garage","Garage",40.,0.,22.,24.)]},
+ {"rooms":[plan_room("bedroom","Primary bedroom",0.,0.,16.,15.),plan_room("bath","Primary bath",0.,15.,10.,8.),plan_room("closet","Walk-in closet",10.,15.,6.,8.),
+  plan_room("stairs","Stairs",16.,12.,8.,16.),plan_room("bedroom","Bedroom 2",25.,0.,15.,12.),plan_room("bedroom","Bedroom 3",25.,19.,15.,12.5),plan_room("bath","Hall bath",25.,12.,8.,7.),plan_room("bedroom","Bedroom 4",0.,23.,16.,8.5)]}]})}
+
+#[test]fn floor_plan_reading_builds_the_traced_rooms_exactly(){
+ let base=generator::starter();
+ let read=json!({"homeStyle":"Colonial","stories":2,"bedrooms":4,"floorPlan":colonial_plan()});
+ let(c,notes)=photo::design(&base,&read).unwrap();
+ assert_eq!((c.width,c.depth,c.stories),(40.,32.,2),"{:?}",notes);assert!(!c.catalog_plan&&c.traced_plan.is_some());assert_eq!(c.bedrooms,4);
+ assert!(notes[0].contains("traced from your floor plan"),"{:?}",notes);assert!(validate(&c).is_ok());
+ let t=c.traced_plan.clone().unwrap();
+ for(f,rooms)in t.floors.iter().enumerate(){
+  assert!(tiles(rooms,40.,32.),"floor {} does not tile: {:?}",f,rooms);
+  let stair=rooms.iter().find(|r|r.kind=="stairs").expect("stair on every floor");assert_eq!((stair.w,stair.d),(8.,16.));
+  assert_eq!((stair.x,stair.z),(t.floors[0].iter().find(|r|r.kind=="stairs").unwrap().x,t.floors[0].iter().find(|r|r.kind=="stairs").unwrap().z));
+ }
+ // Named rooms survive close to their read size; the garage is not a room.
+ let ground=&t.floors[0];let kitchen=ground.iter().find(|r|r.kind=="kitchen").unwrap();assert!(kitchen.w>=12.&&kitchen.d>=16.,"{:?}",kitchen);
+ assert!(ground.iter().all(|r|r.name!="Garage"));assert!(ground.iter().any(|r|r.name=="Powder"&&r.kind=="bath"));
+ // The engine builds exactly these rooms on each floor, and furnishes them by type.
+ for floor in 0..2{let mut cc=c.clone();cc.active_floor=floor;let m=model::build(&cc);
+  let rooms:Vec<Room>=serde_json::from_value(m["rooms"].clone()).unwrap();
+  assert_eq!(rooms.len(),t.floors[floor].len(),"floor {}",floor);assert!(tiles(&rooms,40.,32.));
+  let fs:Vec<staging::Furniture>=serde_json::from_value(m["furniture"].clone()).unwrap();
+  for r in rooms.iter().filter(|r|r.kind=="bedroom"){assert!(fs.iter().any(|f|f.room_id==r.id&&f.kind=="bed"),"no bed in {}",r.name);}
+  for r in rooms.iter().filter(|r|r.kind=="bath"){assert!(fs.iter().any(|f|f.room_id==r.id&&f.kind=="toilet"),"no toilet in {}",r.name);}
+ }
+ // Editing the size scales the plan and keeps it whole; changing the style returns to catalog plans.
+ let mut wider=c.clone();wider.width=48.;wider.depth=36.;assert!(validate(&wider).is_ok());let rs:Vec<Room>=serde_json::from_value(model::build(&wider)["rooms"].clone()).unwrap();assert!(tiles(&rs,48.,36.));
+ let mut other=c.clone();architecture::apply(&mut other,true);assert!(other.traced_plan.is_none());
+ // The plan survives a save and reload.
+ let saved=serde_json::to_string(&c).unwrap();assert!(security::parse(&saved).is_ok());
+}
+
+#[test]fn floor_plan_with_a_rear_wing_becomes_an_l_shape(){
+ let base=generator::starter();
+ let plan=json!({"mainWidthFt":44,"mainDepthFt":28,"floors":[{"rooms":[plan_room("living","Great room",0.,0.,20.,16.),plan_room("kitchen","Kitchen",20.,0.,12.,14.),plan_room("dining","Dining",32.,0.,12.,14.),
+  plan_room("hall","Hall",20.,14.,24.,4.),plan_room("bedroom","Primary",0.,16.,14.,12.),plan_room("bath","Bath",14.,16.,6.,8.),plan_room("bedroom","Bedroom 2",32.,18.,12.,10.),plan_room("bath","Bath 2",26.,18.,6.,10.),
+  plan_room("bedroom","Bedroom 3",32.,28.,12.,14.),plan_room("closet","Closet",20.,18.,6.,10.)]}]});
+ let(c,notes)=photo::design(&base,&json!({"homeStyle":"Ranch","stories":1,"floorPlan":plan})).unwrap();
+ assert_eq!((c.width,c.depth,c.stories,c.shape.as_str()),(44.,28.,1,"L-shape"),"{:?}",notes);assert_eq!(c.bedrooms,3);assert!(validate(&c).is_ok());
+ let m=model::build(&c);let rooms:Vec<Room>=serde_json::from_value(m["rooms"].clone()).unwrap();
+ assert!(rooms.iter().any(|r|wings::is_wing(&r.id)&&r.kind=="bedroom"),"wing keeps the traced bedroom: {:?}",rooms.iter().map(|r|(&r.id,&r.kind)).collect::<Vec<_>>());
+ assert!(tiles(&rooms.iter().filter(|r|!wings::is_wing(&r.id)).cloned().collect::<Vec<_>>(),44.,28.));
+}
+
+/// Any jumble of read rooms becomes an exact tiling.
+#[test]fn plan_tiling_always_covers_the_floor_once(){
+ let mut seed=7u32;let mut rnd=|n:f64|{seed=seed.wrapping_mul(1664525).wrapping_add(1013904223);((seed>>8)as f64/16777216.)*n};
+ for _ in 0..300{let(w,d)=(grid(16.+rnd(60.)),grid(16.+rnd(60.)));let raws:Vec<traced::Raw>=(0..(2+rnd(14.)as usize)).map(|i|traced::Raw{name:format!("R{}",i),kind:["bedroom","bath","living","hall","kitchen"][i%5].into(),x:rnd(w)-2.,z:rnd(d)-2.,w:2.+rnd(20.),d:2.+rnd(20.)}).collect();
+  let rs=traced::tile(&raws,&[],w,d);assert!(tiles(&rs,w,d),"{}x{} {:?}",w,d,raws);assert!(rs.iter().all(|r|r.w>=2.&&r.d>=2.&&traced::KINDS.contains(&r.kind.as_str())));}
+}

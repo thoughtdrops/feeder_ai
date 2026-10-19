@@ -19,6 +19,7 @@ pub fn validate_design(c:&Config)->Result<(),String>{
  if c.deleted_furniture.iter().chain(c.bearing_walls.iter()).any(|v|!id(v)){return Err("Invalid object identifier.".into())}
  if c.wall_adjustments.iter().any(|(k,g)|!id(k)||!["","x","z"].contains(&g.axis.as_str())||![g.x,g.z,g.length].iter().all(|v|v.is_finite()&&*v>=0.&&*v<=100.)||g.length<=0.){return Err("Wall dimensions must be finite values within 0–100 feet.".into())}
  if c.wall_removals.iter().any(|r|!id(&r.wall_id)||![r.at,r.width].iter().all(|v|v.is_finite()&&*v>=0.&&*v<=100.)){return Err("Invalid wall removal dimensions.".into())}
+ if c.traced_plan.as_ref().is_some_and(|t|!traced::valid(t)){return Err("The traced floor plan has invalid rooms or sizes.".into())}
  let count=c.opening_overrides.values().map(Vec::len).sum::<usize>()+c.added_walls.iter().map(|w|w.openings.len()).sum::<usize>();
  if count>512||c.opening_overrides.iter().any(|(k,os)|!id(k)||os.len()>32||os.iter().any(|o|!opening(o))){return Err("Openings must have valid identifiers and dimensions; use at most 32 per wall.".into())}
  let mut seen=std::collections::BTreeSet::new();

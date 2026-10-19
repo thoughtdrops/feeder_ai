@@ -1,45 +1,28 @@
 // Photos to a home: Claude reads a set of house photos (real homes or generated renders) into the
 // studio's own design choices, and the studio builds a simpler, buildable rendition from them.
-//   POST /api/photo-design {photos:[{mediaType,data}], notes?} -> {read, model}
-// The site's key (ANTHROPIC_API_KEY) is used unless the visitor sends their own in X-Anthropic-Key;
-// a visitor's key is used for that one request only and is never stored or logged. Anyone may use the
-// site's key unless PHOTO_REQUIRE_SIGN_IN=1 is set (and accounts are configured): then signed-in visitors only.
+//   POST /api/photo-design {task?, photos?:[{mediaType,data}], imageUrls?:[https], notes?, listing?} -> {read, model}
+// task "home" (the default) reads style, size, exterior and staging; task "plan" reads a floor-plan picture or
+// PDF into rooms with sizes and positions, which the engine builds exactly. The studio runs both at once.
+// Keys: see _lib/claude.js (the site's key, or the visitor's own for that one request).
 import { readFileSync } from 'node:fs';
-import Anthropic from '@anthropic-ai/sdk';
 import { assertMutationAllowed, handler, HttpError, isPlainObject, json, readJsonBody } from './_lib/http.js';
-import { accountsConfigured, requireActiveSession } from './_lib/session.js';
+import { MODEL, claudeError, clientFor, jsonAnswer, publicUrl, serverKey, signInRequired } from './_lib/claude.js';
 
-export const MODEL = 'claude-opus-5-5';
+export { MODEL, setClientFactory } from './_lib/claude.js';
 export const MAX_PHOTOS = 8;
+export const MAX_URLS = 12;
 // Vercel caps request bodies at 4.5 MB; the studio shrinks photos well below this before sending.
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
 const MAX_PHOTO_BYTES = 3_750_000;
 const MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
-const KEY_RE = /^sk-ant-[A-Za-z0-9_-]{20,300}$/;
 const CONTROL_RE = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g;
 
 const OPTIONS = JSON.parse(readFileSync(new URL('./_lib/photo-options.json', import.meta.url), 'utf8'));
 
-export function serverKey() {
-  const key = process.env.ANTHROPIC_API_KEY;
-  return typeof key === 'string' && key.trim() ? key.trim() : null;
-}
-/** Sign-in to use the site's key is opt-in: PHOTO_REQUIRE_SIGN_IN=1 (only when accounts are configured). */
-export function signInRequired() {
-  return /^(1|true|yes)$/i.test((process.env.PHOTO_REQUIRE_SIGN_IN || '').trim()) && accountsConfigured();
-}
 /** The site can read photos with its own key: {available, signIn} (signIn: only for signed-in visitors). */
 export function photoConfig() {
   return { available: serverKey() !== null, signIn: serverKey() !== null && signInRequired() };
-}
-
-// Vercel's Hobby plan stops a function at 60 s (vercel.json maxDuration), so one try that ends in time.
-const newClient = (apiKey) => new Anthropic({ apiKey, timeout: 55_000, maxRetries: 0 });
-let makeClient = newClient;
-/** Tests swap in a fake client. */
-export function setClientFactory(factory) {
-  makeClient = factory || newClient;
 }
 
 const str = (description) => ({ type: 'string', description });
@@ -51,6 +34,7 @@ const FIELDS = {
   bedrooms: { type: 'integer', enum: [0, 1, 2, 3, 4, 5, 6], description: 'Likely bedrooms for a home of this size and style.' },
   widthFt: { type: 'number', description: 'Main house width across the front in feet, not counting the garage (16-100).' },
   depthFt: { type: 'number', description: 'Main house depth front to back in feet (16-100).' },
+  livingAreaSqft: { type: 'number', description: 'Finished living area in square feet when the listing or photos state it, else 0.' },
   shape: pick('shape', 'Footprint: a rectangle, or L/T/U when wings project from the main block.'),
   roofPitch: { type: 'number', description: 'Main roof pitch as rise per 12 in of run (0.25 for flat, 4 shallow, 8 typical, 12 steep).' },
   roofing: pick('roofing', 'Roof covering; Style matched when unclear.'),
@@ -114,91 +98,127 @@ How to read the photos:
 - If the photos show several different houses, describe the one that appears most.
 - Interior photos set the interior scheme, floor, kitchen and living-room choices. Without interior photos, choose interiors that suit the exterior.
 - Colors are hex values sampled from the main surfaces, adjusted for lighting.
-- Put anything you simplified or could not match (curved walls, towers, unusual materials) in notes, in plain language for a homeowner.`;
+- Put anything you simplified or could not match (curved walls, towers, unusual materials) in notes, in plain language for a homeowner.
+- Listing facts, when given, are the most reliable source for size, bedrooms and stories.`;
 
-function cleanPhotos(raw) {
-  if (!Array.isArray(raw) || raw.length < 1) throw new HttpError(400, 'Add at least one photo');
+// Floor plans: rooms as rectangles in feet, measured from the front-left corner of the main house.
+const ROOM_TYPES = ['living', 'family', 'kitchen', 'dining', 'bedroom', 'bath', 'powder', 'hall', 'foyer', 'stairs', 'laundry', 'closet', 'pantry', 'office', 'den', 'mudroom', 'utility', 'bonus', 'other', 'garage', 'porch', 'deck', 'patio', 'balcony'];
+const num = (description) => ({ type: 'number', description });
+const ROOM = {
+  type: 'object',
+  properties: {
+    name: str('The room name as labeled, e.g. "Primary bedroom".'),
+    type: { type: 'string', enum: ROOM_TYPES, description: 'Room type. Garages, porches, decks, patios and balconies are outside the house.' },
+    x: num('Left edge in feet from the left exterior wall (viewed from the street).'),
+    z: num('Front edge in feet from the front exterior wall.'),
+    w: num('Width in feet, across the house (left to right).'),
+    d: num('Depth in feet, front to back.'),
+  },
+  required: ['name', 'type', 'x', 'z', 'w', 'd'],
+  additionalProperties: false,
+};
+const PLAN_FIELDS = {
+  found: { type: 'boolean', description: 'True when the images include a readable floor plan.' },
+  mainWidthFt: num('Width of the main house across the front, in feet, wall outside to wall outside (not the garage or porches).'),
+  mainDepthFt: num('Depth of the main house front to back, in feet (not the garage, porches or rear wings).'),
+  floors: {
+    type: 'array',
+    description: 'Each above-ground floor, ground floor first. Leave out basements.',
+    items: { type: 'object', properties: { level: { type: 'integer', description: '1 for the ground floor, 2 above it.' }, rooms: { type: 'array', items: ROOM } }, required: ['level', 'rooms'], additionalProperties: false },
+  },
+  notes: { type: 'array', items: { type: 'string' }, description: 'Short notes on anything unclear or estimated.' },
+};
+export const PLAN_SCHEMA = { type: 'object', properties: PLAN_FIELDS, required: Object.keys(PLAN_FIELDS), additionalProperties: false };
+
+const PLAN_SYSTEM = `You are an architect tracing a floor plan for Universal Frame, a home design studio that builds factory-framed houses. The visitor has sent floor-plan images (a listing's floor plan, a blueprint or a sketch). Read every room into rectangles so the studio can rebuild the plan exactly.
+
+How to trace:
+- Orient the plan so the front door wall is the front. x runs from the left exterior wall to the right (as seen from the street) and z from the front wall toward the back, in feet.
+- Use the written dimensions (e.g. 12'4" x 11'0" is 12.33 by 11 ft; width first is usually across the plan). Where a room has no label, measure it against labeled neighbors. Wall thickness is about half a foot; ignore it.
+- Rooms on each floor should cover the whole floor without overlapping. Include halls, closets, the stair and baths. An L-shaped room is two rectangles with the same name.
+- The main house is the largest rectangle. A garage, porch, deck or patio is listed with its type but is not part of the main house size. Rooms that project behind the main house belong to a rear wing; keep their real positions (z beyond the main depth).
+- Multi-story homes: the stair is in the same place on each floor. List floors ground first.
+- If no floor plan is visible, set found to false and leave floors empty.`;
+
+/** Uploaded images (and, for floor plans, PDFs) as content blocks. */
+function cleanPhotos(raw, task) {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) throw new HttpError(400, 'Photos must be a list');
   if (raw.length > MAX_PHOTOS) throw new HttpError(400, `Use at most ${MAX_PHOTOS} photos`);
   return raw.map((p, i) => {
-    if (!isPlainObject(p) || !MEDIA_TYPES.includes(p.mediaType)) throw new HttpError(400, `Photo ${i + 1} must be a JPEG, PNG, WebP or GIF image`);
+    const pdf = task === 'plan' && isPlainObject(p) && p.mediaType === 'application/pdf';
+    if (!isPlainObject(p) || (!pdf && !MEDIA_TYPES.includes(p.mediaType))) throw new HttpError(400, `Photo ${i + 1} must be a JPEG, PNG, WebP or GIF image${task === 'plan' ? ' or a PDF' : ''}`);
     if (typeof p.data !== 'string' || !p.data || !BASE64_RE.test(p.data)) throw new HttpError(400, `Photo ${i + 1} could not be read`);
     if (Math.floor((p.data.length * 3) / 4) > MAX_PHOTO_BYTES) throw new HttpError(413, `Photo ${i + 1} is too large`);
-    return { type: 'image', source: { type: 'base64', media_type: p.mediaType, data: p.data } };
+    return pdf
+      ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: p.data } }
+      : { type: 'image', source: { type: 'base64', media_type: p.mediaType, data: p.data } };
   });
 }
 
-function cleanNotes(raw) {
-  if (raw === undefined || raw === null || raw === '') return '';
-  if (typeof raw !== 'string') throw new HttpError(400, 'Notes must be text');
-  const notes = raw.replace(CONTROL_RE, ' ').trim();
-  if ([...notes].length > 500) throw new HttpError(400, 'Notes must be at most 500 characters');
-  return notes;
+/** Photos found on a listing page, passed to Claude by address. */
+function cleanUrls(raw) {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw) || raw.length > MAX_URLS) throw new HttpError(400, `Use at most ${MAX_URLS} photo links`);
+  return raw.map((u, i) => {
+    const url = publicUrl(u);
+    if (!url) throw new HttpError(400, `Photo link ${i + 1} must be a public https address`);
+    return { type: 'image', source: { type: 'url', url } };
+  });
 }
 
-/** The key for this request: the visitor's own, else the site's (signed-in visitors only when sign-in is required). */
-async function apiKey(request) {
-  const own = (request.headers.get('x-anthropic-key') || '').trim();
-  if (own) {
-    if (!KEY_RE.test(own)) throw new HttpError(400, 'That does not look like an Anthropic API key (it starts with sk-ant-)');
-    return { key: own, own: true };
-  }
-  const key = serverKey();
-  if (!key) throw new HttpError(503, 'Photo modeling needs an Anthropic API key. Add yours in the dialog, or set ANTHROPIC_API_KEY on the site.', {});
-  if (signInRequired()) {
-    try {
-      await requireActiveSession(request);
-    } catch {
-      throw new HttpError(401, 'Sign in to model homes from photos, or add your own Anthropic API key.');
-    }
-  }
-  return { key, own: false };
+function cleanText(raw, max, label) {
+  if (raw === undefined || raw === null || raw === '') return '';
+  if (typeof raw !== 'string') throw new HttpError(400, `${label} must be text`);
+  const text = raw.replace(CONTROL_RE, ' ').trim();
+  if ([...text].length > max) throw new HttpError(400, `${label} must be at most ${max} characters`);
+  return text;
+}
+
+/** Listing facts as one line of context (numbers only, plus a short description). */
+function listingText(raw) {
+  if (!isPlainObject(raw)) return '';
+  const n = (k) => (typeof raw[k] === 'number' && Number.isFinite(raw[k]) && raw[k] > 0 ? raw[k] : null);
+  const facts = [
+    n('livingAreaSqft') && `${Math.round(n('livingAreaSqft'))} sq ft living area`,
+    n('bedrooms') && `${n('bedrooms')} bedrooms`,
+    n('bathrooms') && `${n('bathrooms')} bathrooms`,
+    n('stories') && `${n('stories')} stories`,
+    n('yearBuilt') && `built ${Math.round(n('yearBuilt'))}`,
+  ].filter(Boolean);
+  const description = typeof raw.description === 'string' ? raw.description.replace(CONTROL_RE, ' ').trim().slice(0, 1500) : '';
+  return facts.length || description ? `Listing facts: ${facts.join(', ') || 'none'}.${description ? `\nListing description: ${description}` : ''}` : '';
 }
 
 export const POST = handler(async (request) => {
   assertMutationAllowed(request);
-  const { key, own } = await apiKey(request);
+  const { client, own } = await clientFor(request);
   const body = await readJsonBody(request, MAX_BODY_BYTES);
   if (!isPlainObject(body)) throw new HttpError(400, 'Request body must be an object');
-  const photos = cleanPhotos(body.photos);
-  const notes = cleanNotes(body.notes);
-  const text = `Read ${photos.length === 1 ? 'this photo' : `these ${photos.length} photos`} into the studio's design choices.` + (notes ? `\n\nThe visitor added: ${notes}` : '');
+  const task = body.task === 'plan' ? 'plan' : 'home';
+  const images = [...cleanPhotos(body.photos, task), ...cleanUrls(body.imageUrls)];
+  if (!images.length) throw new HttpError(400, task === 'plan' ? 'Add a floor plan picture' : 'Add at least one photo');
+  const notes = cleanText(body.notes, 500, 'Notes');
+  const listing = listingText(body.listing);
+  const count = images.length === 1 ? 'this image' : `these ${images.length} images`;
+  const ask = task === 'plan' ? `Trace the floor plan in ${count}.` : `Read ${count} into the studio's design choices.`;
+  const text = [ask, listing, notes && `The visitor added: ${notes}`].filter(Boolean).join('\n\n');
 
   let response;
   try {
-    response = await makeClient(key).beta.messages.create({
+    response = await client.beta.messages.create({
       model: MODEL,
       max_tokens: 16000,
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
       thinking: { type: 'adaptive' },
-      output_config: { effort: 'medium', format: { type: 'json_schema', schema: SCHEMA } },
-      system: SYSTEM,
-      messages: [{ role: 'user', content: [...photos, { type: 'text', text }] }],
+      output_config: { effort: 'medium', format: { type: 'json_schema', schema: task === 'plan' ? PLAN_SCHEMA : SCHEMA } },
+      system: task === 'plan' ? PLAN_SYSTEM : SYSTEM,
+      messages: [{ role: 'user', content: [...images, { type: 'text', text }] }],
     });
   } catch (err) {
-    if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) {
-      if (own) throw new HttpError(401, 'Anthropic did not accept that API key. Check it in the Claude Console and try again.');
-      console.error('[api] photo-design: the site key was rejected');
-      throw new HttpError(503, 'Photo modeling is not set up correctly on this site. Add your own API key to continue.');
-    }
-    if (err instanceof Anthropic.RateLimitError) throw new HttpError(429, 'Photo modeling is busy right now. Please try again in a minute.');
-    if (err instanceof Anthropic.BadRequestError) throw new HttpError(400, 'These photos could not be read. Try JPEG or PNG photos under 5 MB each.');
-    if (err instanceof Anthropic.APIConnectionError) throw new HttpError(504, 'The photo reader took too long. Try again with fewer photos.');
-    if (err instanceof Anthropic.APIError) {
-      console.error('[api] photo-design: Anthropic error', err.status);
-      throw new HttpError(502, 'The photo reader is unavailable right now. Please try again.');
-    }
-    throw err;
+    throw claudeError(err, own, task === 'plan' ? 'floor plan reader' : 'photo reader');
   }
-  if (response.stop_reason === 'refusal') throw new HttpError(422, 'These photos could not be read as a home. Try photos of a house exterior or its rooms.');
-  if (response.stop_reason === 'max_tokens') throw new HttpError(502, 'The photo reading was cut short. Please try again.');
-  const out = response.content.find((b) => b.type === 'text');
-  let read;
-  try {
-    read = JSON.parse(out ? out.text : '');
-  } catch {
-    throw new HttpError(502, 'The photo reading came back incomplete. Please try again.');
-  }
-  if (!isPlainObject(read)) throw new HttpError(502, 'The photo reading came back incomplete. Please try again.');
+  const read = jsonAnswer(response, task === 'plan' ? 'This floor plan could not be read. Try a clearer picture of the plan.' : 'These photos could not be read as a home. Try photos of a house exterior or its rooms.');
   return json(200, { read, model: response.model });
 });

@@ -8,6 +8,9 @@
   "functions": {
     "api/photo-design.js": {
       "maxDuration": 60
+    },
+    "api/listing.js": {
+      "maxDuration": 60
     }
   },
   "headers": [

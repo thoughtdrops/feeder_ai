@@ -9,6 +9,7 @@ import * as me from '../../api/auth/me.js';
 import * as logout from '../../api/auth/logout.js';
 import * as builds from '../../api/builds.js';
 import * as photo from '../../api/photo-design.js';
+import * as listing from '../../api/listing.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { readFileSync } from 'node:fs';
 // Root-level wrappers must resolve to the same handlers.
@@ -18,6 +19,7 @@ import * as rootMe from '../../../api/auth/me.mjs';
 import * as rootLogout from '../../../api/auth/logout.mjs';
 import * as rootBuilds from '../../../api/builds.mjs';
 import * as rootPhoto from '../../../api/photo-design.mjs';
+import * as rootListing from '../../../api/listing.mjs';
 
 const CLIENT_ID = 'test-client.apps.googleusercontent.com';
 const SECRET = 'x'.repeat(40);
@@ -436,6 +438,66 @@ let firstId;
   check('photo: own key works without signing in', r.status === 200 && sent[1]?.apiKey === VISITOR_KEY, r);
   r = await call(rootPhoto.POST, req('POST', '/api/photo-design', { body: one, headers: { 'x-anthropic-key': VISITOR_KEY } }));
   check('photo (root wrapper): same handler', r.status === 200, r);
+  photo.setClientFactory(null);
+}
+
+// ---- Floor plans, photo links and listing links ---------------------------------
+{
+  const KEY = 'sk-ant-api03-' + 'p'.repeat(40);
+  const JPEG = Buffer.from('fake jpeg bytes').toString('base64');
+  const PDF = Buffer.from('%PDF-1.7 fake').toString('base64');
+  let sent = [];
+  let reply = () => ({ stop_reason: 'end_turn', model: photo.MODEL, content: [{ type: 'text', text: '{"found":true,"mainWidthFt":40,"mainDepthFt":32,"floors":[],"notes":[]}' }] });
+  photo.setClientFactory((apiKey) => ({ beta: { messages: { create: async (params) => { sent.push(params); return reply(sent.length); } } } }));
+  setEnv({});
+  useMemoryStore();
+  const post = (fn, path, body) => call(fn, req('POST', path, { body, headers: { 'x-anthropic-key': KEY } }));
+
+  let r = await post(photo.POST, '/api/photo-design', { task: 'plan', photos: [{ mediaType: 'application/pdf', data: PDF }, { mediaType: 'image/png', data: JPEG }] });
+  let p = sent.at(-1);
+  check('plan: PDF and image plans are read with the plan schema', r.status === 200 && r.data.read.mainWidthFt === 40 && p.output_config.format.schema === photo.PLAN_SCHEMA && p.messages[0].content[0].type === 'document' && p.messages[0].content[1].type === 'image' && /Trace the floor plan/.test(p.messages[0].content.at(-1).text), r);
+  r = await post(photo.POST, '/api/photo-design', { photos: [{ mediaType: 'application/pdf', data: PDF }] });
+  check('photos: PDFs only for floor plans', r.status === 400, r);
+  r = await post(photo.POST, '/api/photo-design', { task: 'plan' });
+  check('plan: needs a picture', r.status === 400 && /floor plan/.test(r.data.error), r);
+  const plan = photo.PLAN_SCHEMA;
+  const strict = (o) => o.type !== 'object' || (o.additionalProperties === false && o.required.length === Object.keys(o.properties).length && Object.values(o.properties).every((v) => strict(v.type === 'array' ? v.items : v)));
+  check('plan schema: strict objects throughout, no numeric limits', strict(plan) && !JSON.stringify(plan).match(/"(minimum|maximum|minLength|maxLength)"/));
+
+  sent = [];
+  r = await post(photo.POST, '/api/photo-design', { imageUrls: ['https://photos.example-cdn.com/a.jpg', 'https://photos.example-cdn.com/b.webp'], listing: { livingAreaSqft: 2140, bedrooms: 4, bathrooms: 2.5, stories: 2, description: 'Brick colonial\u0000 with porch' } });
+  p = sent.at(-1);
+  check('photo links are sent by address with the listing facts', r.status === 200 && p.messages[0].content[0].source.type === 'url' && p.messages[0].content[0].source.url === 'https://photos.example-cdn.com/a.jpg' && /2140 sq ft living area, 4 bedrooms, 2.5 bathrooms, 2 stories/.test(p.messages[0].content.at(-1).text) && /Brick colonial  with porch/.test(p.messages[0].content.at(-1).text), p && p.messages[0].content.at(-1).text);
+  for (const bad of ['http://photos.example.com/a.jpg', 'https://127.0.0.1/a.jpg', 'https://localhost/a.jpg', 'https://user:pw@example.com/a.jpg', 'https://example.com:8443/a.jpg', 'javascript:alert(1)']) {
+    r = await post(photo.POST, '/api/photo-design', { imageUrls: [bad] });
+    check(`photo links: rejects ${bad}`, r.status === 400, r.status);
+  }
+  r = await post(photo.POST, '/api/photo-design', { imageUrls: Array(photo.MAX_URLS + 1).fill('https://a.example.com/x.jpg') });
+  check('photo links: at most 12', r.status === 400, r.status);
+
+  // Listing links: Claude fetches the page; the answer is cleaned before it reaches the studio.
+  sent = [];
+  reply = () => ({ stop_reason: 'end_turn', model: photo.MODEL, content: [{ type: 'text', text: JSON.stringify({ found: true, reason: '', address: '12 Elm St', livingAreaSqft: 2140, bedrooms: 4, bathrooms: 2.5, stories: 2, yearBuilt: 1998, description: 'Lovely home', photoUrls: ['https://photos.example-cdn.com/1.jpg', 'http://insecure.example.com/2.jpg', 'https://photos.example-cdn.com/1.jpg', 'https://10.0.0.1/x.jpg'], floorPlanUrls: ['https://photos.example-cdn.com/plan.png'] }) }] });
+  r = await post(listing.POST, '/api/listing', { url: 'https://www.zillow.com/homedetails/12-Elm-St/1_zpid/' });
+  p = sent.at(-1);
+  check('listing: fetched with the web fetch tool and the listing schema', r.status === 200 && p.tools[0].type === 'web_fetch_20260209' && p.output_config.format.schema === listing.LISTING_SCHEMA && /zillow\.com\/homedetails/.test(p.messages[0].content), p && p.tools);
+  check('listing: only public https photo links, no duplicates', r.data.listing.photoUrls.length === 1 && r.data.listing.photoUrls[0] === 'https://photos.example-cdn.com/1.jpg' && r.data.listing.floorPlanUrls.length === 1 && r.data.listing.livingAreaSqft === 2140, r.data);
+  reply = (n) => (n === 1 ? { stop_reason: 'pause_turn', model: photo.MODEL, content: [{ type: 'server_tool_use', id: 's1', name: 'web_fetch', input: {} }] } : { stop_reason: 'end_turn', model: photo.MODEL, content: [{ type: 'text', text: JSON.stringify({ found: false, reason: 'The site blocked automated reading', address: '', livingAreaSqft: 0, bedrooms: 0, bathrooms: 0, stories: 0, yearBuilt: 0, description: '', photoUrls: ['https://x.example.com/1.jpg'], floorPlanUrls: [] }) }] });
+  sent = [];
+  r = await post(listing.POST, '/api/listing', { url: 'https://www.zillow.com/homedetails/x/2_zpid/' });
+  check('listing: a paused fetch resumes once', sent.length === 2 && sent[1].messages.length === 2 && sent[1].messages[1].role === 'assistant', sent.length);
+  check('listing: a blocked page says why and returns no links', r.status === 200 && r.data.listing.found === false && /blocked/.test(r.data.listing.reason) && r.data.listing.photoUrls.length === 0, r.data);
+  for (const bad of ['zillow.com/x', 'http://www.zillow.com/x', 'https://localhost/x', 'https://192.168.1.4/x']) {
+    r = await post(listing.POST, '/api/listing', { url: bad });
+    check(`listing: rejects ${bad}`, r.status === 400, r.status);
+  }
+  r = await call(listing.POST, req('POST', '/api/listing', { body: { url: 'https://example.com/x' }, csrf: false, headers: { 'x-anthropic-key': KEY } }));
+  check('listing: CSRF header required', r.status === 403, r.status);
+  r = await call(listing.POST, req('POST', '/api/listing', { body: { url: 'https://example.com/x' } }));
+  check('listing: needs a key', r.status === 503, r.status);
+  reply = () => ({ stop_reason: 'end_turn', model: photo.MODEL, content: [{ type: 'text', text: '{"found":false,"reason":"","address":"","livingAreaSqft":0,"bedrooms":0,"bathrooms":0,"stories":0,"yearBuilt":0,"description":"","photoUrls":[],"floorPlanUrls":[]}' }] });
+  r = await call(rootListing.POST, req('POST', '/api/listing', { body: { url: 'https://example.com/x' }, headers: { 'x-anthropic-key': KEY } }));
+  check('listing (root wrapper): same handler', r.status === 200 && r.data.listing.reason.length > 0, r);
   photo.setClientFactory(null);
 }
 
