@@ -6,8 +6,16 @@ use crate::*;
 pub const KINDS:[&str;10]=["living","kitchen","dining","bedroom","bath","hall","foyer","stairs","flex","studio"];
 #[derive(Clone,Serialize,Deserialize,Debug,Default)]#[serde(rename_all="camelCase",default)]
 pub struct TracedWing{pub w:f64,pub d:f64,pub rooms:Vec<Room>}
+/// A bump-out drawn on the plan: the wall it pops out of ("front", "rear", "left" or "right"), where it starts
+/// along that wall, its width and how far it projects, in the plan's feet.
+#[derive(Clone,Serialize,Deserialize,Debug,Default,PartialEq)]#[serde(rename_all="camelCase",default)]
+pub struct TracedBump{pub side:String,pub at:f64,pub width:f64,pub depth:f64}
 #[derive(Clone,Serialize,Deserialize,Debug,Default)]#[serde(rename_all="camelCase",default)]
-pub struct TracedPlan{pub width:f64,pub depth:f64,pub floors:Vec<Vec<Room>>,pub wings:Vec<TracedWing>}
+pub struct TracedPlan{pub width:f64,pub depth:f64,pub floors:Vec<Vec<Room>>,pub wings:Vec<TracedWing>,
+ /// Furniture and fixtures drawn on the plan, per floor, where they were drawn.
+ pub furniture:Vec<Vec<staging::Furniture>>,
+ /// Bump-outs drawn on the plan, on the ground floor.
+ pub bumps:Vec<TracedBump>}
 
 /// The traced plan in effect: catalog homes and blank slates use their own layouts.
 pub fn active(c:&Config)->Option<&TracedPlan>{if c.catalog_plan||c.design_mode=="Blank slate"{None}else{c.traced_plan.as_ref()}}
@@ -23,6 +31,8 @@ pub fn valid(t:&TracedPlan)->bool{
  let room=|r:&Room|!r.id.is_empty()&&r.id.len()<=48&&r.id.bytes().all(|b|b.is_ascii_alphanumeric()||b"-_".contains(&b))&&r.name.chars().count()<=60&&!r.name.chars().any(char::is_control)&&KINDS.contains(&r.kind.as_str())&&[r.x,r.z,r.w,r.d].iter().all(|v|v.is_finite()&&*v>=0.&&*v<=100.);
  [t.width,t.depth].iter().all(|v|v.is_finite()&&*v>=8.&&*v<=100.)&&t.floors.len()<=3&&t.floors.iter().all(|f|f.len()<=64&&f.iter().all(room))
   &&t.wings.len()<=2&&t.wings.iter().all(|g|[g.w,g.d].iter().all(|v|v.is_finite()&&*v>=0.&&*v<=100.)&&g.rooms.len()<=16&&g.rooms.iter().all(room))
+  &&t.furniture.len()<=3&&t.furniture.iter().all(|f|f.len()<=96&&f.iter().all(|f|FURNITURE.contains(&f.kind.as_str())&&f.id.len()<=48&&f.id.bytes().all(|b|b.is_ascii_alphanumeric()||b"-_".contains(&b))&&[f.x,f.z,f.w,f.d,f.rotation,f.local_width,f.local_depth].iter().all(|v|v.is_finite()&&v.abs()<=100.)))
+  &&t.bumps.len()<=8&&t.bumps.iter().all(|b|bumps::SIDES.contains(&b.side.as_str())&&[b.at,b.width,b.depth].iter().all(|v|v.is_finite()&&*v>=0.&&*v<=100.))
 }
 
 /// A room as read from a plan, in feet.
@@ -62,4 +72,35 @@ pub fn tile(raw:&[Raw],fixed:&[Raw],w:f64,d:f64)->Vec<Room>{
   let(name,kind)=if fw*fd<=36.{("Closet","flex")}else if fw.min(fd)<=6.{("Hall","hall")}else{("Open area","flex")};
   claim(&mut owner,placed.len(),r);placed.push((Raw{name:name.into(),kind:kind.into(),x:0.,z:0.,w:0.,d:0.},r));}
  placed.iter().enumerate().map(|(i,(r,c))|Room{id:format!("t{}-{}",i,r.kind),name:r.name.clone(),kind:r.kind.clone(),x:(c[0]*2)as f64,z:(c[1]*2)as f64,w:((c[2]-c[0])*2)as f64,d:((c[3]-c[1])*2)as f64}).collect()
+}
+
+/// Pieces a plan may place (built-in kitchen runs stay with the kitchen staging).
+pub const FURNITURE:[&str;22]=["bed","king-bed","twin-bed","crib","sofa","sectional","armchair","coffee","dining","desk","dresser","nightstand","wardrobe","console","toilet","vanity","double-vanity","shower","bathtub","laundry","island","bookcase"];
+/// Pieces that fill the same role, so a drawn one replaces the automatic one.
+fn role(kind:&str)->&str{match kind{"bed"|"king-bed"|"twin-bed"=>"bed","sofa"|"sectional"|"loveseat"=>"sofa","vanity"|"double-vanity"=>"vanity","console"|"media"=>"console",k=>k}}
+const BUILT_IN:[&str;4]=["kitchen","counter-run","pantry-tower","fridge"];
+fn bounds(f:&staging::Furniture)->[f64;4]{[f.x-f.w/2.,f.z-f.d/2.,f.x+f.w/2.,f.z+f.d/2.]}
+
+/// Places the plan's furniture where it was drawn (scaled with the house), nudged at most 4 ft to clear
+/// walls and doors. Each drawn piece replaces the automatic piece of the same role in its room and any
+/// automatic piece it would overlap; it never displaces kitchen cabinets.
+pub fn place_furniture(c:&Config,rs:&[Room],ws:&[Wall],fs:&mut Vec<staging::Furniture>){
+ let Some(t)=active(c)else{return};let Some(list)=t.furniture.get(c.active_floor)else{return};if list.is_empty(){return}
+ let(sx,sz)=(c.width/t.width.max(1.),c.depth/t.depth.max(1.));let tag=floor_tag(c.active_floor);let mut placed:Vec<staging::Furniture>=vec![];
+ for(i,item)in list.iter().enumerate(){
+  let(x,z)=(item.x*sx,item.z*sz);
+  let Some(room)=rs.iter().find(|r|r.kind!="stairs"&&x>=r.x&&x<=r.x+r.w&&z>=r.z&&z<=r.z+r.d)else{continue};
+  let(lw,ld)=edit::item_dimensions(&item.kind);
+  let mut f=staging::Furniture{id:format!("tf{}-{}{}",i,item.kind,tag),kind:item.kind.clone(),room_id:room.id.clone(),x,z,w:lw,d:ld,rotation:0.,local_width:lw,local_depth:ld};edit::rotate_item(&mut f,item.rotation);
+  let fits=|f:&staging::Furniture|{let b=bounds(f);b[0]>=room.x+0.2&&b[1]>=room.z+0.2&&b[2]<=room.x+room.w-0.2&&b[3]<=room.z+room.d-0.2&&edit::clear_of_walls(f,ws)
+   &&!placed.iter().any(|p|edit::overlap(bounds(p),b))&&!fs.iter().any(|o|BUILT_IN.contains(&o.kind.as_str())&&edit::overlap(bounds(o),b))};
+  let(x0,z0)=(f.x,f.z);let mut ok=false;
+  'nudge:for r in [0.,0.5,1.,1.5,2.,2.5,3.,3.5,4.]{for(dx,dz)in[(0.,0.),(1.,0.),(-1.,0.),(0.,1.),(0.,-1.),(1.,1.),(-1.,-1.),(1.,-1.),(-1.,1.)]{if r==0.&&(dx!=0.||dz!=0.){continue}f.x=x0+dx*r;f.z=z0+dz*r;if fits(&f){ok=true;break 'nudge}}}
+  // Still blocked (usually by a door the studio placed differently from the plan): the nearest clear spot anywhere in the room.
+  if !ok{let mut best:Option<(f64,f64,f64)>=None;let mut gx=room.x+0.5;while gx<=room.x+room.w-0.5{let mut gz=room.z+0.5;while gz<=room.z+room.d-0.5{f.x=gx;f.z=gz;let dist=(gx-x0).hypot(gz-z0);if best.is_none_or(|b|dist<b.2)&&fits(&f){best=Some((gx,gz,dist));}gz+=0.25;}gx+=0.25;}
+   if let Some((bx,bz,_))=best{f.x=bx;f.z=bz;ok=true;}}
+  if ok{placed.push(f);}
+ }
+ fs.retain(|o|!placed.iter().any(|p|(p.room_id==o.room_id&&role(&p.kind)==role(&o.kind))||(!BUILT_IN.contains(&o.kind.as_str())&&edit::overlap(bounds(p),bounds(o)))));
+ fs.extend(placed);
 }

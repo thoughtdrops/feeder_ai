@@ -12,8 +12,11 @@ struct Placement { x: f64, z: f64, left: bool, entry: Option<f64> }
 
 /// A garage at (x, z) must not overlap an L or U wing that reaches past the side wall.
 fn clear_of_wings(c: &Config, x: f64, z: f64) -> bool {
-    crate::wings::rects(c).iter().all(|g| x + frontage(c) <= g.x + 1e-6 || x >= g.x + g.w - 1e-6 || z + SIZE <= g.z + 1e-6 || z >= g.z + g.d - 1e-6)
+    crate::wings::all(c).iter().all(|g| x + frontage(c) <= g.x + 1e-6 || x >= g.x + g.w - 1e-6 || z + SIZE <= g.z + 1e-6 || z >= g.z + g.d - 1e-6)
 }
+
+/// The attached garage's footprint [x0, z0, x1, z1], if there is one.
+pub fn footprint(c:&Config,rooms:&[Room])->Option<[f64;4]>{if c.garage!="Attached"{return None}let p=placement(c,rooms);Some([p.x,p.z,p.x+frontage(c),p.z+SIZE])}
 
 fn placement(c: &Config, rooms: &[Room]) -> Placement {
     if c.garage != "Attached" {

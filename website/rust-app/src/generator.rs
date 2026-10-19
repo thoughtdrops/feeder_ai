@@ -116,6 +116,7 @@ fn generate_once(current: &Config, mode: &str, seed: u32, keep_size: bool, grow:
     }
     // A low-slope style can't carry the visitor's steep-roof covering; fall back to the style's own roofing.
     if c.roofing != "Style matched" && c.pitch + 1e-9 < roofing::min_pitch(roofing::kind(&c)) { c.roofing = "Style matched".into(); }
+    c.bump_outs=if mode=="Blank slate"{"None"}else{"Style matched"}.into();
     if mode=="Premium"{c.shape=["L-shape","T-shape","U-shape","Rectangle"][random.pick(4)].into();c.wing_width=14.+2.*random.pick(4)as f64;c.wing_depth=16.+2.*random.pick(4)as f64;}else{c.shape="Rectangle".into();}
     validate(&c)?;
     c.layout=heritage::plan_name(&c.home_style);
@@ -129,6 +130,7 @@ pub fn starter() -> Config {
     for(key,src)in[("siding","siding"),("roof","roof"),("trim","exteriorTrim")]{c.colors.insert(key.into(),s(&home,src).into());}
     finishes::architecture_defaults(&mut c);c.stories=heritage::default_stories(&c.home_style);c.bedrooms=heritage::default_bedrooms(&c.home_style);
     architecture::apply(&mut c,true);c.garage="Attached".into();c.garage_side="Automatic".into();
+    c.bump_outs="Style matched".into();
     if validate(&c).is_ok(){c}else{Config::default()}
 }
 
@@ -171,6 +173,8 @@ pub fn surprise(current:&Config, seed:u32, keep_size:bool) -> Result<Config,Stri
         // Wide premium homes come with a third garage bay.
         c.garage_size=if mode=="Premium"&&c.width>=40.{"Three-car"}else{"Two-car"}.into();
         c.layout=heritage::plan_name(&c.home_style);
+        // Most homes get walls that pop out; one in five stays a plain box.
+        c.bump_outs=if r.pick(5)==0{"None"}else{"Style matched"}.into();
         // Shapes: about half the homes stay rectangles, the rest get L, T or U additions in 2-ft steps.
         c.shape=["Rectangle","Rectangle","L-shape","T-shape","U-shape","Rectangle"][r.pick(6)].into();c.wing_width=12.+2.*r.pick(5)as f64;c.wing_depth=14.+2.*r.pick(5)as f64;
         match validate(&c){Err(e)=>{last=e;continue}Ok(())=>{}}

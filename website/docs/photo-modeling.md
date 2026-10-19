@@ -29,6 +29,13 @@ The engine then builds the home:
   - Baths, bedrooms and kitchens keep a workable minimum size.
   - The stair is the same 8 × 16 ft stair on every floor.
   - Rooms behind the main block become an L, T or U wing; garages, porches and decks are not rooms.
+  - Where first-floor walls step out past the main block (a bay, a bump-out, a projecting room), the
+    house gets a one-story bump-out there, up to 8 ft deep, opening into the room behind it. It has
+    its own roof (shed, gable or hip). A bump-out is skipped where it would cover a door, the
+    porch, the garage or the rear deck.
+  - Furniture drawn on the plan (beds, sofas, tables, toilets, tubs, islands and more) is placed
+    where the plan shows it, nudged only as far as needed to clear walls and doors. Each room then
+    gets the rest of the pieces its type calls for.
   - Doors follow the studio's usual room rules, and each room is furnished by its type: beds in
     bedrooms, toilets and vanities in baths, sofas in living rooms.
   - Changing the width or depth later scales the traced rooms. Changing the style or generating a
@@ -95,7 +102,10 @@ No server setup is needed for this path.
 ## Listing links
 
 Many listing and broker sites can be read this way. Zillow, Redfin and Realtor.com usually block
-automated readers. Zillow's terms of use also forbid automated access to its listings. When a site
+automated readers. When the page is blocked, the reader searches the web for the address in the link
+(another public listing or the county's property records) to get the living area, beds, baths and
+stories, and the dialog says where the square footage came from. The living area sizes the house
+whenever there is no floor plan. Zillow's terms of use also forbid automated access to its listings. When a site
 blocks the reader, the dialog says so. The fastest fallback is to save the listing's photos and
 floor-plan image and drop them into the dialog.
 
@@ -116,6 +126,6 @@ output tokens), a build usually costs a few US cents to around ten cents.
   - With a floor plan, sizes come from its written dimensions, to the nearest 2 ft.
   - Without one, sizes are estimated from the listing's living area, or from doors, stories and
     garage doors in the photos.
-  - Curved walls, angled rooms and front bump-outs are simplified to the rectangles and rear wings
-    the studio builds.
+  - Curved walls and angled rooms are simplified to the rectangles, wings and bump-outs the studio
+    builds.
 - An engineer and the local building department still review every plan.

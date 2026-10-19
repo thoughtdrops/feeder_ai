@@ -19,6 +19,8 @@ fn choice_fields()->Vec<(&'static str,Vec<&'static str>)>{
         ("rearOutdoor",vec!["Style matched","None","Deck","Covered porch"]),
         ("balcony",vec!["Style matched","None","Rear balcony"]),
         ("garage",vec!["None","Attached","Detached"]),
+        ("stairStyle",stairs::STYLES.to_vec()),
+        ("bumpOuts",bumps::CHOICES.to_vec()),
         ("garageSize",vec!["Two-car","Three-car"]),
         ("garageSide",vec!["Automatic","Left","Right"]),
         ("windowStyle",vec!["Style matched","Double hung","Casement","Picture"]),
@@ -149,7 +151,9 @@ const OUTSIDE:[&str;5]=["garage","porch","deck","patio","balcony"];
 /// bedroom count, the stair in the same place on every floor, and rear wings for L, T and U plans.
 fn traced(plan:&Value,c:&mut Config,notes:&mut Vec<String>)->bool{
  let Some(floors)=plan["floors"].as_array()else{return false};
- let raw_floors:Vec<Vec<traced::Raw>>=floors.iter().take(3).map(|f|f["rooms"].as_array().map(|rs|rs.iter().filter_map(|r|{
+ // Floors that list rooms, in order; their furniture travels with them.
+ let floors:Vec<&Value>=floors.iter().take(3).filter(|f|f["rooms"].as_array().is_some_and(|r|!r.is_empty())).collect();
+ let raw_floors:Vec<Vec<traced::Raw>>=floors.iter().map(|f|f["rooms"].as_array().map(|rs|rs.iter().filter_map(|r|{
   let t=r["type"].as_str()?;if OUTSIDE.contains(&t){return None}let(kind,default)=room_kind(t)?;
   let[x,z,w,d]=["x","z","w","d"].map(|k|r[k].as_f64().unwrap_or(f64::NAN));if ![x,z,w,d].iter().all(|v|v.is_finite())||w<=0.||d<=0.{return None}
   let name:String=r["name"].as_str().map(|n|n.chars().filter(|ch|!ch.is_control()).take(40).collect::<String>()).filter(|n|!n.trim().is_empty()).unwrap_or(default.into());
@@ -161,6 +165,9 @@ fn traced(plan:&Value,c:&mut Config,notes:&mut Vec<String>)->bool{
  let stories=raw_floors.len().clamp(1,3);
  let mut w=grid(size("mainWidthFt",extent(&raw_floors[0],true))).clamp(16.,100.);let d=grid(size("mainDepthFt",extent(&raw_floors[0],false))).clamp(16.,100.);
  if stories>=2&&w<24.{notes.push("Two-story homes here start at 24 ft wide, so the plan is widened to 24 ft.".into());w=24.;}
+ // Where first-floor rooms step out past the main block, the walls pop out: bump-outs up to 8 ft deep.
+ let bumps=plan_bumps(&raw_floors[0],w,d);
+ if !bumps.is_empty(){c.bump_outs="Style matched".into();notes.push(format!("{} bump-out{} built where the plan's walls step out.",bumps.len(),if bumps.len()==1{""}else{"s"}));}
  // Rooms past the rear wall form wings on the first floor; everything else stays inside the main block.
  let mut wing_rooms=vec![];let mut floors_raw=vec![];
  for(i,f)in raw_floors.into_iter().enumerate(){let mut keep=vec![];for r in f{if i==0&&r.z+r.d/2.>d+1.&&r.kind!="stairs"{wing_rooms.push(r);continue}
@@ -188,7 +195,41 @@ fn traced(plan:&Value,c:&mut Config,notes:&mut Vec<String>)->bool{
  let bedrooms=floors_tiled.iter().flatten().chain(wings_out.iter().flat_map(|g|g.rooms.iter())).filter(|r|r.kind=="bedroom").count();
  let rooms=floors_tiled.iter().map(Vec::len).sum::<usize>()+wings_out.iter().map(|g|g.rooms.len()).sum::<usize>();
  c.width=w;c.depth=d;c.stories=stories;c.active_floor=0;c.bedrooms=bedrooms.min(6);c.catalog_plan=false;c.design_mode="Custom".into();
- c.traced_plan=Some(traced::TracedPlan{width:w,depth:d,floors:floors_tiled,wings:wings_out});
+ let furniture:Vec<Vec<staging::Furniture>>=floors.iter().take(floors_tiled.len()).map(|f|plan_furniture(f,w,d)).collect();
+ let pieces=furniture.iter().map(Vec::len).sum::<usize>();if pieces>0{notes.push(format!("{} pieces of furniture placed where the plan shows them.",pieces));}
+ c.traced_plan=Some(traced::TracedPlan{width:w,depth:d,floors:floors_tiled,wings:wings_out,furniture,bumps});
  notes.push(format!("{} rooms traced to the nearest 2 ft; their walls, doors and furniture follow the plan.",rooms));
  true
+}
+
+/// Furniture and fixtures drawn on a plan floor, as engine pieces centred where they were drawn.
+/// `backToward` names the side of the house the piece's back (headboard, sofa back, toilet tank) faces.
+fn plan_furniture(floor:&Value,w:f64,d:f64)->Vec<staging::Furniture>{
+ floor["furniture"].as_array().map(|items|items.iter().take(96).enumerate().filter_map(|(i,f)|{
+  let[x,z,fw,fd]=["x","z","w","d"].map(|k|f[k].as_f64().unwrap_or(f64::NAN));if ![x,z,fw,fd].iter().all(|v|v.is_finite())||fw<=0.||fd<=0.{return None}
+  let(cx,cz)=(x+fw/2.,z+fd/2.);if !(0.0..=w).contains(&cx)||!(0.0..=d).contains(&cz){return None}
+  let kind=match f["type"].as_str()?{"bed"=>if fw.min(fd)>=6.2{"king-bed"}else{"bed"},"twin bed"=>"twin-bed","crib"=>"crib","sofa"=>"sofa","sectional"=>"sectional","armchair"=>"armchair","coffee table"=>"coffee",
+   "dining table"=>"dining","desk"=>"desk","dresser"=>"dresser","nightstand"=>"nightstand","wardrobe"=>"wardrobe","tv console"=>"console","toilet"=>"toilet","sink"=>"vanity","double sink"=>"double-vanity",
+   "shower"=>"shower","bathtub"=>"bathtub","washer dryer"=>"laundry","kitchen island"=>"island","bookcase"=>"bookcase",_=>return None};
+  let mut rotation=match f["backToward"].as_str().unwrap_or("front"){"right"=>std::f64::consts::FRAC_PI_2,"back"=>std::f64::consts::PI,"left"=>3.*std::f64::consts::FRAC_PI_2,_=>0.};
+  let(lw,ld)=edit::item_dimensions(kind);
+  // The drawn rectangle's long side wins over a facing that would turn the piece across it.
+  if (lw-ld).abs()>0.5&&(fw-fd).abs()>0.5{let turned=(rotation/std::f64::consts::FRAC_PI_2).round()as i32%2==1;let long_x=(lw>ld)!=turned;if long_x!=(fw>fd){rotation=if fw>fd{if lw>ld{0.}else{std::f64::consts::FRAC_PI_2}}else if lw>ld{3.*std::f64::consts::FRAC_PI_2}else{0.};}}
+  Some(staging::Furniture{id:format!("tf{}",i),kind:kind.into(),room_id:"plan".into(),x:cx,z:cz,w:lw,d:ld,rotation,local_width:lw,local_depth:ld})
+ }).collect()).unwrap_or_default()
+}
+
+/// Bump-outs from the parts of first-floor rooms that reach past the main block: front, sides, and rear where
+/// the room still sits mostly inside the house (deeper rear rooms are a wing). Steps on the same wall merge.
+fn plan_bumps(rooms:&[traced::Raw],w:f64,d:f64)->Vec<traced::TracedBump>{
+ let mut out:Vec<traced::TracedBump>=vec![];
+ for r in rooms.iter().filter(|r|r.kind!="stairs"){
+  let rear_wing=r.z+r.d/2.>d+1.;
+  for(side,depth,a,b)in[("front",-r.z,r.x,r.x+r.w),("left",-r.x,r.z,r.z+r.d),("right",r.x+r.w-w,r.z,r.z+r.d),("rear",if rear_wing{0.}else{r.z+r.d-d},r.x,r.x+r.w)]{
+   if !(1.5..=8.).contains(&depth){continue}let len=if ["front","rear"].contains(&side){w}else{d};let(a,b)=(a.max(0.),b.min(len));if b-a<4.{continue}
+   if let Some(o)=out.iter_mut().find(|o|o.side==side&&o.at<b+0.5&&o.at+o.width>a-0.5){let(lo,hi)=(o.at.min(a),(o.at+o.width).max(b));o.at=lo;o.width=hi-lo;o.depth=o.depth.max(depth);}
+   else{out.push(traced::TracedBump{side:side.into(),at:a,width:b-a,depth});}
+  }
+ }
+ out.truncate(8);out
 }
