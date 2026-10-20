@@ -326,3 +326,4 @@ html.account-modal-open,html.account-modal-open body{overflow:hidden}
 .place-chooser{display:inline-flex;align-items:center;gap:.4rem;flex-wrap:wrap}
 .place-chooser .field{flex-direction:row;align-items:center;gap:.35rem;font-size:.75rem;margin:0;width:auto}
 .place-chooser select{max-width:160px}.place-chooser input{width:62px}
+.trim-wood-preview.painted{background-image:none!important;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}

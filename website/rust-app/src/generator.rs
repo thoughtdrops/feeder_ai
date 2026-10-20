@@ -64,7 +64,7 @@ fn generate_once(current: &Config, mode: &str, seed: u32, keep_size: bool, grow:
     architecture::reset_edits(&mut c);
     additions::character::match_style(&mut c);crate::interior_design::match_style(&mut c);
     let mut random = Random(seed);
-    if mode == "Blank slate" { validate(&c)?; return Ok(c); }
+    if mode == "Blank slate" { basic(&mut c); validate(&c)?; return Ok(c); }
     if !["Affordable","Premium"].contains(&mode) { return Err("Choose Affordable or Premium.".into()); }
     if mode == "Affordable" {
         if !keep_size {
@@ -123,6 +123,24 @@ fn generate_once(current: &Config, mode: &str, seed: u32, keep_size: bool, grow:
     if practical(&c,&model::build(&c)){Ok(c)}else{Err("These dimensions do not fit the selected source-based room program and fixtures. Increase the footprint or reduce bedrooms, or use Blank slate to create your own layout.".into())}
 }
 
+/// A blank slate starts from a plain house, not the previous design: a simple gable-roofed shell in light
+/// cladding with white trim, painted walls and an oak floor, and no garage, porch, deck, balcony, dormers,
+/// wings or bump-outs. Its size, location, prices and project costs stay as they were.
+fn basic(c:&mut Config){
+    let keep=c.clone();
+    *c=Config::default();
+    for(field,value)in[(&mut c.zip,&keep.zip),(&mut c.county,&keep.county),(&mut c.state,&keep.state),(&mut c.jurisdiction,&keep.jurisdiction),(&mut c.building_code,&keep.building_code),(&mut c.energy_code,&keep.energy_code),(&mut c.electrical_code,&keep.electrical_code),(&mut c.pricing_mode,&keep.pricing_mode),(&mut c.foundation,&keep.foundation),(&mut c.pier_beam,&keep.pier_beam)]{*field=value.clone();}
+    c.code_confirmed=keep.code_confirmed;c.prices=keep.prices.clone();c.category_budgets=keep.category_budgets.clone();c.bulk_discounts=keep.bulk_discounts.clone();
+    c.labor_cost=keep.labor_cost;c.land_cost=keep.land_cost;c.permit_cost=keep.permit_cost;c.survey_cost=keep.survey_cost;c.tax=keep.tax;c.waste=keep.waste;c.front_bearing=keep.front_bearing;c.pier_depth=keep.pier_depth;
+    c.width=keep.width;c.depth=keep.depth;c.stories=keep.stories;c.wall_height=keep.wall_height;c.seed=keep.seed;
+    c.design_mode="Blank slate".into();c.active_floor=0;c.catalog_plan=true;
+    c.home_style="Ranch".into();let home=lookup("homeStyles",&c.home_style);c.siding=s(&home,"cladding").into();c.trim_package=s(&home,"trim").into();c.pitch=architecture::preset(&c.home_style).2;
+    finishes::architecture_defaults(c);
+    c.wallpaper="None".into();c.bedroom_wallpaper="None".into();c.floor="Natural oak".into();
+    for(key,value)in[("siding","#e8e4da"),("roof","#4a4e52"),("trim","#f6f4ee"),("walls","#f1eee6"),("ceiling","#f7f5f0"),("floor","#ecd5b0"),("doors","#f6f4ee")]{c.colors.insert(key.into(),value.into());}
+    c.garage="None".into();c.front_porch="None".into();c.rear_outdoor="None".into();c.balcony="None".into();c.dormer_style="None".into();c.shape="Rectangle".into();c.bump_outs="None".into();
+}
+
 /// The home a first visit opens on: a two-story Colonial with an attached two-car garage.
 pub fn starter() -> Config {
     let mut c=Config::default();c.home_style="Colonial".into();c.catalog_plan=true;c.trim_overrides.clear();
@@ -131,6 +149,8 @@ pub fn starter() -> Config {
     finishes::architecture_defaults(&mut c);c.stories=heritage::default_stories(&c.home_style);c.bedrooms=heritage::default_bedrooms(&c.home_style);
     architecture::apply(&mut c,true);c.garage="Attached".into();c.garage_side="Automatic".into();
     c.bump_outs="Style matched".into();
+    // A warm oak floor throughout.
+    c.floor="Natural oak".into();c.colors.insert("floor".into(),"#ecd5b0".into());
     if validate(&c).is_ok(){c}else{Config::default()}
 }
 

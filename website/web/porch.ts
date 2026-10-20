@@ -18,7 +18,8 @@ export function addPorch(scene:T.Object3D,m:any,frame:boolean,wood:T.MeshStandar
  }
  for(const j of p.deckJoists)beam(j.a,j.b,.125,7.25/12,'Porch deck joist');
  for(const post of p.posts){
-  const height=post.height-p.deckY,returnPost=post.x<0||post.x>m.w;
+  // In the cut-away interior view the porch stops at the cut height, like the walls; its roof is left off.
+  const height=Math.min(post.height,m.cutView?4.1:Infinity)-p.deckY,returnPost=post.x<0||post.x>m.w;
   if(frame)box(post.x,p.deckY+height/2,post.z,.5,height,.5,wood,'Porch structural column');
   else addColumn(group,p.columnStyle,post.x-m.w/2,p.deckY,post.z-m.d/2,height,returnPost?'z':'x',wood,siding);
   // Plain posts get a plinth and cap; the other styles carry their own base and capital.
@@ -29,7 +30,7 @@ export function addPorch(scene:T.Object3D,m:any,frame:boolean,wood:T.MeshStandar
   const deck=Math.max(...p.rectangles.flatMap((r:any)=>r.deckYs||[p.deckY]).filter((y:number)=>y<rail.a[1]-1));
   addGuard(group,new T.Vector3(rail.a[0]-m.w/2,rail.a[1],rail.a[2]-m.d/2),new T.Vector3(rail.b[0]-m.w/2,rail.b[1],rail.b[2]-m.d/2),deck+.25,rail.balusters,style,wood,'Porch');
  }}
- for(const r of p.roofs){
+ for(const r of m.cutView?[]:p.roofs){
   const roofGroup=new T.Group();roofGroup.position.set(r.x+r.w/2-m.w/2,0,r.z+r.d/2-m.d/2);roofGroup.name='Porch roof';group.add(roofGroup);
   const local={...r,roof:r.roof};
   if(!frame){addRoof(roofGroup,local,roof,siding,wood);roofGroup.traverse(object=>{if(object.name.startsWith('Roof '))object.name='Porch '+object.name;});}

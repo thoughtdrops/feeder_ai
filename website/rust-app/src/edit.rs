@@ -86,10 +86,14 @@ fn item_error_with_zones(f:&staging::Furniture,c:&Config,ws:&[Wall],others:&[sta
  let bounds=[f.x-f.w/2.,f.z-f.d/2.,f.x+f.w/2.,f.z+f.d/2.];
  if bounds[0]<0.28||bounds[1]<0.28||bounds[2]>c.width-0.28||bounds[3]>c.depth-0.28{return Some("The whole item must fit inside the house. Click farther from the outside edge.".into())}
  if f.kind=="stairs"{if let Some(error)=stairs::placement_error(f,c,ws,others){return Some(error)}}else if let Some(error)=accessibility::item_error(f,zones){return Some(error)}
- if !clear_of_walls(f,ws){return Some("Keep the item clear of walls and door maneuvering space.".into())}
- if f.kind!="rug"{if let Some(o)=others.iter().filter(|o|o.id!=f.id&&o.kind!="rug").find(|o|intersects(corners(f,0.),corners(o,0.05))){return Some(format!("This position overlaps a {}. Move outside its footprint.",o.kind))}}
+ if !clear_of_walls(f,ws){return Some(if hits_wall(f,ws){"This would run into a wall. Move it away from the wall or make it smaller.".into()}else{"Keep the doorway clear: leave walking room in front of the door or passage.".into()})}
+ // A sectional wraps around its coffee table, so those two may share a footprint.
+ let pair=|a:&str,b:&str|(a=="coffee"&&b=="sectional")||(a=="sectional"&&b=="coffee");
+ if f.kind!="rug"{if let Some(o)=others.iter().filter(|o|o.id!=f.id&&o.kind!="rug"&&!pair(&f.kind,&o.kind)).find(|o|intersects(corners(f,0.),corners(o,0.05))){return Some(format!("This position overlaps a {}. Move outside its footprint.",o.kind))}}
  None
 }
+/// Whether the item crosses a wall itself (not just a doorway's clear space).
+fn hits_wall(f:&staging::Furniture,ws:&[Wall])->bool{ws.iter().any(|wall|{let axis=wall.axis=="x";let mut start=0.;let mut openings=wall.openings.clone();openings.sort_by(|a,b|a.at.total_cmp(&b.at));openings.iter().filter(|o|o.kind!="window").map(|o|(o.at,o.width)).chain(std::iter::once((wall.length,0.))).any(|o|{let a=if axis{[wall.x+start,wall.z-0.28,wall.x+o.0,wall.z+0.28]}else{[wall.x-0.28,wall.z+start,wall.x+0.28,wall.z+o.0]};start=o.0+o.1;item_intersects_rect(f,a)})})}
 pub fn clear_of_walls(f:&staging::Furniture,ws:&[Wall])->bool{
  for wall in ws{let axis=wall.axis=="x";let mut start=0.;let mut openings=wall.openings.clone();openings.sort_by(|a,b|a.at.total_cmp(&b.at));for o in openings.iter().filter(|o|o.kind!="window").map(|o|(o.at,o.width)).chain(std::iter::once((wall.length,0.))){let a=if axis{[wall.x+start,wall.z-0.28,wall.x+o.0,wall.z+0.28]}else{[wall.x-0.28,wall.z+start,wall.x+0.28,wall.z+o.0]};if item_intersects_rect(f,a){return false}start=o.0+o.1;}
   if f.kind!="rug"{for o in openings.iter().filter(|o|o.kind!="window"){let mut areas=vec![];if o.kind=="door"{let at=if axis{wall.x+o.at}else{wall.z+o.at};areas.push(if axis{[at,wall.z+0.28,at+o.width+1.5,wall.z+5.]}else{[wall.x+0.28,at,wall.x+5.,at+o.width+1.5]});areas.push(if axis{[at,wall.z-4.,at+o.width+1.,wall.z-0.28]}else{[wall.x-4.,at,wall.x-0.28,at+o.width+1.]});}else{areas.push(if axis{[wall.x+o.at-0.2,wall.z-3.,wall.x+o.at+o.width+0.2,wall.z+3.]}else{[wall.x-3.,wall.z+o.at-0.2,wall.x+3.,wall.z+o.at+o.width+0.2]});}if areas.iter().any(|a|item_intersects_rect(f,*a)){return false}}}
@@ -99,11 +103,14 @@ pub fn overlap(a:[f64;4],b:[f64;4])->bool{a[0]<b[2]-0.001&&a[2]>b[0]+0.001&&a[1]
 pub fn snap_item(mut f:staging::Furniture,c:&Config,ws:&[Wall],others:&[staging::Furniture])->(staging::Furniture,bool,Option<String>){
  if ![f.x,f.z,f.rotation,f.local_width,f.local_depth].iter().all(|v|v.is_finite())||f.local_width<0.3||f.local_depth<0.3{return(f,false,Some("Enter valid item dimensions, position and rotation.".into()))}
  let rotation=f.rotation;rotate_item(&mut f,rotation);let requested=(f.x,f.z);let(rs,_)=layout(c);let zones=accessibility::zones(c,&rs);
- let error=item_error_with_zones(&f,c,ws,others,&zones);if error.is_none(){let grid=if f.kind=="stairs"{0.5}else{4.};f.x=(f.x*grid).round()/grid;f.z=(f.z*grid).round()/grid;if item_error_with_zones(&f,c,ws,others,&zones).is_none(){return(f.clone(),(f.x-requested.0).abs()+(f.z-requested.1).abs()>0.03,None)}}
+ let error=item_error_with_zones(&f,c,ws,others,&zones);if error.is_none(){let exact=f.clone();let grid=if f.kind=="stairs"{0.5}else{4.};f.x=(f.x*grid).round()/grid;f.z=(f.z*grid).round()/grid;if item_error_with_zones(&f,c,ws,others,&zones).is_none(){return(f.clone(),(f.x-requested.0).abs()+(f.z-requested.1).abs()>0.03,None)}
+  // The exact spot works even if its rounded neighbor doesn't: keep it rather than jumping somewhere else.
+  return(exact,false,None)}
  let origin=(requested.0.clamp(0.31+f.w/2.,(c.width-0.31-f.w/2.).max(0.31+f.w/2.)),requested.1.clamp(0.31+f.d/2.,(c.depth-0.31-f.d/2.).max(0.31+f.d/2.)));
  let radius=if f.kind=="stairs"{4.5}else{2.75};let spacing=if f.kind=="stairs"{2.}else{0.25};let cells=if f.kind=="stairs"{2}else{10};
  let mut candidates=vec![if f.kind=="stairs"{((origin.0/2.).round()*2.,(origin.1/2.).round()*2.)}else{origin}];for ix in -cells..=cells{for iz in -cells..=cells{if (ix as f64).hypot(iz as f64)*spacing<=radius{candidates.push(((origin.0/spacing).round()*spacing+ix as f64*spacing,(origin.1/spacing).round()*spacing+iz as f64*spacing));}}}
- for w in ws{let shift=if w.axis=="x"{f.d/2.+0.31}else{f.w/2.+0.31};for sign in [-1.,1.]{candidates.push(if w.axis=="x"{(origin.0,w.z+sign*shift)}else{(w.x+sign*shift,origin.1)});}}
+ // Beside each wall, flush for furniture; stairs keep walking room (3 ft) between them and the wall.
+ for w in ws{let room=if f.kind=="stairs"{3.}else{0.31};let shift=if w.axis=="x"{f.d/2.+room}else{f.w/2.+room};for sign in [-1.,1.]{candidates.push(if w.axis=="x"{(origin.0,w.z+sign*shift)}else{(w.x+sign*shift,origin.1)});}}
  if f.kind=="stairs"{for p in &mut candidates{p.0=(p.0/2.).round()*2.;p.1=(p.1/2.).round()*2.;}}
  candidates.retain(|(x,z)|(x-origin.0).hypot(z-origin.1)<=radius);candidates.sort_by(|a,b|((a.0-requested.0).powi(2)+(a.1-requested.1).powi(2)).total_cmp(&((b.0-requested.0).powi(2)+(b.1-requested.1).powi(2))));
  for(x,z)in candidates{f.x=x;f.z=z;if item_error_with_zones(&f,c,ws,others,&zones).is_none(){return(f,true,None)}}
