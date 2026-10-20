@@ -27,6 +27,8 @@ const startup=structuredClone(lastScene);
 assert.deepEqual(lastScene.config,JSON.parse(app.defaults()),'The first scene uses the Rust startup house');
 const startCfg=lastScene.config;assert.equal(startCfg.homeStyle,'Colonial');assert.match(startCfg.layout,/^Catalog · /);assert.equal(startCfg.trimPackage,'Colonial ogee');console.log('START',startCfg.layout,startCfg.wallpaper,startCfg.bedroomWallpaper,startCfg.pitch,lastScene.model.homeStyle.feature,lastScene.model.w,lastScene.model.d);
 assert.equal(startCfg.pitch,9,'the Colonial opens at its 9:12 pitch');assert.equal(lastScene.model.homeStyle.feature,'pediment');assert.equal(lastScene.model.trimPackage.name,'Colonial ogee');
+// The editing checks below were written for a plain box; bump-outs get their own checks at the end.
+assert.ok(lastScene.model.wings.some(g=>g.bump),'the first home opens with a bump-out');change('[data-field="bumpOuts"]','None');assert.ok(!lastScene.model.wings.some(g=>g.bump));
 assert.ok(lastScene.model.rooms.some(r=>r.type==='hall'));
 assert.ok(lastScene.model.wallFaces.every(f=>f.wallpaper===(f.group==='bedroom'?startCfg.bedroomWallpaper:startCfg.wallpaper)));
 // The layout menu follows the requested order, with history collapsed at the end.
@@ -291,3 +293,18 @@ assert.equal(edited.model.budgetOverrideCount,1);assert.equal(edited.model.proje
 click('[data-action="budget-reset"][data-value="Roof features"]');edited=snapshot();assert.equal(edited.model.budgetOverrideCount,0);assert.equal(edited.model.materialsBudgetTotal,edited.model.total);
 safariTap('[data-action="pricing-mode"][data-value="Wholesale estimate"]');edited=snapshot();assert.equal(edited.config.pricingMode,'Wholesale estimate');assert.ok(edited.model.volumeSavings>0);change('[data-discount="Roof features"]',20);edited=snapshot();assert.equal(edited.config.bulkDiscounts['Roof features'],20);safariTap('[data-action="pricing-mode"][data-value="Retail"]');edited=snapshot();assert.equal(edited.model.volumeSavings,0);
 assert.equal(document.querySelector('[data-field="facing"]'),null);assert.deepEqual(errors,[]);console.log('PASS: modular dormers, roof molding/panels/spires, rear deck sizes, window types/sizes, preserved dropdowns, category budget/reset, separate cost totals and retail/bulk discounts.');
+// Bump-outs: a chosen side appears on any house, every one is 8 ft wide at the chosen depth, and a wall's
+// edit menu adds a bump-out or a dormer at the clicked spot and removes a bump-out.
+{document.querySelector('[data-action="edit-cancel"]')?.click();modeTap('[data-action="generate-affordable"]');assert.notEqual(snapshot().config.designMode,'Blank slate');
+ document.querySelector('[data-floor="0"]')?.click();click('[data-tab="layout"]');
+ const bumpsOf=()=>(snapshot().model.levels?.[0]?.wings||snapshot().model.wings||[]).filter(g=>g.bump);
+ for(const [choice,side] of [['Front','front'],['Rear','rear']]){change('[data-field="bumpOuts"]',choice);const bs=bumpsOf();assert.ok(bs.some(g=>g.side===side),`${choice} bump-outs appear: ${JSON.stringify(bs.map(g=>g.side))}`);for(const g of bs)assert.equal(['front','rear'].includes(g.side)?g.w:g.d,8,'every bump-out is 8 ft wide');}
+ change('[data-field="bumpDepth"]',6);assert.equal(snapshot().config.bumpDepth,6);for(const g of bumpsOf())assert.equal(['front','rear'].includes(g.side)?g.d:g.w,6,'bump-outs project the chosen 6 ft');
+ change('[data-field="bumpOuts"]','None');assert.equal(bumpsOf().length,0);
+ click('[data-view="dollhouse"]');const width=snapshot().config.width;let added=false;
+ for(let at=6;at<width-6&&!added;at+=2){pick({kind:'wall',wallId:'E1',at});assert.match(document.querySelector('.context-menu').textContent,/Add a bump-out or dormer here/);change('#edit-bump-depth',4);click('[data-action="edit-add-bump"]');added=/Bump-out added/.test(q('#message').textContent);}
+ assert.ok(added,'a click on the front wall adds a bump-out');const custom=snapshot().config.customBumps;assert.equal(custom.length,1);assert.equal(custom[0].side,'front');assert.equal(custom[0].depth,4);
+ const bump=bumpsOf()[0];assert.equal(bump.side,'front');const front=snapshot().model.walls.find(w=>w.id===`XF-${bump.id}`);assert.ok(front,'the bump-out has its own front wall');
+ pick({kind:'wall',wallId:front.id,at:2});assert.match(document.querySelector('.context-menu').textContent,/Remove this bump-out/);click('[data-action="edit-remove-bump"]');assert.equal(bumpsOf().length,0);assert.equal(snapshot().config.customBumps.length,0);
+ pick({kind:'wall',wallId:'E1',at:width/2});click('[data-action="edit-add-dormer"]');assert.match(q('#message').textContent,/Dormer added|doesn't fit/);
+ assert.deepEqual(errors,[]);console.log('PASS: front/rear bump-outs on demand, 8 ft wide at the chosen depth, wall menu adds and removes bump-outs and adds dormers.');}
