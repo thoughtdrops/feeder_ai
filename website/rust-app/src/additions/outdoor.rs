@@ -9,8 +9,8 @@ pub fn kind(c:&Config)->&str{
 
 pub fn apply(c:&Config,m:&mut Value,t:&mut model::Takeoff){
     let kind=kind(c);if kind=="None"{m["rearOutdoor"]=Value::Null;return}
-    // L, T and U homes: the deck goes on the widest stretch of rear wall that no addition covers.
-    let mut spans=vec![(0.,c.width)];for g in crate::wings::rects(c){spans=spans.into_iter().flat_map(|(a,b):(f64,f64)|{let mut out=vec![];if g.x>a{out.push((a,g.x.min(b)))}if g.x+g.w<b{out.push(((g.x+g.w).max(a),b))}out}).filter(|(a,b)|b-a>0.01).collect();}
+    // L, T and U homes and rear bump-outs: the deck goes on the widest stretch of rear wall that none covers.
+    let mut spans=vec![(0.,c.width)];for g in crate::wings::all(c).into_iter().filter(|g|g.z+g.d>c.depth+1e-6){spans=spans.into_iter().flat_map(|(a,b):(f64,f64)|{let mut out=vec![];if g.x>a{out.push((a,g.x.min(b)))}if g.x+g.w<b{out.push(((g.x+g.w).max(a),b))}out}).filter(|(a,b)|b-a>0.01).collect();}
     let Some((lo,hi))=spans.into_iter().max_by(|a,b|(a.1-a.0).total_cmp(&(b.1-b.0)))else{m["rearOutdoor"]=Value::Null;return};if hi-lo<6.{m["rearOutdoor"]=Value::Null;return}
     let w=grid(c.rear_width.min(hi-lo)).max(4.);let d=c.rear_depth;let ground=if c.stories>=2{&m["levels"][0]}else{&*m};let center=ground["walls"].as_array().unwrap().iter().filter(|wall|s(wall,"axis")=="x"&&near(n(wall,"z"),c.depth)).flat_map(|wall|wall["openings"].as_array().unwrap()).filter(|o|s(o,"kind")=="door").map(|o|n(o,"at")+n(o,"width")/2.).find(|mid|*mid>lo&&*mid<hi).unwrap_or((lo+hi)/2.);let x=grid(center-w/2.).clamp(lo,(hi-w).max(lo));let z=c.depth;let deck_y=0.2;
     let count=(w/(16./12.)).ceil()as usize;let joists:Vec<_>=(0..=count).map(|i|json!({"a":[x+w*i as f64/count as f64,deck_y-0.33,z],"b":[x+w*i as f64/count as f64,deck_y-0.33,z+d],"length":d,"stockLength":(d/2.).ceil()*2.})).collect();
@@ -20,7 +20,7 @@ pub fn apply(c:&Config,m:&mut Value,t:&mut model::Takeoff){
     let mut rail=|a:[f64;3],b:[f64;3]|{let length=((a[0]-b[0]).powi(2)+(a[2]-b[2]).powi(2)).sqrt();if length>0.05{rails.push(json!({"a":a,"b":b,"length":length,"balusters":(length/(4./12.)).ceil().max(2.)as usize-1}));}};
     rail([x,3.2,z],[x,3.2,z+d]);rail([x+w,3.2,z],[x+w,3.2,z+d]);rail([x,3.2,z+d],[step_x,3.2,z+d]);rail([step_x+step_w,3.2,z+d],[x+w,3.2,z+d]);
     let mut roofs=vec![];
-    if kind=="Covered porch"{let mut pc=c.clone();pc.width=w;pc.depth=d;pc.wall_height=c.wall_height-0.4;pc.pitch=3.;pc.home_style="Coastal".into();pc.stories=1;pc.active_floor=0;let roof=roof::build_with_overhang(&pc,0.25);roofs.push(json!({"x":x,"z":z,"w":w,"d":d,"h":pc.wall_height,"roof":roof}));}
+    if kind=="Covered porch"{let mut pc=c.clone();pc.width=w;pc.depth=d;pc.wall_height=c.wall_height-0.4;pc.pitch=3.;pc.home_style="Coastal".into();pc.stories=1;pc.active_floor=0;let roof=crate::porch::shed(c,"rear",w,d,pc.wall_height,c.stories==1);roofs.push(json!({"x":x,"z":z,"w":w,"d":d,"h":pc.wall_height,"roof":roof}));}
     let roof_area:f64=roofs.iter().map(|r|n(&r["roof"],"area")).sum();let rail_lf:f64=rails.iter().map(|r|n(r,"length")).sum();let balusters:f64=rails.iter().map(|r|n(r,"balusters")).sum();let rafters:Vec<_>=roofs.iter().flat_map(|r|r["roof"]["rafters"].as_array().unwrap()).collect();
     let roof_edge:f64=roofs.iter().flat_map(|r|r["roof"]["edges"].as_array().unwrap()).filter(|e|["eave","rake"].contains(&s(e,"kind"))).map(|e|n(e,"length")).sum();
     let ground=if c.stories>=2{&m["levels"][0]}else{&*m};let doors:Vec<_>=ground["walls"].as_array().unwrap().iter().filter(|wall|s(wall,"axis")=="x"&&near(n(wall,"z"),c.depth)).flat_map(|wall|wall["openings"].as_array().unwrap()).filter(|o|s(o,"kind")=="door"&&n(o,"at")>=x&&n(o,"at")+n(o,"width")<=x+w).collect();

@@ -8,6 +8,19 @@ use std::cell::{Cell,RefCell};
 // Bump-outs ride the wing machinery (rooms, walls, floor, roof, piers and pricing); see `wings::all`.
 pub const CHOICES:[&str;6]=["None","Style matched","Front","Sides","Rear","All around"];
 pub const SIDES:[&str;4]=["front","rear","left","right"];
+/// How far a bump-out projects: 0 lets the house style decide.
+pub const DEPTHS:[f64;5]=[0.,2.,4.,6.,8.];
+/// Every bump-out is 8 ft wide along the wall.
+pub const WIDTH:f64=8.;
+/// A bump-out the visitor added by clicking a wall: the wall it pops out of, its center along that wall
+/// (feet from the wall's start) and its depth (0 for the house's bump-out depth).
+#[derive(Clone,Serialize,Deserialize,Debug,Default,PartialEq)]#[serde(rename_all="camelCase",default)]
+pub struct CustomBump{pub side:String,pub at:f64,pub depth:f64}
+pub fn validate(c:&Config)->Result<(),String>{
+ if !DEPTHS.contains(&c.bump_depth){return Err("Choose a bump-out depth of 2, 4, 6 or 8 ft.".into())}
+ if c.custom_bumps.len()>12||!c.custom_bumps.iter().all(|b|SIDES.contains(&b.side.as_str())&&b.at.is_finite()&&(0.0..=100.).contains(&b.at)&&DEPTHS.contains(&b.depth)){return Err("Each added bump-out needs a wall side, a position along the wall and a depth of 2, 4, 6 or 8 ft.".into())}
+ Ok(())
+}
 #[derive(Clone,Debug,PartialEq)]pub struct Bump{
  /// Which house wall it pops out of, and where along that wall (from the wall's start), in feet.
  pub side:&'static str,pub lo:f64,pub hi:f64,pub depth:f64,
@@ -31,7 +44,7 @@ fn world(c:&Config,b:&Bump,u:f64,v:f64)->(f64,f64){match b.side{"front"=>(b.lo+u
 /// The bump-outs this house has. Computed once per design: the choice needs the ground-floor rooms, doors
 /// and porch, and those are built while the bump-outs are left out.
 pub fn list(c:&Config)->Vec<Bump>{
- if c.bump_outs=="None"||c.design_mode=="Blank slate"||c.width<16.||c.depth<16.||BUSY.with(Cell::get){return vec![]}
+ if (c.bump_outs=="None"&&c.custom_bumps.is_empty())||c.design_mode=="Blank slate"||c.width<16.||c.depth<16.||BUSY.with(Cell::get){return vec![]}
  let mut g=c.clone();g.active_floor=0;
  let key={use std::hash::{Hash,Hasher};let mut h=std::collections::hash_map::DefaultHasher::new();serde_json::to_string(&g).unwrap_or_default().hash(&mut h);h.finish()};
  if let Some(v)=MEMO.with(|m|m.borrow().as_ref().filter(|(k,_)|*k==key).map(|(_,v)|v.clone())){return v}
@@ -59,57 +72,78 @@ fn style(c:&Config)->(&'static [&'static str],&'static str,f64,f64){
 fn plan(c:&Config)->Vec<Bump>{
  let(rs,_)=layout(c);let ws=model::walls(c,&rs);
  let porch=porch::design(c,&json!({"walls":ws,"garage":null}));
- // Keep clear of the porch, the attached garage, the rear deck or porch and a balcony's posts.
- let mut blocked:Vec<[f64;4]>=porch["rectangles"].as_array().map(|a|a.iter().map(|r|[n(r,"x"),n(r,"z"),n(r,"x")+n(r,"w"),n(r,"z")+n(r,"d")]).collect()).unwrap_or_default();
- blocked.extend(garage::footprint(c,&rs));
- if let Some(b)=additions::balconies::planned(c){blocked.push(if b.side=="Rear"{[b.x,c.depth,b.x+b.w,c.depth+b.d]}else{[c.width,0.,c.width+b.w,b.d]});}
- if additions::rear_kind(c)!="None"{blocked.push(rear_outdoor(c,&ws));}
- let blocked:Vec<[f64;4]>=blocked.into_iter().map(|r|[r[0]-1.5,r[1]-1.5,r[2]+1.5,r[3]+1.5]).collect();
+ // Always keep clear of the attached garage and a balcony's posts. Style-matched bump-outs also keep clear of
+ // the porch and the rear deck; a side the visitor chose wins, and the porch or deck steps around it instead.
+ let style_matched=c.bump_outs=="Style matched";
+ let mut fixed:Vec<[f64;4]>=garage::footprint(c,&rs).into_iter().collect();
+ if let Some(b)=additions::balconies::planned(c){fixed.push(if b.side=="Rear"{[b.x,c.depth,b.x+b.w,c.depth+b.d]}else{[c.width,0.,c.width+b.w,b.d]});}
+ let mut soft:Vec<[f64;4]>=porch["rectangles"].as_array().map(|a|a.iter().map(|r|[n(r,"x"),n(r,"z"),n(r,"x")+n(r,"w"),n(r,"z")+n(r,"d")]).collect()).unwrap_or_default();
+ if additions::rear_kind(c)!="None"{soft.push(rear_outdoor(c,&ws));}
+ let pad=|r:[f64;4]|[r[0]-1.5,r[1]-1.5,r[2]+1.5,r[3]+1.5];
+ let fixed:Vec<[f64;4]>=fixed.into_iter().map(pad).collect();let soft:Vec<[f64;4]>=soft.into_iter().map(pad).collect();
  let main_roof=roof::build(c);
- let(order,roof,front_depth,side_depth)=style(c);
+ let(order,_,front_depth,side_depth)=style(c);
  let sides:Vec<&'static str>=match c.bump_outs.as_str(){"Front"=>vec!["front"],"Sides"=>vec!["left","right"],"Rear"=>vec!["rear"],"All around"=>vec!["front","left","right","rear"],_=>order.to_vec()};
- let style_matched=c.bump_outs=="Style matched"||c.bump_outs=="None";
- let most=if style_matched{(1+(c.seed%2)as usize+usize::from(c.width>=40.)).min(sides.len())}else{8};
+ let most=if style_matched{(1+(c.seed%2)as usize+usize::from(c.width>=40.)).min(sides.len())}else{12};
  let per_side=if style_matched{1}else{2};
  let rear_free=wings::rects(c).is_empty();
  let mut out:Vec<Bump>=vec![];
+ // Bump-outs added by clicking a wall come first; they need the wall clear of doors and of each other.
+ for cb in &c.custom_bumps{
+  let side=*SIDES.iter().find(|s|**s==cb.side).unwrap();let Some(wall)=ws.iter().find(|w|w.id==host_wall(side))else{continue};let len=grid(wall_length(c,side));
+  let lo=grid(cb.at-WIDTH/2.).clamp(2.,(len-2.-WIDTH).max(2.));let hi=lo+WIDTH;if hi>len-2.+1e-6{continue}
+  let depth=if cb.depth>0.{cb.depth}else if c.bump_depth>0.{c.bump_depth}else{4.};
+  let room=rs.iter().filter(|r|!wings::is_wing(&r.id)&&r.kind!="stairs").find(|r|{let(a,b)=if ["front","rear"].contains(&side){(r.x,r.x+r.w)}else{(r.z,r.z+r.d)};touches(c,r,side)&&(lo+hi)/2.>a&&(lo+hi)/2.<b});
+  let Some(r)=room else{continue};
+  if let Some(b)=fit(c,side,lo,hi,depth,r,wall,&main_roof,&fixed,&out){out.push(b);}
+ }
  // A traced plan's bump-outs come from the plan, scaled to the house (none if the plan has none); a chosen
  // side, or any other house, gets them by the rules here.
- let wanted:Vec<(&'static str,Option<(f64,f64,f64)>)>=match traced::active(c).filter(|_|c.bump_outs=="Style matched"){
+ let wanted:Vec<(&'static str,Option<(f64,f64,f64)>)>=if c.bump_outs=="None"{vec![]}else{match traced::active(c).filter(|_|style_matched){
   Some(t)=>t.bumps.iter().filter_map(|b|{let side=*SIDES.iter().find(|s|**s==b.side)?;let k=if ["front","rear"].contains(&side){c.width/t.width}else{c.depth/t.depth};Some((side,Some((b.at*k,b.width*k,b.depth))))}).collect(),
   None=>sides.iter().flat_map(|s|std::iter::repeat_n((*s,None),per_side)).collect(),
- };
+ }};let custom=out.len();
  for(side,want)in wanted{
-  if out.len()>=most&&want.is_none(){break}
+  if out.len()-custom>=most&&want.is_none(){break}
   if side=="rear"&&!rear_free{continue}
   if want.is_none()&&out.iter().filter(|b|b.side==side).count()>=per_side{continue}
   let Some(wall)=ws.iter().find(|w|w.id==host_wall(side))else{continue};let len=wall_length(c,side);
-  let depth=want.map_or(if side=="front"||side=="rear"{front_depth}else{side_depth},|w|grid(w.2).clamp(2.,6.));
+  let depth=want.map_or(if c.bump_depth>0.{c.bump_depth}else if side=="front"||side=="rear"{front_depth}else{side_depth},|w|grid(w.2).clamp(2.,8.));
   // The rooms along this wall that a bump-out can open from, living spaces first, then bedrooms.
-  let mut hosts:Vec<&Room>=rs.iter().filter(|r|!wings::is_wing(&r.id)&&match side{"front"=>near(r.z,0.),"rear"=>near(r.z+r.d,c.depth),"left"=>near(r.x,0.),_=>near(r.x+r.w,c.width)}&&host_kind(r)).collect();
+  let mut hosts:Vec<&Room>=rs.iter().filter(|r|!wings::is_wing(&r.id)&&touches(c,r,side)&&(host_kind(r)||(!style_matched&&!["stairs","foyer"].contains(&r.kind.as_str())))).collect();
   let span=|r:&Room|if ["front","rear"].contains(&side){(r.x,r.x+r.w)}else{(r.z,r.z+r.d)};
   hosts.sort_by(|a,b|rank(a).total_cmp(&rank(b)).then((span(b).1-span(b).0).total_cmp(&(span(a).1-span(a).0))));
   for r in hosts{
-   let(r0,r1)=span(r);let(min_lo,max_hi)=((r0+2.).max(2.),(r1-2.).min(grid(len)-2.));
+   // 8 ft wide, centered in the room, at least 2 ft from the house corners.
+   let(r0,r1)=span(r);let(min_lo,max_hi)=(if r0<1.{2.}else{r0},if r1>len-1.{grid(len)-2.}else{r1});
    let(lo,hi)=match want{
     Some((at,width,_))=>{let lo=grid(at).max(min_lo);let hi=grid(at+width).min(max_hi);if at+width/2.<r0||at+width/2.>r1{continue}(lo,hi)}
-    None=>{let width=grid((if depth>=4.{10.0_f64}else{8.}).min(max_hi-min_lo));let lo=min_lo+grid(((max_hi-min_lo)-width)/2.).min((max_hi-min_lo-width).max(0.));(lo,lo+width)}
+    None=>{if max_hi-min_lo<WIDTH-1e-6{continue}let lo=min_lo+grid(((max_hi-min_lo)-WIDTH)/2.).min(max_hi-min_lo-WIDTH);(lo,lo+WIDTH)}
    };
-   if hi-lo<(2.*depth).max(6.)-1e-6{continue}
-   if wall.openings.iter().any(|o|o.kind!="window"&&o.at<hi+1.&&o.at+o.width>lo-1.){continue}
+   if hi-lo<4.-1e-6{continue}
    // A bedroom keeps a window of its own outside the bump-out.
    if r.kind=="bedroom"&&!keeps_window(c,r,&ws,side,lo,hi){continue}
-   let mut b=Bump{side,lo,hi,depth,roof,room:r.name.clone(),tie:0.};
-   let fp=rect(c,&b);let pad=[fp[0]-1.5,fp[1]-1.5,fp[2]+1.5,fp[3]+1.5];
-   if blocked.iter().any(|p|edit::overlap(pad,*p))||out.iter().any(|o|edit::overlap(pad,rect(c,o))){continue}
-   // On a one-story house the bump-out roof ties into an eave side of the main roof; a gable end is a wall.
-   let gable_end=main_roof["profiles"][["front","rear","left","right"].iter().position(|s|*s==side).unwrap()]["points"].as_array().is_some_and(|p|p.iter().any(|q|q[1].as_f64().unwrap_or(0.)>1.));
-   if c.stories==1&&!gable_end{b.tie=c.pitch/12.;if b.roof=="Hip"{b.roof="Gable"}}
-   if c.stories==1&&gable_end&&b.roof=="Shed"{b.roof="Hip"}
+   let mut blocked=fixed.clone();if style_matched||want.is_some(){blocked.extend(soft.iter().copied());}
+   let Some(b)=fit(c,side,lo,hi,depth,r,wall,&main_roof,&blocked,&out)else{continue};
    out.push(b);break;
   }
  }
  out
+}
+fn touches(c:&Config,r:&Room,side:&str)->bool{match side{"front"=>near(r.z,0.),"rear"=>near(r.z+r.d,c.depth),"left"=>near(r.x,0.),_=>near(r.x+r.w,c.width)}}
+/// A bump-out between `lo` and `hi` on `side`, if it is clear of the wall's doors, of `blocked` and of the
+/// bump-outs already placed. Its roof suits the house: tied into the main roof on a one-story eave side, a
+/// gable where it projects further than half its width, otherwise the style's own.
+fn fit(c:&Config,side:&'static str,lo:f64,hi:f64,depth:f64,r:&Room,wall:&Wall,main_roof:&Value,blocked:&[[f64;4]],out:&[Bump])->Option<Bump>{
+ if wall.openings.iter().any(|o|o.kind!="window"&&o.at<hi+1.&&o.at+o.width>lo-1.){return None}
+ let mut b=Bump{side,lo,hi,depth,roof:style(c).1,room:r.name.clone(),tie:0.};
+ let fp=rect(c,&b);let pad=[fp[0]-1.5,fp[1]-1.5,fp[2]+1.5,fp[3]+1.5];
+ if blocked.iter().any(|p|edit::overlap(pad,*p))||out.iter().any(|o|edit::overlap(pad,rect(c,o))){return None}
+ let gable_end=main_roof["profiles"][["front","rear","left","right"].iter().position(|s|*s==side).unwrap()]["points"].as_array().is_some_and(|p|p.iter().any(|q|q[1].as_f64().unwrap_or(0.)>1.));
+ if c.stories==1&&!gable_end{b.tie=c.pitch/12.;if b.roof=="Hip"{b.roof="Gable"}}
+ if c.stories==1&&gable_end&&b.roof=="Shed"{b.roof="Hip"}
+ if b.roof=="Hip"&&depth>(hi-lo)/2.{b.roof="Gable"}
+ Some(b)
 }
 /// Where the rear deck or covered porch goes (as additions::outdoor places it): centered on the rear door.
 fn rear_outdoor(c:&Config,ws:&[Wall])->[f64;4]{

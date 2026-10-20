@@ -51,6 +51,17 @@ pub fn design(c: &Config, ground: &Value) -> Value {
         let deck_ys=if reference=="Colonial"&&c.stories>=2{vec![0.2,0.2+c.wall_height+structural::floor_gap(c)]}else{vec![0.2]};
         rectangles.push(json!({"x":if return_side=="Left"{-rw}else{c.width},"z":0.,"w":rw,"d":rd,"roofType":"Hip","deckYs":deck_ys}));
     }
+    // A bump-out on a porch wall wins: the porch steps around it, keeping the part at the front door.
+    let bumps:Vec<[f64;4]>=crate::wings::all(c).into_iter().filter(|g|g.bump.is_some()).map(|g|[g.x-0.5,g.z-0.5,g.x+g.w+0.5,g.z+g.d+0.5]).collect();
+    let rectangles:Vec<Value>=rectangles.into_iter().enumerate().filter_map(|(i,mut r)|{
+        for b in &bumps{let(rx,rz,rw,rd)=(n(&r,"x"),n(&r,"z"),n(&r,"w"),n(&r,"d"));if !edit::overlap([rx,rz,rx+rw,rz+rd],*b){continue}
+            if i==0{let(a0,a1,b0,b1)=(rx,b[0].max(rx),b[2].min(rx+rw),rx+rw);let(lo,hi)=if center<a1{(a0,a1)}else if center>b0{(b0,b1)}else if a1-a0>=b1-b0{(a0,a1)}else{(b0,b1)};if hi-lo<4.{return None}r["x"]=json!(lo);r["w"]=json!(hi-lo);}
+            // A side veranda keeps its stretch from the front corner up to the bump-out.
+            else{let hi=b[1].max(rz);if hi-rz<4.{return None}r["d"]=json!(hi-rz);}
+        }
+        Some(r)}).collect();
+    if rectangles.first().is_none_or(|r|n(r,"z")>=0.){return Value::Null}
+    let(x,width)=(n(&rectangles[0],"x"),n(&rectangles[0],"w"));
     let roof_height=c.wall_height-0.3;
     let mut area=0.;let mut deck_area=0.;let mut rim_lf=0.;let mut roof_area=0.;let mut posts:Vec<Value>=vec![];let mut rails:Vec<Value>=vec![];
     let mut roofs=vec![];let mut deck_joists=vec![];
@@ -59,7 +70,9 @@ pub fn design(c: &Config, ground: &Value) -> Value {
     for (i,r) in rectangles.iter().enumerate(){
         let(rx,rz,rw,rd)=(n(r,"x"),n(r,"z"),n(r,"w"),n(r,"d"));area+=rw*rd;
         let mut pc=c.clone();pc.width=rw;pc.depth=rd;pc.wall_height=roof_height+if r["deckYs"].as_array().unwrap().len()>1{c.wall_height+structural::floor_gap(c)}else{0.};pc.pitch=if ["Tudor","English cottage","Colonial"].contains(&c.home_style.as_str())&&i==0{6.}else{3.};pc.stories=1;pc.active_floor=0;pc.design_mode="Custom".into();pc.home_style=if ["Tudor","English cottage","Colonial"].contains(&c.home_style.as_str())&&i==0{"Colonial"}else{"Coastal"}.into();
-        let roof=roof::build_with_overhang(&pc,0.25);roof_area+=n(&roof,"area");
+        let two_level=r["deckYs"].as_array().unwrap().len()>1;let top_floor=c.stories==1||(two_level&&c.stories==2);
+        let side=if i==0{"front"}else if return_side=="Left"{"left"}else{"right"};let(l,d)=if i==0{(rw,rd)}else{(rd,rw)};
+        let roof=shed(c,side,l,d,pc.wall_height,top_floor);roof_area+=n(&roof,"area");
         roofs.push(json!({"x":rx,"z":rz,"w":rw,"d":rd,"h":pc.wall_height,"roof":roof}));
         let stations=(rw/(16./12.)).ceil()as usize;
         for deck_y in r["deckYs"].as_array().unwrap(){let dy=deck_y.as_f64().unwrap();deck_area+=rw*rd;rim_lf+=2.*(rw+rd);
@@ -81,6 +94,40 @@ pub fn design(c: &Config, ground: &Value) -> Value {
     }
     posts.sort_by(|a,b|n(a,"x").total_cmp(&n(b,"x")).then(n(a,"z").total_cmp(&n(b,"z"))));posts.dedup_by(|a,b|near(n(a,"x"),n(b,"x"))&&near(n(a,"z"),n(b,"z")));
     json!({"form":form,"columnStyle":additions::character::column(c),"sourceColumnStyle":column,"rectangles":rectangles,"roofs":roofs,"area":area,"deckArea":deck_area,"rimLF":rim_lf,"roofArea":roof_area,"posts":posts,"rails":rails,"deckJoists":deck_joists,"deckY":0.2,"steps":{"x":step_x,"z":-depth,"w":step_width,"risers":2,"tread":1.},"basis":"Source-informed porch proportion and column type. Wood structure, connection, footing, snow/wind loads and coating details require final design."})
+}
+
+/// A porch roof: one shed slope off the house wall, like the house's eave carried out over the porch. It is
+/// `l` ft along the wall and `d` ft out from it, with its low edge at `eave` over the posts. Where the porch
+/// sits under an eave of the top floor, the slope runs back over the wall until it meets the main roof; under
+/// a gable end it stays below the wall plate; on a lower floor it rests against the wall above. Coordinates are
+/// local to the porch rectangle (house wall on the far side for the front, the near side for the rear).
+pub fn shed(c:&Config,side:&str,l:f64,d:f64,eave:f64,top_floor:bool)->Value{
+    let(o,end)=(0.75,0.25);
+    let main=roof::build(c);let index=["front","rear","left","right"].iter().position(|s|*s==side).unwrap_or(0);
+    let gable_end=main["profiles"][index]["points"].as_array().is_some_and(|p|p.iter().any(|q|q[1].as_f64().unwrap_or(0.)>1.));
+    let plate=eave+0.3;let tie=c.pitch/12.;
+    let s=if top_floor&&gable_end{((plate-eave)/d).clamp(1./12.,3./12.)}else{(3.0_f64/12.).min(tie*0.6).max(1./12.)};
+    let top=eave+d*s;let back=if top_floor&&!gable_end&&top>plate&&tie>s+1e-6{-(top-plate)/(tie-s)}else{0.};
+    // Local (u along the wall, v out from it) to rectangle coordinates.
+    let(rw,rd)=if ["front","rear"].contains(&side){(l,d)}else{(d,l)};
+    let pt=|u:f64,v:f64|->[f64;3]{let y=eave+(d-v)*s;match side{"front"=>[u,y,rd-v],"rear"=>[u,y,v],"left"=>[rw-v,y,u],_=>[v,y,u]}};
+    let quad=[pt(-end,back),pt(l+end,back),pt(l+end,d+o),pt(-end,d+o)];
+    let plane={let(a,b,cc)=(quad[0],quad[1],quad[2]);let det=a[0]*(b[2]-cc[2])-a[2]*(b[0]-cc[0])+(b[0]*cc[2]-cc[0]*b[2]);let(ya,yb,yc)=(a[1]-eave,b[1]-eave,cc[1]-eave);
+        [(ya*(b[2]-cc[2])-a[2]*(yb-yc)+(yb*cc[2]-yc*b[2]))/det,(a[0]*(yb-yc)-ya*(b[0]-cc[0])+(b[0]*yc-cc[0]*yb))/det,(a[0]*(b[2]*yc-cc[2]*yb)-a[2]*(b[0]*yc-cc[0]*yb)+ya*(b[0]*cc[2]-cc[0]*b[2]))/det]};
+    let len=|a:[f64;3],b:[f64;3]|((a[0]-b[0]).powi(2)+(a[1]-b[1]).powi(2)+(a[2]-b[2]).powi(2)).sqrt();
+    let mut edges=vec![json!({"a":quad[3],"b":quad[2],"kind":"eave","length":len(quad[3],quad[2])})];
+    for(a,b)in[(quad[0],quad[3]),(quad[1],quad[2])]{edges.push(json!({"a":a,"b":b,"kind":"rake","length":len(a,b)}));}
+    edges.push(json!({"a":quad[0],"b":quad[1],"kind":"flashing","length":len(quad[0],quad[1])}));
+    // Where it runs back into the main roof, close the triangles under its rakes.
+    let mut profiles=vec![];
+    if back<0.{for u in [-end,l+end]{let(a,b)=(pt(u,back),pt(u,0.));let along_x=near(a[2],b[2]);let(lo,hi)=if (if along_x{a[0]}else{a[2]})<(if along_x{b[0]}else{b[2]}){(a,b)}else{(b,a)};
+        profiles.push(json!({"x":lo[0],"z":lo[2],"axis":if along_x{"x"}else{"z"},"points":[[0.,lo[1]-eave],[if along_x{hi[0]-lo[0]}else{hi[2]-lo[2]},hi[1]-eave]]}));}}
+    let slope=(1.+s*s).sqrt();let run=d+o-back;
+    let count=((l+2.*end)/(16./12.)).floor()as usize;
+    let rafters:Vec<Value>=(0..=count).map(|i|{let u=-end+i as f64*(l+2.*end)/count.max(1)as f64;let(a,b)=(pt(u,back),pt(u,d+o));let length=len(a,b);
+        json!({"id":format!("PR-{}-{}",side,i),"x1":a[0],"y1":a[1],"z1":a[2],"x2":b[0],"y2":b[1],"z2":b[2],"x":a[0],"length":length,"stockLength":(length/2.).ceil()*2.})}).collect();
+    let infill=if back<0.{-back*(2.*d-back)*s}else{0.};
+    json!({"type":"Shed porch roof","facets":[{"id":format!("porch-{}",side),"points":quad,"plane":plane}],"edges":edges,"profiles":profiles,"supports":[],"rafters":rafters,"area":(l+2.*end)*run*slope,"infillArea":infill,"rise":run*s,"pitch":s*12.})
 }
 
 pub fn apply(c:&Config,mut m:Value)->Value{

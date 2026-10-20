@@ -62,11 +62,20 @@ fn opening_members(id:&str,holes:&[Vec<P>],parent:[f64;3],height:f64)->Vec<Value
     }out
 }
 
+/// A dormer the visitor added by clicking a wall: the roof side ("Front", "Rear", "Left" or "Right") and its
+/// center along that wall, in feet (x for the front and rear, z for the sides).
+#[derive(Clone,Serialize,Deserialize,Debug,Default,PartialEq)]#[serde(rename_all="camelCase",default)]
+pub struct CustomDormer{pub side:String,pub at:f64}
+pub const SIDES:[&str;4]=["Front","Rear","Left","Right"];
+pub fn validate(c:&Config)->Result<(),String>{
+    if c.custom_dormers.len()>12||!c.custom_dormers.iter().all(|d|SIDES.contains(&d.side.as_str())&&d.at.is_finite()&&(0.0..=100.).contains(&d.at)){return Err("Each added dormer needs a roof side and a position along the wall.".into())}
+    Ok(())
+}
 pub fn apply(c:&Config,m:&mut Value,t:&mut model::Takeoff){
-    let requested=if c.dormer_style=="None"{0}else{c.dormer_count};let mut notes=vec![];let mut dormers=vec![];
+    let auto=if c.dormer_style=="None"{0}else{c.dormer_count};let requested=auto+c.custom_dormers.len();let mut notes=vec![];let mut dormers=vec![];
     if requested==0{m["dormers"]=json!([]);m["dormerNotes"]=json!([]);return}
     let original=m["roof"].clone();let base_facets=original["facets"].as_array().unwrap();let width=c.dormer_width;let depth=c.dormer_depth;
-    let kind=if c.dormer_style=="Style matched"{if ["Ranch","Contemporary","Mid-century","Industrial","Coastal","Craftsman"].contains(&c.home_style.as_str()){"Shed"}else if c.home_style=="French country"{"Arched"}else if c.home_style=="English cottage"{"Eyebrow"}else{"Gable"}}else{&c.dormer_style};
+    let kind=if c.dormer_style=="Style matched"||c.dormer_style=="None"{if ["Ranch","Contemporary","Mid-century","Industrial","Coastal","Craftsman"].contains(&c.home_style.as_str()){"Shed"}else if c.home_style=="French country"{"Arched"}else if c.home_style=="English cottage"{"Eyebrow"}else{"Gable"}}else{&c.dormer_style};
     // Dormer roofs use whole x:12 pitches: shed 2:12, gables and hips at the main pitch (3:12–9:12).
     let roof_pitch=if kind=="Shed"{2./12.}else{(c.pitch/12.).clamp(0.25,0.75)};
     let main_slope=c.pitch/12.;let arched=kind=="Arched"||kind=="Eyebrow";
@@ -78,7 +87,7 @@ pub fn apply(c:&Config,m:&mut Value,t:&mut model::Takeoff){
     let min_head=if width<=2.{3.7}else{4.7};
     let mut candidates=vec![];
     for side in ["Front","Rear","Left","Right"]{
-        if c.dormer_side!="Automatic"&&c.dormer_side!=side{continue}
+        if c.dormer_side!="Automatic"&&c.dormer_side!=side&&!c.custom_dormers.iter().any(|d|d.side==side){continue}
         let (dir,tan,run,total) = match side{"Front"=>([0.,1.],[1.,0.],c.depth,c.width),"Rear"=>([0.,-1.],[-1.,0.],c.depth,c.width),"Left"=>([1.,0.],[0.,-1.],c.width,c.depth),_=>([-1.,0.],[0.,1.],c.width,c.depth)};
         if depth+4.>run||width+4.>total{continue}
         for facet in base_facets{
@@ -106,12 +115,21 @@ pub fn apply(c:&Config,m:&mut Value,t:&mut model::Takeoff){
     // Each row is on one compatible plane; existing coverage tests keep it clear
     // of hip/valley boundaries and its two-foot construction margin.
     let start_of=|side:&str,p:P|match side{"Front"=>p[0],"Rear"=>c.width-p[0],"Left"=>c.depth-p[1],_=>p[1]};
-    candidates.sort_by(|a,b|a.0.total_cmp(&b.0));let mut selected=vec![];
+    candidates.sort_by(|a,b|a.0.total_cmp(&b.0));let mut selected:Vec<usize>=vec![];
+    let overlaps=|a:&[P;4],b:&[P;4]|{let bounds=|ps:&[P;4],axis:usize|(ps.iter().map(|p|p[axis]).fold(f64::INFINITY,f64::min),ps.iter().map(|p|p[axis]).fold(f64::NEG_INFINITY,f64::max));let(ax,bx)=bounds(a,0);let(az,bz)=bounds(a,1);let(cx,dx)=bounds(b,0);let(cz,dz)=bounds(b,1);ax<dx+2.&&bx>cx-2.&&az<dz+2.&&bz>cz-2.};
+    // Dormers added by clicking a wall go first, at the clear spot nearest the click on that side's roof.
+    for d in &c.custom_dormers{
+        let along=|p:&[P;4]|{let xs=p.iter().map(|q|if ["Front","Rear"].contains(&d.side.as_str()){q[0]}else{q[1]});let(lo,hi)=xs.fold((f64::INFINITY,f64::NEG_INFINITY),|(a,b),v|(a.min(v),b.max(v)));(lo+hi)/2.};
+        let best=candidates.iter().enumerate().filter(|(i,v)|v.1==d.side&&!selected.contains(i)&&!selected.iter().any(|j|overlaps(&v.7,&candidates[*j].7))).min_by(|a,b|(along(&a.1.7)-d.at).abs().total_cmp(&(along(&b.1.7)-d.at).abs()));
+        if let Some((i,_))=best{selected.push(i);}else{notes.push(format!("No room for the added {} dormer: the roof there is too low or too close to a hip, valley or another dormer.",d.side.to_lowercase()));}
+    }
+    // Then the automatic row, so a click-added dormer that did not fit never turns into one somewhere else.
+    let target=selected.len()+auto;
     for side in ["Front","Rear","Left","Right"]{
-        if selected.len()>=requested{break}let total=if ["Front","Rear"].contains(&side){c.width}else{c.depth};
+        if selected.len()>=target{break}if c.dormer_side!="Automatic"&&c.dormer_side!=side{continue}let total=if ["Front","Rear"].contains(&side){c.width}else{c.depth};
         let rows:Vec<_>=candidates.iter().enumerate().filter(|(_,v)|v.1==side).collect();
         let capacity=((total-4.+2.)/(width+2.)).floor().max(0.)as usize;
-        for count in (1..=(requested-selected.len()).min(capacity)).rev(){
+        for count in (1..=(target-selected.len()).min(capacity)).rev(){
             let mut best:Option<(f64,Vec<usize>)>=None;
             for (first_index,first) in &rows{
                 let start=start_of(side,first.2);let max_step=if count==1{width+2.}else{(total-2.-width-start)/(count-1)as f64};
@@ -120,7 +138,7 @@ pub fn apply(c:&Config,m:&mut Value,t:&mut model::Takeoff){
                         if let Some((index,_))=rows.iter().find(|(_,v)|near(start_of(side,v.2),wanted)&&v.5.iter().zip(first.5).all(|(a,b)|near(*a,b))){row.push(*index)}
                     }
                     if row.len()!=count{continue}
-                    let conflict=row.iter().any(|i|{let a=&candidates[*i].7;selected.iter().any(|j:&usize|{let b=&candidates[*j].7;let bounds=|ps:&[P;4],axis:usize|(ps.iter().map(|p|p[axis]).fold(f64::INFINITY,f64::min),ps.iter().map(|p|p[axis]).fold(f64::NEG_INFINITY,f64::max));let(ax,bx)=bounds(a,0);let(az,bz)=bounds(a,1);let(cx,dx)=bounds(b,0);let(cz,dz)=bounds(b,1);ax<dx+2.&&bx>cx-2.&&az<dz+2.&&bz>cz-2.})});
+                    let conflict=row.iter().any(|i|{let a=&candidates[*i].7;selected.iter().any(|j:&usize|overlaps(a,&candidates[*j].7))});
                     if conflict{continue}
                     let center=start+width/2.+(count-1)as f64*spacing as f64/2.;let balance=(center-total/2.).abs();
                     let ideal=total/(count+1)as f64;let score=balance*100.+(spacing as f64-ideal).abs();
