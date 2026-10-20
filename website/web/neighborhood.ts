@@ -377,7 +377,7 @@ function oceanfront(z0:number,shore:number,mobile:boolean):T.Object3D[]{
 
 /** The visitor's own lot: driveway from the garage door to the street, front walk, a mailbox at the curb and a
  *  cedar privacy fence around the backyard. Rebuilt with each scene (it follows the garage and front door). */
-export type Lot={door:{x:number,z:number}|null,garage:{x:number,z:number,x0:number,x1:number,z0:number,z1:number}|null,house:{x0:number,x1:number,z0:number,z1:number}};
+export type Lot={door:{x:number,z:number}|null,garage:{x:number,z:number,x0:number,x1:number,z0:number,z1:number}|null,house:{x0:number,x1:number,z0:number,z1:number},wings?:{x0:number,x1:number,z0:number,z1:number}[]};
 const fenceTex=()=>canvasTexture('fence',512,(c,s,r)=>{const n=8,b=s/n;for(let i=0;i<n;i++){const g=150+r()*40;c.fillStyle=`rgb(${g+40},${g+18},${g-12})`;c.fillRect(i*b,0,b,s);for(let k=0;k<14;k++){c.fillStyle=`rgba(90,60,30,${.05+r()*.08})`;c.fillRect(i*b+r()*b,0,1+r()*2,s);}c.fillStyle='rgba(40,25,10,.55)';c.fillRect(i*b,0,3,s);}});
 export function addLot(root:T.Object3D,o:{site:Site,groundY:number,lot:Lot,mobile:boolean,anisotropy:number}){
  const L=layout(o.site),mats=sharedMats({site:o.site,groundY:o.groundY,mobile:o.mobile,anisotropy:o.anisotropy}),{lot}=o;
@@ -404,6 +404,8 @@ export function addLot(root:T.Object3D,o:{site:Site,groundY:number,lot:Lot,mobil
  const side=Math.max(L.lotHalf-4,Math.max(-o.site.minX,o.site.maxX)+12),h=lot.house,ret=h.z0+(h.z1-h.z0)*.6,rear=L.rear;
  const runs:[number,number,number,number][]=[];
  for(const sx of [-1,1]){let x=sx>0?h.x1:h.x0;const g=lot.garage;if(g&&ret>g.z0-1&&ret<g.z1+1&&(sx>0?g.x1>x-1:g.x0<x+1))x=sx>0?Math.max(x,g.x1):Math.min(x,g.x0);
+  // A bump-out or addition on this side pushes the fence's start out past it, so the fence never runs into its walls.
+  for(const b of lot.wings||[])if(ret>b.z0-1.5&&ret<b.z1+1.5&&(sx>0?b.x1>x-.1:b.x0<x+.1))x=sx>0?Math.max(x,b.x1):Math.min(x,b.x0);
   const gate=!g||(sx>0)!==(g.x>0);const start=x+sx*(gate?4.5:0);if(gate)runs.push([x,ret,x+sx*.2,ret]);runs.push([start,ret,sx*side,ret],[sx*side,ret,sx*side,rear]);}
  runs.push([-side,rear,side,rear]);
  const pg:T.BufferGeometry[]=[],bg:T.BufferGeometry[]=[];

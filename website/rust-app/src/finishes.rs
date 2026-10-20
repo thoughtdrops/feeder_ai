@@ -35,3 +35,17 @@ pub fn faces(c:&Config,rs:&[Room],ws:&[Wall])->Vec<Value>{
  // renderer surface, avoiding hundreds of extra meshes on mobile.
  let mut merged:Vec<Value>=vec![];for face in out{if let Some(last)=merged.last_mut(){if ["wallId","side","roomId","group","tile","customTexture","wallpaper","roomOverride"].iter().all(|key|last[*key]==face[*key])&&near(n(last,"at")+n(last,"length"),n(&face,"at")){last["length"]=json!(n(last,"length")+n(&face,"length"));last["area"]=json!(n(last,"area")+n(&face,"area"));continue}}merged.push(face);}merged
 }
+
+/// Floors by area: kitchens share the bathrooms' floor ("wet" areas), living areas and halls have one, bedrooms
+/// another. An area left unset uses the house floor.
+pub const ZONES:[(&str,&str);3]=[("wet","Kitchen & bathrooms"),("living","Living areas & halls"),("bedroom","Bedrooms")];
+pub fn zone(kind:&str)->&'static str{match kind{"kitchen"|"bath"=>"wet","bedroom"=>"bedroom",_=>"living"}}
+pub fn floor_for<'a>(c:&'a Config,kind:&str)->&'a str{c.zone_floors.get(zone(kind)).map(String::as_str).unwrap_or(&c.floor)}
+pub fn validate_zones(c:&Config)->Result<(),String>{
+ let floors=&catalog()["options"]["floor"];let known=|f:&str|floors.as_array().is_some_and(|a|a.iter().any(|v|v.as_str()==Some(f)));
+ if c.zone_floors.len()>ZONES.len()||c.zone_floors.iter().any(|(k,v)|!ZONES.iter().any(|z|z.0==k)||!known(v)){return Err("Choose a listed floor for the kitchen and bathrooms, living areas or bedrooms.".into())}Ok(())
+}
+/// Rooms whose floor differs from the house floor, for the viewer to lay over the house floor.
+pub fn zone_floors(c:&Config,rs:&[Room])->Value{
+ json!(rs.iter().filter(|r|r.kind!="stairs"&&floor_for(c,&r.kind)!=c.floor).map(|r|json!({"roomId":r.id,"x":r.x,"z":r.z,"w":r.w,"d":r.d,"floor":floor_for(c,&r.kind),"zone":zone(&r.kind)})).collect::<Vec<_>>())
+}

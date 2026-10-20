@@ -12,8 +12,7 @@ pub fn zones(c:&Config,rs:&[Room])->Vec<Clearance>{
   out.push(Clearance{id:format!("clear-{}",r.id),name:if kind=="stairwell"{"Stairwell".into()}else if r.name.to_lowercase().contains("landing"){"Stair landing / turning space".into()}else{r.name.clone()},kind:kind.into(),x,z,w,d});
   if r.kind=="stairs"{
    let z=if r.z<1.{r.z+r.d+0.3}else{r.z-5.3};
-   if let Some(f)=stairs::custom(c){let b=stairs::bounds(f,[1.5,-5.3,6.5,-0.3]);out.push(Clearance{id:format!("approach-{}",r.id),name:if c.active_floor==0{"Lower stair entrance · 5 ft clear"}else{"Upper stair exit · 5 ft clear"}.into(),kind:"landing".into(),x:b[0],z:b[1],w:b[2]-b[0],d:b[3]-b[1]});
-    if c.active_floor==0{if let Some(l)=stairs::bottom_landing(f,c){out.push(Clearance{id:format!("bottom-{}",r.id),name:"Bottom step · 3 ft clear".into(),kind:"landing".into(),x:l[0],z:l[1],w:l[2]-l[0],d:l[3]-l[1]});}}continue}
+   if let Some(f)=stairs::custom(c){let b=stairs::bounds(f,[1.5,-5.3,6.5,-0.3]);out.push(Clearance{id:format!("approach-{}",r.id),name:if c.active_floor==0{"Lower stair entrance · 5 ft clear"}else{"Upper stair exit · 5 ft clear"}.into(),kind:"landing".into(),x:b[0],z:b[1],w:b[2]-b[0],d:b[3]-b[1]});continue}
    out.push(Clearance{id:format!("approach-{}",r.id),name:if c.active_floor==0{"Lower stair entrance · 5 ft clear"}else{"Upper stair exit · 5 ft clear"}.into(),kind:"landing".into(),x:r.x+(r.w-5.)/2.,z,w:5.,d:5.});
   }
  }
@@ -24,7 +23,7 @@ pub fn wall_error(w:&Wall,c:&Config)->Option<String>{
  let(rs,_)=layout(c);let bounds=if w.axis=="x"{[w.x,w.z-0.27,w.x+w.length,w.z+0.27]}else{[w.x-0.27,w.z,w.x+0.27,w.z+w.length]};
  zones(c,&rs).iter().filter(|z|["stairwell","landing"].contains(&z.kind.as_str())).find(|z|edit::overlap(bounds,z.rect())).map(|z|format!("Keep {} free of walls. Move the wall outside the blue clearance area.",z.name))
 }
-pub fn item_error(f:&staging::Furniture,zones:&[Clearance])->Option<String>{
+pub fn item_error(f:&staging::Furniture,zones:&[Clearance])->Option<String>{if f.kind=="stairs"{return None}
  zones.iter().filter(|z|f.kind!="rug"||["stairwell","landing"].contains(&z.kind.as_str())).find(|z|edit::item_intersects_rect(f,z.rect())).map(|z|format!("Keep {} clear. Snap outside the blue circulation area.",z.name))
 }
 pub fn report(c:&Config,rs:&[Room],ws:&[Wall],fs:&[staging::Furniture])->Value{

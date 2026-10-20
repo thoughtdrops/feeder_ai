@@ -84,19 +84,37 @@ pub fn item_error(f:&staging::Furniture,c:&Config,ws:&[Wall],others:&[staging::F
 fn item_error_with_zones(f:&staging::Furniture,c:&Config,ws:&[Wall],others:&[staging::Furniture],zones:&[accessibility::Clearance])->Option<String>{
  if ![f.x,f.z,f.w,f.d,f.rotation,f.local_width,f.local_depth].iter().all(|v|v.is_finite())||f.local_width<0.3||f.local_depth<0.3{return Some("Enter valid item dimensions and a position.".into())}
  let bounds=[f.x-f.w/2.,f.z-f.d/2.,f.x+f.w/2.,f.z+f.d/2.];
- if bounds[0]<0.28||bounds[1]<0.28||bounds[2]>c.width-0.28||bounds[3]>c.depth-0.28{return Some("The whole item must fit inside the house. Click farther from the outside edge.".into())}
- if f.kind=="stairs"{if let Some(error)=stairs::placement_error(f,c,ws,others){return Some(error)}}else if let Some(error)=accessibility::item_error(f,zones){return Some(error)}
+ if !indoors(c,bounds){return Some("The whole item must fit inside the house. Click farther from the outside edge.".into())}
+ if f.kind=="stairs"&&c.design_mode!="Blank slate"{return stairs::placement_error(f,c,ws,others)}if f.kind=="stairs"{if let Some(error)=stairs::placement_error(f,c,ws,others){return Some(error)}}else if let Some(error)=accessibility::item_error(f,zones){return Some(error)}
  if !clear_of_walls(f,ws){return Some(if hits_wall(f,ws){"This would run into a wall. Move it away from the wall or make it smaller.".into()}else{"Keep the doorway clear: leave walking room in front of the door or passage.".into()})}
- // A sectional wraps around its coffee table, so those two may share a footprint.
- let pair=|a:&str,b:&str|(a=="coffee"&&b=="sectional")||(a=="sectional"&&b=="coffee");
- if f.kind!="rug"{if let Some(o)=others.iter().filter(|o|o.id!=f.id&&o.kind!="rug"&&!pair(&f.kind,&o.kind)).find(|o|intersects(corners(f,0.),corners(o,0.05))){return Some(format!("This position overlaps a {}. Move outside its footprint.",o.kind))}}
+ if let Some(o)=blocking_item(f,others){return Some(format!("This position overlaps a {}. Move outside its footprint.",o.kind))}
  None
+}
+/// The piece of furniture (never a wall) that a footprint runs into, if any. A sectional wraps around its coffee
+/// table, so those two may share a footprint; rugs lie under everything.
+pub fn blocking_item<'a>(f:&staging::Furniture,others:&'a [staging::Furniture])->Option<&'a staging::Furniture>{
+ let pair=|a:&str,b:&str|(a=="coffee"&&b=="sectional")||(a=="sectional"&&b=="coffee");
+ if f.kind=="rug"{return None}
+ others.iter().filter(|o|o.id!=f.id&&o.kind!="rug"&&!pair(&f.kind,&o.kind)).find(|o|intersects(corners(f,0.),corners(o,0.05)))
+}
+/// Whether a footprint is all indoors: inside the main house, a bump-out or an addition on this floor, or across the
+/// opening between them (each outside wall keeps the same 0.28 ft clearance).
+pub fn indoors(c:&Config,b:[f64;4])->bool{
+ let pad=0.28;let mut rects=vec![[pad,pad,c.width-pad,c.depth-pad]];
+ for g in wings::on_floor(c){rects.push([g.x+pad,g.z+pad,g.x+g.w-pad,g.z+g.d-pad]);
+  // The strip where it joins the house is open floor too.
+  let(x0,z0,x1,z1)=(g.x.max(0.)+pad,g.z.max(0.)-pad,(g.x+g.w).min(c.width)-pad,(g.z+g.d).min(c.depth)+pad);if x1>x0&&z1>z0{rects.push([x0,z0.min(g.z+pad),x1,z1.max(g.z+g.d-pad)]);}
+  let(x0,z0,x1,z1)=(g.x.max(0.)-pad,g.z.max(0.)+pad,(g.x+g.w).min(c.width)+pad,(g.z+g.d).min(c.depth)-pad);if x1>x0&&z1>z0{rects.push([x0.min(g.x+pad),z0,x1.max(g.x+g.w-pad),z1]);}}
+ let inside=|x:f64,z:f64|rects.iter().any(|r|x>=r[0]-1e-9&&x<=r[2]+1e-9&&z>=r[1]-1e-9&&z<=r[3]+1e-9);
+ (0..=6).all(|i|(0..=6).all(|j|inside(b[0]+(b[2]-b[0])*i as f64/6.,b[1]+(b[3]-b[1])*j as f64/6.)))
 }
 /// Whether the item crosses a wall itself (not just a doorway's clear space).
 fn hits_wall(f:&staging::Furniture,ws:&[Wall])->bool{ws.iter().any(|wall|{let axis=wall.axis=="x";let mut start=0.;let mut openings=wall.openings.clone();openings.sort_by(|a,b|a.at.total_cmp(&b.at));openings.iter().filter(|o|o.kind!="window").map(|o|(o.at,o.width)).chain(std::iter::once((wall.length,0.))).any(|o|{let a=if axis{[wall.x+start,wall.z-0.28,wall.x+o.0,wall.z+0.28]}else{[wall.x-0.28,wall.z+start,wall.x+0.28,wall.z+o.0]};start=o.0+o.1;item_intersects_rect(f,a)})})}
+/// Doors keep their swing and walking room clear; an inside passage keeps 3 ft each side. The wide opening from a room
+/// into its bump-out or addition (a passage in an outside wall) doesn't, so the bay itself can be furnished.
 pub fn clear_of_walls(f:&staging::Furniture,ws:&[Wall])->bool{
  for wall in ws{let axis=wall.axis=="x";let mut start=0.;let mut openings=wall.openings.clone();openings.sort_by(|a,b|a.at.total_cmp(&b.at));for o in openings.iter().filter(|o|o.kind!="window").map(|o|(o.at,o.width)).chain(std::iter::once((wall.length,0.))){let a=if axis{[wall.x+start,wall.z-0.28,wall.x+o.0,wall.z+0.28]}else{[wall.x-0.28,wall.z+start,wall.x+0.28,wall.z+o.0]};if item_intersects_rect(f,a){return false}start=o.0+o.1;}
-  if f.kind!="rug"{for o in openings.iter().filter(|o|o.kind!="window"){let mut areas=vec![];if o.kind=="door"{let at=if axis{wall.x+o.at}else{wall.z+o.at};areas.push(if axis{[at,wall.z+0.28,at+o.width+1.5,wall.z+5.]}else{[wall.x+0.28,at,wall.x+5.,at+o.width+1.5]});areas.push(if axis{[at,wall.z-4.,at+o.width+1.,wall.z-0.28]}else{[wall.x-4.,at,wall.x-0.28,at+o.width+1.]});}else{areas.push(if axis{[wall.x+o.at-0.2,wall.z-3.,wall.x+o.at+o.width+0.2,wall.z+3.]}else{[wall.x-3.,wall.z+o.at-0.2,wall.x+3.,wall.z+o.at+o.width+0.2]});}if areas.iter().any(|a|item_intersects_rect(f,*a)){return false}}}
+  if f.kind!="rug"{for o in openings.iter().filter(|o|o.kind!="window"){let mut areas=vec![];if o.kind=="door"{let at=if axis{wall.x+o.at}else{wall.z+o.at};areas.push(if axis{[at,wall.z+0.28,at+o.width+1.5,wall.z+5.]}else{[wall.x+0.28,at,wall.x+5.,at+o.width+1.5]});areas.push(if axis{[at,wall.z-4.,at+o.width+1.,wall.z-0.28]}else{[wall.x-4.,at,wall.x-0.28,at+o.width+1.]});}else if !wall.exterior{areas.push(if axis{[wall.x+o.at-0.2,wall.z-3.,wall.x+o.at+o.width+0.2,wall.z+3.]}else{[wall.x-3.,wall.z+o.at-0.2,wall.x+3.,wall.z+o.at+o.width+0.2]});}if areas.iter().any(|a|item_intersects_rect(f,*a)){return false}}}
  }true
 }
 pub fn overlap(a:[f64;4],b:[f64;4])->bool{a[0]<b[2]-0.001&&a[2]>b[0]+0.001&&a[1]<b[3]-0.001&&a[3]>b[1]+0.001}

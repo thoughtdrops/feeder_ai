@@ -64,6 +64,10 @@ fn partition_sound(c:&Config,level:&Value,ws:&[Wall],rs:&[Room])->f64{
 }
 pub fn apply(c:&Config,mut m:Value)->Value{
  let footprint=c.width*c.depth;let perimeter=2.*(c.width+c.depth);let floor_area=n(&m,"area");
+ // Floor area by finish: rooms with an area floor of their own come out of the house floor's share.
+ let mut by_floor:Vec<(String,String,f64)>=vec![];for l in m["levels"].as_array().map(|ls|ls.iter().collect::<Vec<_>>()).unwrap_or_else(||vec![&m]){for z in l["floorZones"].as_array().into_iter().flatten(){let(f,zone)=(s(z,"floor").to_string(),s(z,"zone").to_string());let a=n(z,"w")*n(z,"d");if let Some(e)=by_floor.iter_mut().find(|e|e.1==zone){e.2+=a}else{by_floor.push((f,zone,a))}}}
+ let house_floor=(floor_area-by_floor.iter().map(|e|e.2).sum::<f64>()).max(0.);by_floor.insert(0,(c.floor.clone(),String::new(),house_floor));
+ let vinyl_area:f64=by_floor.iter().filter(|e|surfaces::tile(&e.0).is_none()).map(|e|e.2).sum();
  let upper_area=if c.stories>=2{(floor_area-footprint).max(0.)}else{0.};
  let cathedral=roof::cathedral(c);let sloped_main=roof_panel_area(c,&json!({"roof":m["roof"]}));
  // A flat ceiling hangs at the top plates over the whole footprint; a cathedral ceiling follows the roof.
@@ -101,7 +105,7 @@ pub fn apply(c:&Config,mut m:Value)->Value{
  t.add("crawl-access","Foundation","Crawlspace access hatch / weather seals",1.,"set",160.,"One access assembly; ordering waste does not apply. Access size and location require local construction detailing.","Panel assembly estimate",false,true);
  }else{piers::add_items(&mut t,c);}wings::add_items(&mut t,c);
  if c.foundation==piers::CONCRETE{t.add("crawl-moisture","Foundation","Crawlspace moisture / ventilation system allowance",1.,"set",650.,"One system allowance; ordering waste does not apply. Placeholder for an approved vented or conditioned crawlspace strategy; ground moisture control is not supplied by ZIP wall sheathing.","Panel assembly estimate",false,true);}
- if !surfaces::tile(&c.floor).is_some(){add!("vinylunderlay","Interior","Vinyl underlayment · 1/4 in 4 × 8 panel",floor_area/32.,"sheets",24.,"All usable finished floors; staircase void deducted.",true);}
+ if vinyl_area>0.{add!("vinylunderlay","Interior","Vinyl underlayment · 1/4 in 4 × 8 panel",vinyl_area/32.,"sheets",24.,"All usable finished floors; staircase void deducted.",true);}
  let levels=rows(&m);let mut sound=0.;let mut furring=0.;let mut screen=0.;let mut joints=0.;
  // 4 × 16 ft panels laid flat: a seam every 4 ft of height (floor and ceiling edges are trimmed) plus a butt
  // joint every 16 ft; ceilings are 4-ft strips with butt joints. Feet of reveal per square foot.
@@ -146,8 +150,10 @@ pub fn apply(c:&Config,mut m:Value)->Value{
  for (group,key,_wallkey) in [("bedroom","Bedroom","bedroomWallArea"),("general","Rest of house","generalWallArea")]{let area:f64=m["levels"].as_array().map(|ls|ls.iter().collect::<Vec<_>>()).unwrap_or_else(||vec![&m]).iter().flat_map(|l|l["wallFaces"].as_array().unwrap()).filter(|f|s(f,"group")==group&&f["roomOverride"]!=true).map(|f|n(f,"area")).sum();if let Some(pattern)=c.custom_textures.get(group){custom_walls+=area;add!(&format!("custom-{}",group),"Interior",&format!("{} custom wallpaper · {}",key,pattern.name),area,"sq ft",2.5,"Custom image is a visual pattern; price is an editable printed-wallcovering material allowance, not a supplier quote.",false);}
  else if let Some(tile)=c.wall_tiles.get(group).and_then(|name|surfaces::tile(name)){tiled_walls+=area;add!(&format!("tile-{}",group),"Interior",&format!("{} wall tile · {}",key,s(tile,"name")),area,"sq ft",n(tile,"price"),"All wall faces in the chosen room group, with openings deducted. Drywall remains the specified base; wet-area substrate design must be selected.",false);}}
  if custom_walls>0.{add!("custom-paste","Interior","Custom wallcovering adhesive / liner",custom_walls/250.,"kits",35.,"Custom patterned wallcovering installation allowance.",true);}
- let tile_floor=if floor_tile.is_some(){floor_area}else{0.};let tile_area=tile_floor+tiled_walls;
- if let Some(tile)=floor_tile{add!("tile-floor","Interior",&format!("Tile floor · {}",s(tile,"name")),tile_floor,"sq ft",n(tile,"price"),"All usable house floors, staircase void excluded; measured area plus selected ordering waste.",false);add!("tile-underlay","Interior","Tile floor backer / decoupling installation system",tile_floor,"sq ft",1.5,"Product-rated underlay over AdvanTech; verify joist/subfloor deflection for the chosen tile.",false);}
+ let _=floor_tile;let tile_floor:f64=by_floor.iter().filter(|e|surfaces::tile(&e.0).is_some()).map(|e|e.2).sum();let tile_area=tile_floor+tiled_walls;
+ for(name,zone,area)in &by_floor{let Some(tile)=surfaces::tile(name)else{continue};if *area<=0.{continue}let label=finishes::ZONES.iter().find(|z|z.0==zone).map_or(String::new(),|z|format!(" · {}",z.1.to_lowercase()));
+  add!(&if zone.is_empty(){"tile-floor".to_string()}else{format!("tile-floor-{zone}")},"Interior",&format!("Tile floor · {}{}",s(tile,"name"),label),*area,"sq ft",n(tile,"price"),if zone.is_empty(){"All usable house floors not given an area floor, staircase void excluded; measured area plus selected ordering waste."}else{"Rooms in this area, measured wall to wall; plus selected ordering waste."},false);}
+ if tile_floor>0.{add!("tile-underlay","Interior","Tile floor backer / decoupling installation system",tile_floor,"sq ft",1.5,"Product-rated underlay over AdvanTech; verify joist/subfloor deflection for the chosen tile.",false);}
  if tile_area>0.{add!("tile-thinset","Interior","Tile mortar · 50 lb bags",tile_area/50.,"bags",26.,"50 sq ft/bag estimating coverage; trowel size and selected product determine actual coverage.",true);add!("tile-grout","Interior","Tile grout · 25 lb bags",tile_area/200.,"bags",32.,"200 sq ft/bag estimating coverage; tile size/joint depth determine final quantity.",true);add!("tile-edge","Interior","Tile edge / transition trim",tile_floor.sqrt()*4.+tiled_walls/c.wall_height,"linear ft",3.5,"Floor perimeter-equivalent plus selected wall-run termination allowance; detailed room transitions pending.",false);}
  m["foundation"]=piers::summary(c);m["tileFloorArea"]=json!(tile_floor);m["tileWallArea"]=json!(round(tiled_walls));m["customWallArea"]=json!(round(custom_walls));
  let concrete_only=["footings","footingrebar","rebarsupports","anchors","anchorwashers"];

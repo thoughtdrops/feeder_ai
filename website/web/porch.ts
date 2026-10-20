@@ -44,3 +44,12 @@ export function addPorch(scene:T.Object3D,m:any,frame:boolean,wood:T.MeshStandar
  }
  const st=p.steps;for(let i=0;i<st.risers;i++)box(st.x+st.w/2,p.deckY-.18-(i+.5)*.25,st.z+(st.direction??-1)*(i+.5)*st.tread,st.w,.14,st.tread,wood,'Porch entrance step');
 }
+
+// Overhang pillars: a colonnade under the main roof's eaves, from grade up to the soffit, in the porch column style.
+// In the cut-away interior view they stop at rail height like the porch posts, since the roof is lifted off.
+export function addOverhangPillars(scene:T.Object3D,m:any,wood:T.MeshStandardMaterial,siding:T.MeshStandardMaterial){
+ const p=m.overhangPillars;if(!p?.posts?.length)return;const group=new T.Group();group.name='Overhang pillars';scene.add(group);
+ for(const post of p.posts){const base=-.45,height=m.cutView?4.1:post.height-base;const side=Math.abs(post.z)<.01||post.z<0||post.z>m.d?'x':'z';
+  addColumn(group,p.columnStyle,post.x-m.w/2,base,post.z-m.d/2,height,side as 'x'|'z',wood,siding);
+  const plinth=new T.Mesh(new T.BoxGeometry(.9,.5,.9),siding);plinth.position.set(post.x-m.w/2,base+.05,post.z-m.d/2);plinth.castShadow=plinth.receiveShadow=true;plinth.name='Overhang pillar footing';group.add(plinth);}
+}
