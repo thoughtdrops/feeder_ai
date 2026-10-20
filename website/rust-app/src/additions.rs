@@ -1,5 +1,5 @@
 use crate::*;
-mod dormers;
+pub mod dormers;
 mod outdoor;
 mod accents;
 pub mod character;

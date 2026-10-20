@@ -19,6 +19,6 @@ export function fitHouseCamera(camera:T.PerspectiveCamera,orbit:OrbitControls,m:
   distance=Math.max(distance,toward+Math.abs(offset.dot(right))/tanX,toward+Math.abs(offset.dot(up))/tanY);
  }
  orbit.target.copy(center);camera.position.copy(center).addScaledVector(direction,distance);
- orbit.minDistance=Math.max(8,Math.max(m.w,m.d)*.3);orbit.maxDistance=Math.max(distance*3,Math.max(m.w,m.d)*5);
+ orbit.minDistance=3;orbit.maxDistance=Math.max(distance*3,Math.max(m.w,m.d)*5);
  camera.far=Math.max(1000,distance*6);camera.updateProjectionMatrix();orbit.update();camera.updateMatrixWorld();return distance;
 }

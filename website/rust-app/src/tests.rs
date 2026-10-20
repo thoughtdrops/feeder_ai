@@ -1142,3 +1142,50 @@ fn colonial_plan()->Value{json!({"mainWidthFt":40.6,"mainDepthFt":31.5,"floors":
  }}
  let mut c=generator::starter();c.bump_outs="None".into();assert!(bumps::list(&c).is_empty());c.bump_outs="Sideways".into();assert!(validate(&c).is_err());
 }
+#[test]fn chosen_bump_out_sides_win_over_porches_and_decks(){
+ for style in ["Colonial","Craftsman","Ranch","Cape Cod","Georgian"]{
+  let mut c=generator::starter();c.home_style=style.into();c.stories=heritage::default_stories(style);c.bedrooms=heritage::default_bedrooms(style);architecture::apply(&mut c,true);
+  for(choice,side)in[("Front","front"),("Rear","rear")]{c.bump_outs=choice.into();let bs=bumps::list(&c);assert!(bs.iter().any(|b|b.side==side),"{style} {choice}: {:?}",bs);
+   assert!(bs.iter().all(|b|near(b.hi-b.lo,bumps::WIDTH)),"{style} every bump-out is 8 ft wide");
+   let m=model::build(&c);
+   // The porch and the rear deck step around a bump-out instead of running through it.
+   let ground=if c.stories>=2{&m["levels"][0]}else{&m};let _=ground;
+   for b in &bs{let fp=bumps::rect(&c,b);for r in m["porch"]["rectangles"].as_array().into_iter().flatten().chain(m["rearOutdoor"]["rectangles"].as_array().into_iter().flatten()){assert!(!edit::overlap(fp,[n(r,"x"),n(r,"z"),n(r,"x")+n(r,"w"),n(r,"z")+n(r,"d")]),"{style} {choice}: porch or deck overlaps a bump-out");}}
+  }
+  c.bump_outs="All around".into();let sides:std::collections::BTreeSet<&str>=bumps::list(&c).iter().map(|b|b.side).collect();assert!(sides.len()>=3,"{style} all around: {:?}",sides);
+ }
+}
+#[test]fn bump_out_depth_choice_and_click_added_bump_outs(){
+ let mut c=generator::starter();c.bump_outs="Front".into();
+ for depth in [2.,4.,6.,8.]{c.bump_depth=depth;assert!(validate(&c).is_ok());let bs=bumps::list(&c);assert!(!bs.is_empty());assert!(bs.iter().all(|b|near(b.depth,depth)),"{depth}: {:?}",bs);
+  let m=model::build(&c);let g=m["wings"].as_array().unwrap().iter().find(|g|g["bump"]==true).unwrap();assert!(near(n(g,"area"),8.*depth));assert!(n(&g["roof"],"area")>0.);}
+ c.bump_depth=5.;assert!(validate(&c).is_err());
+ // Click a spot on the rear wall: a bump-out appears there even with automatic ones off.
+ let mut c=generator::starter();c.bump_outs="None".into();let(rs,_)=layout(&c);let ws=model::walls(&c,&rs);
+ let rear=ws.iter().find(|w|w.id=="E2").unwrap();let door=rear.openings.iter().find(|o|o.kind=="door").map_or(-100.,|o|o.at);
+ // (The default Colonial's rear balcony posts take part of that wall, so click where it is clear.)
+ let at=(6..(c.width as usize-6)).map(|v|v as f64).filter(|v|(v-door).abs()>10.).find(|v|{let mut t=c.clone();t.custom_bumps.push(bumps::CustomBump{side:"rear".into(),at:*v,depth:6.});!bumps::list(&t).is_empty()}).expect("some clear stretch of rear wall");
+ c.custom_bumps.push(bumps::CustomBump{side:"rear".into(),at,depth:6.});assert!(validate(&c).is_ok());
+ let bs=bumps::list(&c);assert_eq!(bs.len(),1,"{:?}",bs);assert_eq!(bs[0].side,"rear");assert!(((bs[0].lo+bs[0].hi)/2.-at).abs()<=1.01);assert!(near(bs[0].depth,6.));
+ // A bump-out never covers a door.
+ let mut blocked=c.clone();blocked.custom_bumps=vec![bumps::CustomBump{side:"front".into(),at:{let ws=model::walls(&blocked,&rs);let d=ws.iter().find(|w|w.id=="E1").unwrap().openings.iter().find(|o|o.kind=="door").unwrap().clone();d.at+d.width/2.},depth:4.}];assert!(bumps::list(&blocked).is_empty());
+ c.custom_bumps[0].side="up".into();assert!(validate(&c).is_err());
+}
+#[test]fn click_added_dormers_sit_on_their_roof_side(){
+ let mut c=generator::starter();c.home_style="Cape Cod".into();c.stories=heritage::default_stories("Cape Cod");c.bedrooms=heritage::default_bedrooms("Cape Cod");architecture::apply(&mut c,true);c.dormer_style="None".into();
+ let before=model::build(&c);assert_eq!(before["dormers"].as_array().map_or(0,|d|d.len()),0);
+ c.custom_dormers.push(additions::dormers::CustomDormer{side:"Front".into(),at:c.width/2.});assert!(validate(&c).is_ok());
+ let m=model::build(&c);let ds=m["dormers"].as_array().unwrap();assert_eq!(ds.len(),1,"notes {}",m["dormerNotes"]);
+ let b=&ds[0]["bounds"];assert!(n(b,"maxZ")<c.depth/2.,"a front dormer is on the front slope");assert!(((n(b,"minX")+n(b,"maxX"))/2.-c.width/2.).abs()<4.);
+ c.custom_dormers[0].side="Up".into();assert!(validate(&c).is_err());
+}
+#[test]fn porch_roofs_are_shed_overhangs_off_the_house(){
+ for style in ["Victorian","Craftsman","Ranch","Coastal","Colonial"]{
+  let mut c=generator::starter();c.home_style=style.into();c.stories=heritage::default_stories(style);c.bedrooms=heritage::default_bedrooms(style);architecture::apply(&mut c,true);
+  let m=model::build(&c);let Some(roofs)=m["porch"]["roofs"].as_array()else{continue};
+  for r in roofs{let roof=&r["roof"];assert_eq!(s(roof,"type"),"Shed porch roof","{style}");assert_eq!(roof["facets"].as_array().unwrap().len(),1,"{style} one slope");
+   // The high edge is at the house wall, the low edge over the posts.
+   let pts=roof["facets"][0]["points"].as_array().unwrap();let ys:Vec<f64>=pts.iter().map(|p|p[1].as_f64().unwrap()).collect();assert!(ys.iter().cloned().fold(f64::MIN,f64::max)>ys.iter().cloned().fold(f64::MAX,f64::min)+0.2,"{style} it slopes");
+   assert!(n(roof,"area")>0.&&!roof["rafters"].as_array().unwrap().is_empty());}
+ }
+}
