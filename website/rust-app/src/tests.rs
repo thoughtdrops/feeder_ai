@@ -1295,3 +1295,19 @@ fn colonial_plan()->Value{json!({"mainWidthFt":40.6,"mainDepthFt":31.5,"floors":
  assert!(m["items"].as_array().unwrap().iter().any(|i|s(i,"id")=="overhang-columns"));
  c.overhang_pillars="Everywhere".into();assert!(validate(&c).is_err());
 }
+#[test]fn clicked_dormers_and_bump_outs_fit_in_every_mode(){
+ // A Colonial's 9:12 roof is too low for the house's 4 × 8 gable dormer, so a clicked one takes a size that fits.
+ let mut c=generator::starter();c.home_style="Colonial".into();c.stories=2;c.bedrooms=heritage::default_bedrooms("Colonial");architecture::apply(&mut c,true);
+ let mut d=c.clone();d.custom_dormers.push(additions::dormers::CustomDormer{side:"Front".into(),at:c.width/2.});let m=model::build(&d);
+ assert_eq!(m["dormers"].as_array().unwrap().len(),1,"{}",m["dormerNotes"]);
+ // A gable end says so instead of blaming the slope.
+ let mut g=c.clone();g.custom_dormers.push(additions::dormers::CustomDormer{side:"Left".into(),at:c.depth/2.});let notes=model::build(&g)["dormerNotes"].to_string();
+ assert!(notes.contains("gable end"),"{notes}");
+ // Blank slate takes clicked bump-outs and dormers too.
+ let mut b=generator::starter();b.design_mode="Blank slate".into();architecture::reset_edits(&mut b);
+ let mut e=b.clone();e.custom_bumps.push(bumps::CustomBump{side:"front".into(),at:b.width/2.-6.,depth:4.,..Default::default()});assert!(validate(&e).is_ok());
+ assert_eq!(bumps::list(&e).len(),1);let m=model::build(&e);assert!(m["wings"].as_array().unwrap().iter().any(|w|w["bump"]==true));
+ let mut f=b.clone();f.custom_dormers.push(additions::dormers::CustomDormer{side:"Front".into(),at:b.width/2.});assert_eq!(model::build(&f)["dormers"].as_array().unwrap().len(),1);
+ // Style-matched bump-outs stay off a blank slate unless clicked on.
+ let mut s2=b.clone();s2.bump_outs="Style matched".into();assert!(bumps::list(&s2).is_empty());
+}

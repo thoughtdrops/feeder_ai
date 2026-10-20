@@ -66,6 +66,27 @@ fn opening_members(id:&str,holes:&[Vec<P>],parent:[f64;3],height:f64)->Vec<Value
 /// center along that wall, in feet (x for the front and rear, z for the sides).
 #[derive(Clone,Serialize,Deserialize,Debug,Default,PartialEq)]#[serde(rename_all="camelCase",default)]
 pub struct CustomDormer{pub side:String,pub at:f64}
+/// A dormer's size and roof type.
+#[derive(Clone,Copy,Debug,PartialEq)]struct Spec{width:f64,depth:f64,kind:&'static str}
+type Cand=(f64,&'static str,P,P,P,[f64;3],f64,[P;4],Spec);
+/// Width, depth, type, dormer roof pitch, arch rise and eyebrow back pitch for one dormer spec.
+fn params(c:&Config,sp:Spec)->(f64,f64,&'static str,f64,f64,f64){
+    let(width,kind)=(sp.width,sp.kind);let main_slope=c.pitch/12.;
+    // Dormer roofs use whole x:12 pitches: shed 2:12, gables and hips at the main pitch (3:12–9:12).
+    let roof_pitch=if kind=="Shed"{2./12.}else{(c.pitch/12.).clamp(0.25,0.75)};
+    // Arched dormers rise 0.3 of their width; eyebrows are low (a quarter of the width, 1–3 ft) and
+    // run back at a pitch 3:12 flatter than the main roof until they die into it.
+    let rise=if kind=="Eyebrow"{(width*0.25).clamp(1.,3.)}else if kind=="Arched"{width*0.3}else{0.};
+    let back=if kind=="Eyebrow"{((c.pitch-3.).max(1.)).round()/12.}else{0.};
+    let depth=if kind=="Eyebrow"{(rise/(main_slope-back).max(0.05)).ceil()+1.}else{sp.depth};
+    (width,depth,kind,roof_pitch,rise,back)
+}
+/// The house's dormer first, then the nearest sizes and types that need less roof height.
+fn fallbacks(house:Spec)->Vec<Spec>{
+    let mut out=vec![house];
+    for(width,depth,kind)in[(house.width,16.,house.kind),(4.,16.,house.kind),(house.width,8.,"Shed"),(house.width,16.,"Shed"),(4.,8.,"Shed"),(4.,16.,"Shed"),(2.,8.,"Shed"),(2.,16.,"Shed")]{let sp=Spec{width,depth,kind};if !out.contains(&sp){out.push(sp);}}
+    out
+}
 pub const SIDES:[&str;4]=["Front","Rear","Left","Right"];
 pub fn validate(c:&Config)->Result<(),String>{
     if c.custom_dormers.len()>12||!c.custom_dormers.iter().all(|d|SIDES.contains(&d.side.as_str())&&d.at.is_finite()&&(0.0..=100.).contains(&d.at)){return Err("Each added dormer needs a roof side and a position along the wall.".into())}
@@ -75,59 +96,66 @@ pub fn apply(c:&Config,m:&mut Value,t:&mut model::Takeoff){
     let auto=if c.dormer_style=="None"{0}else{c.dormer_count};let requested=auto+c.custom_dormers.len();let mut notes=vec![];let mut dormers=vec![];
     if requested==0{m["dormers"]=json!([]);m["dormerNotes"]=json!([]);return}
     let original=m["roof"].clone();let base_facets=original["facets"].as_array().unwrap();let width=c.dormer_width;let depth=c.dormer_depth;
-    let kind=if c.dormer_style=="Style matched"||c.dormer_style=="None"{if ["Ranch","Contemporary","Mid-century","Industrial","Coastal","Craftsman"].contains(&c.home_style.as_str()){"Shed"}else if c.home_style=="French country"{"Arched"}else if c.home_style=="English cottage"{"Eyebrow"}else{"Gable"}}else{&c.dormer_style};
-    // Dormer roofs use whole x:12 pitches: shed 2:12, gables and hips at the main pitch (3:12–9:12).
-    let roof_pitch=if kind=="Shed"{2./12.}else{(c.pitch/12.).clamp(0.25,0.75)};
-    let main_slope=c.pitch/12.;let arched=kind=="Arched"||kind=="Eyebrow";
-    // Arched dormers rise 0.3 of their width; eyebrows are low (a quarter of the width, 1–3 ft) and
-    // run back at a pitch 3:12 flatter than the main roof until they die into it.
-    let rise=if kind=="Eyebrow"{(width*0.25).clamp(1.,3.)}else if kind=="Arched"{width*0.3}else{0.};
-    let back=if kind=="Eyebrow"{((c.pitch-3.).max(1.)).round()/12.}else{0.};
-    let depth=if kind=="Eyebrow"{(rise/(main_slope-back).max(0.05)).ceil()+1.}else{depth};
-    let min_head=if width<=2.{3.7}else{4.7};
-    let mut candidates=vec![];
-    for side in ["Front","Rear","Left","Right"]{
-        if c.dormer_side!="Automatic"&&c.dormer_side!=side&&!c.custom_dormers.iter().any(|d|d.side==side){continue}
-        let (dir,tan,run,total) = match side{"Front"=>([0.,1.],[1.,0.],c.depth,c.width),"Rear"=>([0.,-1.],[-1.,0.],c.depth,c.width),"Left"=>([1.,0.],[0.,-1.],c.width,c.depth),_=>([-1.,0.],[0.,1.],c.width,c.depth)};
-        if depth+4.>run||width+4.>total{continue}
-        for facet in base_facets{
-            let plane=arr(&facet["plane"]);let slope=plane[0]*dir[0]+plane[1]*dir[1];
-            if slope<0.15||(plane[0]*tan[0]+plane[1]*tan[1]).abs()>1e-6{continue}
-            let peak=if kind=="Gable"||kind=="Hip"{width/2.*roof_pitch}else if kind=="Arched"{rise}else{0.};
-            let head=if kind=="Shed"{(slope-roof_pitch)*depth}else if kind=="Eyebrow"{0.}else{slope*depth-peak};
-            if kind=="Eyebrow"{if slope<back+2./12.-1e-9||rise<1.{continue}}else if head<min_head||head>12.{continue}
-            for start in 2..=(total-width-2.).floor()as usize{
-                let start=start as f64;
-                let origin=match side{"Front"=>[start,2.],"Rear"=>[c.width-start,c.depth-2.],"Left"=>[2.,c.depth-start],_=>[c.width-2.,start]};
-                let corners=[[0.,0.],[width,0.],[width,depth],[0.,depth]].map(|p|[origin[0]+tan[0]*p[0]+dir[0]*p[1],origin[1]+tan[1]*p[0]+dir[1]*p[1]]);
-                // Collinear facets may be split by the architectural roof generator.
-                let same:Vec<_>=base_facets.iter().filter(|f|arr(&f["plane"]).iter().zip(plane).all(|(a,b)|near(*a,b))).collect();
-                let covered=|p:P|same.iter().any(|f|inside(p,&poly(f)));
-                let sample_ok=(0..=4).all(|u|(0..=4).all(|v|covered([origin[0]+tan[0]*width*u as f64/4.+dir[0]*depth*v as f64/4.,origin[1]+tan[1]*width*u as f64/4.+dir[1]*depth*v as f64/4.])));
-                if !sample_ok{continue}
-                let score=(start+width/2.-total/2.).abs()+if side=="Front"{0.}else if side=="Rear"{50.}else{100.};
-                candidates.push((score,side,origin,dir,tan,plane,head,corners));
+    let kind:&'static str=if c.dormer_style=="Style matched"||c.dormer_style=="None"{if ["Ranch","Contemporary","Mid-century","Industrial","Coastal","Craftsman"].contains(&c.home_style.as_str()){"Shed"}else if c.home_style=="French country"{"Arched"}else if c.home_style=="English cottage"{"Eyebrow"}else{"Gable"}}else{["Gable","Shed","Hip","Arched","Eyebrow"].into_iter().find(|k|*k==c.dormer_style).unwrap_or("Gable")};
+    let house=Spec{width,depth,kind};
+    // Every candidate spot on the roof for one dormer size and type.
+    let generate=|sp:Spec,only:Option<&str>|->Vec<Cand>{
+        let(width,depth,kind,roof_pitch,rise,back)=params(c,sp);
+        let min_head=if width<=2.{3.7}else{4.7};
+        let mut candidates=vec![];
+        for side in ["Front","Rear","Left","Right"]{
+            if only.is_some_and(|o|o!=side){continue}
+            if only.is_none()&&c.dormer_side!="Automatic"&&c.dormer_side!=side{continue}
+            let (dir,tan,run,total) = match side{"Front"=>([0.,1.],[1.,0.],c.depth,c.width),"Rear"=>([0.,-1.],[-1.,0.],c.depth,c.width),"Left"=>([1.,0.],[0.,-1.],c.width,c.depth),_=>([-1.,0.],[0.,1.],c.width,c.depth)};
+            if depth+4.>run||width+4.>total{continue}
+            for facet in base_facets{
+                let plane=arr(&facet["plane"]);let slope=plane[0]*dir[0]+plane[1]*dir[1];
+                if slope<0.15||(plane[0]*tan[0]+plane[1]*tan[1]).abs()>1e-6{continue}
+                let peak=if kind=="Gable"||kind=="Hip"{width/2.*roof_pitch}else if kind=="Arched"{rise}else{0.};
+                let head=if kind=="Shed"{(slope-roof_pitch)*depth}else if kind=="Eyebrow"{0.}else{slope*depth-peak};
+                if kind=="Eyebrow"{if slope<back+2./12.-1e-9||rise<1.{continue}}else if head<min_head||head>12.{continue}
+                for start in 2..=(total-width-2.).floor()as usize{
+                    let start=start as f64;
+                    let origin=match side{"Front"=>[start,2.],"Rear"=>[c.width-start,c.depth-2.],"Left"=>[2.,c.depth-start],_=>[c.width-2.,start]};
+                    let corners=[[0.,0.],[width,0.],[width,depth],[0.,depth]].map(|p|[origin[0]+tan[0]*p[0]+dir[0]*p[1],origin[1]+tan[1]*p[0]+dir[1]*p[1]]);
+                    // Collinear facets may be split by the architectural roof generator.
+                    let same:Vec<_>=base_facets.iter().filter(|f|arr(&f["plane"]).iter().zip(plane).all(|(a,b)|near(*a,b))).collect();
+                    let covered=|p:P|same.iter().any(|f|inside(p,&poly(f)));
+                    let sample_ok=(0..=4).all(|u|(0..=4).all(|v|covered([origin[0]+tan[0]*width*u as f64/4.+dir[0]*depth*v as f64/4.,origin[1]+tan[1]*width*u as f64/4.+dir[1]*depth*v as f64/4.])));
+                    if !sample_ok{continue}
+                    let score=(start+width/2.-total/2.).abs()+if side=="Front"{0.}else if side=="Rear"{50.}else{100.};
+                    candidates.push((score,side,origin,dir,tan,plane,head,corners,sp));
+                }
             }
         }
-    }
-    // Select complete, centered rows before creating geometry. The old greedy
-    // center-first choice clustered dormers and could make an asymmetric row.
-    // Each row is on one compatible plane; existing coverage tests keep it clear
-    // of hip/valley boundaries and its two-foot construction margin.
+        candidates
+    };
+    let mut candidates=generate(house,None);
     let start_of=|side:&str,p:P|match side{"Front"=>p[0],"Rear"=>c.width-p[0],"Left"=>c.depth-p[1],_=>p[1]};
     candidates.sort_by(|a,b|a.0.total_cmp(&b.0));let mut selected:Vec<usize>=vec![];
     let overlaps=|a:&[P;4],b:&[P;4]|{let bounds=|ps:&[P;4],axis:usize|(ps.iter().map(|p|p[axis]).fold(f64::INFINITY,f64::min),ps.iter().map(|p|p[axis]).fold(f64::NEG_INFINITY,f64::max));let(ax,bx)=bounds(a,0);let(az,bz)=bounds(a,1);let(cx,dx)=bounds(b,0);let(cz,dz)=bounds(b,1);ax<dx+2.&&bx>cx-2.&&az<dz+2.&&bz>cz-2.};
     // Dormers added by clicking a wall go first, at the clear spot nearest the click on that side's roof.
+    // A dormer added by clicking takes the house's dormer size and type where it fits; where the roof is too low for
+    // that, the nearest size and type that does fit is used (deeper, narrower, then a shed dormer, which needs the
+    // least height), so a click on any sloping roof side gets a dormer.
     for d in &c.custom_dormers{
         let along=|p:&[P;4]|{let xs=p.iter().map(|q|if ["Front","Rear"].contains(&d.side.as_str()){q[0]}else{q[1]});let(lo,hi)=xs.fold((f64::INFINITY,f64::NEG_INFINITY),|(a,b),v|(a.min(v),b.max(v)));(lo+hi)/2.};
-        let best=candidates.iter().enumerate().filter(|(i,v)|v.1==d.side&&!selected.contains(i)&&!selected.iter().any(|j|overlaps(&v.7,&candidates[*j].7))).min_by(|a,b|(along(&a.1.7)-d.at).abs().total_cmp(&(along(&b.1.7)-d.at).abs()));
-        if let Some((i,_))=best{selected.push(i);}else{notes.push(format!("No room for the added {} dormer: the roof there is too low or too close to a hip, valley or another dormer.",d.side.to_lowercase()));}
+        let mut placed=false;
+        for sp in fallbacks(house){
+            let pool=if sp==house{candidates.clone()}else{generate(sp,Some(&d.side))};
+            let best=pool.iter().filter(|v|v.1==d.side&&v.8==sp&&!selected.iter().any(|j|overlaps(&v.7,&candidates[*j].7))).min_by(|a,b|(along(&a.7)-d.at).abs().total_cmp(&(along(&b.7)-d.at).abs())).cloned();
+            if let Some(v)=best{if sp==house{if let Some(i)=candidates.iter().position(|w|w.2==v.2&&w.8==sp&&w.5==v.5){selected.push(i);}}else{candidates.push(v);selected.push(candidates.len()-1);}placed=true;break}
+        }
+        if !placed{
+            let dir=match d.side.as_str(){"Front"=>[0.,1.],"Rear"=>[0.,-1.],"Left"=>[1.,0.],_=>[-1.,0.]};let steepest=base_facets.iter().map(|f|{let p=arr(&f["plane"]);p[0]*dir[0]+p[1]*dir[1]}).fold(0.,f64::max);let sloped=steepest>0.15;
+            notes.push(if sloped&&steepest<6.5/12.{format!("The {} roof is too shallow ({:.0}:12) for a dormer window to stand up; dormers need about 7:12 or steeper. Raise the roof pitch to add one.",d.side.to_lowercase(),steepest*12.)}else if sloped{format!("No room for the added {} dormer: the roof there is too low or too close to a hip, valley or another dormer.",d.side.to_lowercase())}else{format!("The {} side is a gable end with no roof slope to hold a dormer. Click a sloping roof side instead.",d.side.to_lowercase())});
+        }
     }
     // Then the automatic row, so a click-added dormer that did not fit never turns into one somewhere else.
     let target=selected.len()+auto;
     for side in ["Front","Rear","Left","Right"]{
         if selected.len()>=target{break}if c.dormer_side!="Automatic"&&c.dormer_side!=side{continue}let total=if ["Front","Rear"].contains(&side){c.width}else{c.depth};
-        let rows:Vec<_>=candidates.iter().enumerate().filter(|(_,v)|v.1==side).collect();
+        let rows:Vec<_>=candidates.iter().enumerate().filter(|(_,v)|v.1==side&&v.8==house).collect();
         let capacity=((total-4.+2.)/(width+2.)).floor().max(0.)as usize;
         for count in (1..=(target-selected.len()).min(capacity)).rev(){
             let mut best:Option<(f64,Vec<usize>)>=None;
@@ -151,7 +179,8 @@ pub fn apply(c:&Config,m:&mut Value,t:&mut model::Takeoff){
         }
     }
     let chosen:Vec<_>=selected.into_iter().map(|i|candidates[i].clone()).collect();
-    for(_,side,origin,dir,tan,parent,head,corners)in chosen{
+    for(_,side,origin,dir,tan,parent,head,corners,sp)in chosen{
+        let(width,depth,kind,roof_pitch,rise,back)=params(c,sp);let arched=kind=="Arched"||kind=="Eyebrow";
         if dormers.len()>=requested{break}
         let lo=[corners.iter().map(|p|p[0]).fold(f64::INFINITY,f64::min),corners.iter().map(|p|p[1]).fold(f64::INFINITY,f64::min)];let hi=[corners.iter().map(|p|p[0]).fold(f64::NEG_INFINITY,f64::max),corners.iter().map(|p|p[1]).fold(f64::NEG_INFINITY,f64::max)];
         if dormers.iter().any(|d:&Value|{let b=&d["bounds"];lo[0]<n(b,"maxX")+2.&&hi[0]>n(b,"minX")-2.&&lo[1]<n(b,"maxZ")+2.&&hi[1]>n(b,"minZ")-2.}){continue}

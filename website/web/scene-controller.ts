@@ -4,7 +4,7 @@ type Options={host:HTMLElement;render:(host:HTMLElement,data:any)=>SceneHandle|u
 // Keep expensive graphics work outside the Rust touch/selection callback.
 // Coalesce rapid changes so only the newest requested design is constructed.
 export function createSceneController({host,render,onError,schedule=requestAnimationFrame,cancel=cancelAnimationFrame}:Options){
- let handle:SceneHandle|undefined,pending:any,last:any,lastKey='',frame=0,selection:any=null,mode:any;
+ let handle:SceneHandle|undefined,pending:any,last:any,lastKey='',lastFloor=0,frame=0,selection:any=null,mode:any;
  let lostCanvas:HTMLCanvasElement|undefined,recoveries=0,disposed=false;
  const report=(error:unknown)=>{try{onError(error)}catch{}};
  const stop=()=>{const old=handle;handle=undefined;if(old)try{old()}catch(error){report(error)}};
@@ -13,8 +13,12 @@ export function createSceneController({host,render,onError,schedule=requestAnima
  const unbindContext=()=>{lostCanvas?.removeEventListener('webglcontextlost',contextLost);lostCanvas?.removeEventListener('webglcontextrestored',contextRestored);};
  function flush(){
   frame=0;if(disposed||!pending)return;const data=pending;pending=undefined;
-  const key=JSON.stringify([data.view,data.jump,data.frameOpening,data.cameraRevision,data.config.activeFloor,data.config.garage,data.config.garageSide,['exterior','framing'].includes(data.view)?data.model.floorHeight:0,data.model.w,data.model.d]);
-  if(key===lastKey&&handle?.getPose)data.cameraPose=handle.getPose();lastKey=key;
+  // Switching floors (a floor button, or clicking an upper window from outside) keeps the camera where it is: outside it
+  // stays put, inside it rises or drops by the floor height to the chosen floor, instead of jumping back to the start view.
+  const key=JSON.stringify([data.view,data.view==='walk'?data.jump:'',data.frameOpening,data.cameraRevision,data.config.garage,data.config.garageSide,['exterior','framing'].includes(data.view)?data.model.floorHeight:0,data.model.w,data.model.d]);
+  const floor=data.config.activeFloor||0;
+  if(key===lastKey&&handle?.getPose){const pose=handle.getPose();const lift=data.view==='exterior'?0:(floor-lastFloor)*(data.model.floorHeight||0);if(pose&&lift){pose.position=[...pose.position];pose.target=[...pose.target];pose.position[1]+=lift;pose.target[1]+=lift;}data.cameraPose=pose;}
+  lastKey=key;lastFloor=floor;
   stop();host.replaceChildren();last=data;
   if(data.view==='plan')return;
   try{
