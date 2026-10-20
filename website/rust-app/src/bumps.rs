@@ -53,7 +53,7 @@ fn world(c:&Config,b:&Bump,u:f64,v:f64)->(f64,f64){match b.side{"front"=>(b.lo+u
 /// The bump-outs this house has. Computed once per design: the choice needs the ground-floor rooms, doors
 /// and porch, and those are built while the bump-outs are left out.
 pub fn list(c:&Config)->Vec<Bump>{
- if (c.bump_outs=="None"&&c.custom_bumps.is_empty())||c.design_mode=="Blank slate"||c.width<16.||c.depth<16.||BUSY.with(Cell::get){return vec![]}
+ if (c.bump_outs=="None"&&c.custom_bumps.is_empty())||(c.design_mode=="Blank slate"&&c.custom_bumps.is_empty())||c.width<16.||c.depth<16.||BUSY.with(Cell::get){return vec![]}
  let mut g=c.clone();g.active_floor=0;
  let key={use std::hash::{Hash,Hasher};let mut h=std::collections::hash_map::DefaultHasher::new();serde_json::to_string(&g).unwrap_or_default().hash(&mut h);h.finish()};
  if let Some(v)=MEMO.with(|m|m.borrow().as_ref().filter(|(k,_)|*k==key).map(|(_,v)|v.clone())){return v}
@@ -109,7 +109,7 @@ fn plan(c:&Config)->Vec<Bump>{
  }
  // A traced plan's bump-outs come from the plan, scaled to the house (none if the plan has none); a chosen
  // side, or any other house, gets them by the rules here.
- let wanted:Vec<(&'static str,Option<(f64,f64,f64)>)>=if c.bump_outs=="None"{vec![]}else{match traced::active(c).filter(|_|style_matched){
+ let wanted:Vec<(&'static str,Option<(f64,f64,f64)>)>=if c.bump_outs=="None"||c.design_mode=="Blank slate"{vec![]}else{match traced::active(c).filter(|_|style_matched){
   Some(t)=>t.bumps.iter().filter_map(|b|{let side=*SIDES.iter().find(|s|**s==b.side)?;let k=if ["front","rear"].contains(&side){c.width/t.width}else{c.depth/t.depth};Some((side,Some((b.at*k,b.width*k,b.depth))))}).collect(),
   None=>sides.iter().flat_map(|s|std::iter::repeat_n((*s,None),per_side)).collect(),
  }};let custom=out.len();

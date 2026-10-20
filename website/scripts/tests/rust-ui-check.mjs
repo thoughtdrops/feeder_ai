@@ -307,5 +307,5 @@ assert.equal(document.querySelector('[data-field="facing"]'),null);assert.deepEq
  assert.ok(added,'a click on the front wall adds a bump-out');const custom=snapshot().config.customBumps;assert.equal(custom.length,1);assert.equal(custom[0].side,'front');assert.equal(custom[0].depth,4);
  const bump=bumpsOf()[0];assert.equal(bump.side,'front');const front=snapshot().model.walls.find(w=>w.id===`XF-${bump.id}`);assert.ok(front,'the bump-out has its own front wall');
  pick({kind:'wall',wallId:front.id,at:2});assert.match(document.querySelector('.context-menu').textContent,/Remove this bump-out/);click('[data-action="edit-remove-bump"]');assert.equal(bumpsOf().length,0);assert.equal(snapshot().config.customBumps.length,0);
- pick({kind:'wall',wallId:'E1',at:width/2});click('[data-action="edit-add-dormer"]');assert.match(q('#message').textContent,/Dormer added|doesn't fit/);
+ pick({kind:'wall',wallId:'E1',at:width/2});click('[data-action="edit-add-dormer"]');assert.match(q('#message').textContent,/Dormer added|doesn't fit|gable end|too shallow/);
  assert.deepEqual(errors,[]);console.log('PASS: front/rear bump-outs on demand, 8 ft wide at the chosen depth, wall menu adds and removes bump-outs and adds dormers.');}

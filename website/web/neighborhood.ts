@@ -357,12 +357,17 @@ function oceanfront(z0:number,shore:number,mobile:boolean):T.Object3D[]{
   const wet=1-smooth(4,26,ds),grass=Math.exp(-(((d-20)/14)**2));const k=1-.26*wet;return [x,y,z,k*(1-.1*grass),k*(1-.03*grass),k*(1-.2*grass-.05*wet)];});
  const st=sandTex();const sandMat=new T.MeshStandardMaterial({map:st,bumpMap:st,bumpScale:1.2,roughness:.96,vertexColors:true,color:'#d8c7a2',envMapIntensity:.4});sandMat.userData.persistent=true;
  const beach=new T.Mesh(sand,sandMat);beach.receiveShadow=true;beach.name='Beach';
- // Ocean: turquoise over the shallows, deepening to navy offshore; glossy, with wind ripples.
+ // Ocean: clear blue over the shallows, deepening to a rich ocean blue offshore; glossy, with wind ripples. The sky
+ // reflection is kept light so the water reads blue rather than washed out.
  const wz0=shore-30,wz1=940,wn=mobile?16:30;
  const sea=grid(40,wn,(i,j)=>{const x=-W+2*W*i/40,z=wz0+(wz1-wz0)*(j/wn)**1.6,t=smooth(0,420,z-shoreZ(x));
-  return [x,SEA,z,.16+(.04-.16)*t,.5+(.17-.5)*t,.55+(.3-.55)*t];});
+  // The scene's haze would wash the far water out to grey-white, so the water skips the fog and carries its own
+  // gentle haze: a lighter ocean blue toward the horizon.
+  const h=.45*smooth(450,940,z),r=.04+(.01-.04)*t,g=.36+(.11-.36)*t,b=.62+(.42-.62)*t;
+  return [x,SEA,z,r+(.2-r)*h,g+(.4-g)*h,b+(.66-b)*h];});
  const wn2=waterNormals();wn2.repeat.set(30/24,30/24);
- const water=new T.MeshPhysicalMaterial({vertexColors:true,roughness:.14,metalness:0,normalMap:wn2,normalScale:new T.Vector2(.5,.5),envMapIntensity:.55,clearcoat:.25,clearcoatRoughness:.15});water.userData.persistent=true;
+ // Seen at a low angle, glossy water mirrors the pale sky almost completely; a weak reflection keeps it ocean blue.
+ const water=new T.MeshPhysicalMaterial({vertexColors:true,roughness:.3,metalness:0,normalMap:wn2,normalScale:new T.Vector2(.3,.3),envMapIntensity:.25,specularIntensity:.18,fog:false});water.userData.persistent=true;
  const ocean=new T.Mesh(sea,water);ocean.receiveShadow=true;ocean.name='Ocean';ocean.userData.backdrop=true;
  // Surf: a swash line on the wet sand and three lines of breaking waves offshore.
  const foam=foamTex(),out:T.Object3D[]=[beach,ocean];

@@ -49,7 +49,7 @@ pub fn menu(a:&State)->String{let t=&a.selection;if t.is_null()||!permitted(a,t)
 if !is_existing{o.push_str(&bump_and_dormer(a,&wall));}
 o.push_str(del);o.push_str(if is_existing{"Delete this opening?"}else{"Delete the highlighted wall section?"});o.push_str("</summary>");if !is_existing{o.push_str("<div class=two-fields>");o.push_str(&num("edit-section-at","Section start · ft",n(t,"sectionAt")));o.push_str(&num("edit-section-width","Length to remove · ft",n(t,"sectionWidth")));o.push_str("</div><label class=check><input id=edit-entire-wall type=checkbox>Remove the entire wall</label>");}o.push_str("<div class=context-choices>");o.push_str(&btn("edit-delete","Yes, delete","danger"));o.push_str(&btn("edit-cancel","No","secondary"));o.push_str("</div></details>");},
  "furniture"=>{if let Some(f)=a.m["furniture"].as_array().unwrap().iter().find(|f|s(f,"id")==s(t,"id")){o.push_str(&format!("<p class=context-location>{} · {}</p>",esc(s(f,"kind")),esc(s(f,"roomId"))));o.push_str("<div class=two-fields>");for(id,label,value)in[("edit-x","Position X · ft",n(f,"x")),("edit-z","Position Z · ft",n(f,"z")),("edit-width","Width · ft",n(f,"localWidth")),("edit-depth","Depth · ft",n(f,"localDepth"))]{o.push_str(&num(id,label,value));}o.push_str("</div>");let turn=t["draftRotation"].as_f64().unwrap_or(n(f,"rotation"));o.push_str(&if s(f,"kind")=="stairs"{stair_rotation(turn)}else{rotation(turn)});o.push_str("<div class=context-choices>");o.push_str(&btn("edit-save-item","Apply changes","primary"));o.push_str(&btn("edit-move",if s(f,"kind")=="stairs"{"Move stairs with a click"}else{"Move with a click"},"secondary"));o.push_str("</div>");if s(f,"id")=="catalog-stairs"{if a.c.placed_furniture.iter().any(|p|p.id=="catalog-stairs"){o.push_str(&btn("edit-delete","Put the stairs back where they were","secondary wide"));}o.push_str("<p class=context-hint>Rooms the stairs land in are rebuilt around them on every floor. Kitchens, bathrooms and bedrooms stay whole.</p>");}else{o.push_str(del);o.push_str("Delete this item?</summary><div class=context-choices>");o.push_str(&btn("edit-delete","Yes, delete","danger"));o.push_str(&btn("edit-cancel","No","secondary"));o.push_str("</div></details>");}}},
- _=>{o.push_str(&format!("<p class=context-location>Snapped position · {:.2}, {:.2} ft</p>",n(t,"x"),n(t,"z")));let f=a.m["furniture"].as_array().unwrap().iter().find(|f|s(f,"id")==a.moving);if let Some(f)=f{o.push_str(&format!("<p class=context-hint>Moving {}. Click a different floor position to adjust the destination.</p><input id=edit-item type=hidden value=\"{}\">",esc(s(f,"kind")),esc(s(f,"kind"))));}else{o.push_str(&item_select(&a.insert_kind));}o.push_str(&if a.insert_kind=="stairs"{stair_rotation(t["placement"]["rotation"].as_f64().unwrap_or(a.insert_rotation))}else{rotation(t["placement"]["rotation"].as_f64().unwrap_or(a.insert_rotation))});o.push_str("<div class=context-choices>");o.push_str(&btn("edit-insert-item",if a.moving.is_empty(){"Yes, insert here"}else{"Yes, move here"},"primary"));o.push_str(&btn("edit-cancel","No","secondary"));o.push_str("</div>");if let Some(k)=t["blockedBy"]["kind"].as_str(){o.push_str(&btn("edit-replace-item",&format!("Replace the {} with this",esc(k)),"danger wide"));}o.push_str("<details class=context-wall><summary>Add a wall here</summary><label class=field>Direction<select id=edit-axis><option value=x>Across (X)</option><option value=z>Along (Z)</option></select></label>");o.push_str(&num("edit-length","Wall length · ft",4.));o.push_str(&btn("edit-add-wall","Yes, add wall","primary wide"));o.push_str("</details><p class=context-hint>Use Place object for one-click placement. Green footprints snap to nearby space; blue zones keep circulation clear.</p>");}
+ _=>{o.push_str(&format!("<p class=context-location>Snapped position · {:.2}, {:.2} ft</p>",n(t,"x"),n(t,"z")));let f=a.m["furniture"].as_array().unwrap().iter().find(|f|s(f,"id")==a.moving);if let Some(f)=f{o.push_str(&format!("<p class=context-hint>Moving {}. Click a different floor position to adjust the destination.</p><input id=edit-item type=hidden value=\"{}\">",esc(s(f,"kind")),esc(s(f,"kind"))));}else{o.push_str(&item_select(&a.insert_kind));}o.push_str(&if a.insert_kind=="stairs"{stair_rotation(t["placement"]["rotation"].as_f64().unwrap_or(a.insert_rotation))}else{rotation(t["placement"]["rotation"].as_f64().unwrap_or(a.insert_rotation))});o.push_str("<div class=context-choices>");o.push_str(&btn("edit-insert-item",if a.moving.is_empty(){"Yes, insert here"}else{"Yes, move here"},"primary"));o.push_str(&btn("edit-cancel","No","secondary"));o.push_str("</div>");if let Some(k)=t["blockedBy"]["kind"].as_str(){o.push_str(&btn("edit-replace-item",&format!("Replace the {} with this",esc(k)),"danger wide"));}if a.moving.is_empty(){o.push_str("<details class=context-addition><summary>Add an addition: bump-out or dormer</summary><p class=context-hint>Added on the outside wall nearest this spot.</p>");o.push_str(&addition_fields(a,"edit-add-bump-near","edit-add-dormer-near"));o.push_str("</details>");}o.push_str("<details class=context-wall><summary>Add a wall here</summary><label class=field>Direction<select id=edit-axis><option value=x>Across (X)</option><option value=z>Along (Z)</option></select></label>");o.push_str(&num("edit-length","Wall length · ft",4.));o.push_str(&btn("edit-add-wall","Yes, add wall","primary wide"));o.push_str("</details><p class=context-hint>Use Place object for one-click placement. Green footprints snap to nearby space; blue zones keep circulation clear.</p>");}
  }o.push_str("</div></section>");o}
 /// The side of the house an outside wall faces, as (bump-out side, dormer side).
 fn house_side(wall_id:&str)->Option<(&'static str,&'static str)>{match wall_id.split("-L").next().unwrap_or(""){"E1"=>Some(("front","Front")),"E2"=>Some(("rear","Rear")),"E3"=>Some(("left","Left")),"E4"=>Some(("right","Right")),_=>None}}
@@ -68,15 +68,34 @@ fn bump_and_dormer(a:&State,wall:&Value)->String{
  let id=s(wall,"id");let mut o=String::new();
  if let Some(i)=bump_index(id){if let Some(b)=bumps::list(&a.c).get(i){o.push_str(&format!("<details class=context-opening open><summary>This wall is part of a bump-out · {:.0} × {:.0} ft{}</summary>",b.hi-b.lo,b.depth,if b.full{" · full height"}else{""}));o.push_str(&bump_fields(a,b.depth,b.hi-b.lo,b.full));o.push_str(&btn("edit-resize-bump","Resize this bump-out","primary wide"));o.push_str(&btn("edit-remove-bump","Remove this bump-out","danger wide"));o.push_str("</details>");}return o}
  if house_side(id).is_none(){return o}
- o.push_str("<details class=context-opening><summary>Add a bump-out or dormer here</summary>");
- if a.c.active_floor==0&&a.c.design_mode!="Blank slate"{
-  let depth=if a.c.bump_depth>0.{a.c.bump_depth}else{4.};
-  o.push_str(&bump_fields(a,depth,a.c.bump_width,a.c.bump_height=="Full height"));
-  o.push_str(&btn("edit-add-bump","Add a bump-out here","primary wide"));
- }
- o.push_str(&btn("edit-add-dormer","Add a dormer on the roof above","secondary wide"));
- o.push_str("<p class=context-hint>A bump-out opens into the room behind it and gets its own roof; it needs 8 ft of wall clear of doors, the garage and a balcony. A dormer goes on this side's roof slope, as close to here as the roof allows.</p></details>");
+ o.push_str("<details class=context-opening><summary>Add a bump-out or dormer here</summary>");o.push_str(&addition_fields(a,"edit-add-bump","edit-add-dormer"));o.push_str("</details>");
  o
+}
+/// Bump-out size fields with add buttons for a bump-out and a dormer (from a clicked wall, or the nearest outside wall).
+fn addition_fields(a:&State,bump:&str,dormer:&str)->String{
+ let depth=if a.c.bump_depth>0.{a.c.bump_depth}else{4.};let mut o=bump_fields(a,depth,a.c.bump_width,a.c.bump_height=="Full height"||a.c.active_floor>0);
+ o.push_str(&btn(bump,"Add a bump-out here","primary wide"));o.push_str(&btn(dormer,"Add a dormer on the roof above","secondary wide"));
+ o.push_str("<p class=context-hint>A bump-out opens into the room behind it and gets its own roof; if doors or the corner are in the way it slides to the nearest clear stretch of wall. A dormer goes on that side's roof slope, as close to here as the roof allows, sized to fit it.</p>");o
+}
+/// The outside walls from nearest to farthest from a floor point, as (wall id, distance along it).
+fn nearest_walls(c:&Config,x:f64,z:f64)->Vec<(&'static str,f64)>{
+ let mut v=vec![("E1",z,x),("E2",c.depth-z,x),("E3",x,z),("E4",c.width-x,z)];v.sort_by(|a,b|a.1.total_cmp(&b.1));v.into_iter().map(|(id,_,at)|(id,at)).collect()
+}
+/// Adds a bump-out on a house side centered as near `at` as it fits (sliding along the wall past doors and corners).
+fn add_bump(a:&mut State,side:&'static str,at:f64,depth:f64,width:f64,full:bool)->Result<String,String>{
+ let len=if ["front","rear"].contains(&side){a.c.width}else{a.c.depth};
+ let mut tries=vec![at];for k in 1..=(len as usize){for sign in [1.,-1.]{let p=at+sign*k as f64;if p>=0.&&p<=len{tries.push(p);}}}
+ for p in tries{a.c.custom_bumps.push(bumps::CustomBump{side:side.into(),at:p,depth,width,full});
+  if validate(&a.c).is_ok()&&bumps::list(&a.c).iter().any(|b|b.side==side&&((b.lo+b.hi)/2.-p).abs()<=width/2.+0.5&&near(b.hi-b.lo,width)){
+   return Ok(format!("Bump-out added: {width} ft wide, {depth} ft out{}{}.",if full&&a.c.stories>1{", full height"}else{""},if (p-at).abs()>1.{format!(", moved {:.0} ft along the wall to clear a door or corner",(p-at).abs())}else{String::new()}))}
+  a.c.custom_bumps.pop();}
+ Err(format!("A {width} ft bump-out doesn't fit on this wall: it needs {width} ft of wall at least 2 ft from the corners, clear of doors, the garage, a balcony and other bump-outs. Try a narrower one."))
+}
+fn add_dormer(a:&mut State,side:&'static str,at:f64)->Result<String,String>{
+ a.c.custom_dormers.push(additions::dormers::CustomDormer{side:side.into(),at});
+ let notes:Vec<String>=serde_json::from_value(model::build(&a.c)["dormerNotes"].clone()).unwrap_or_default();
+ let problem=notes.iter().find(|n|n.contains("added")||n.contains("gable end")||n.contains("too shallow")).cloned();
+ if validate(&a.c).is_ok()&&problem.is_none(){Ok(format!("Dormer added on the {} roof.",side.to_lowercase()))}else{a.c.custom_dormers.pop();Err(problem.unwrap_or("A dormer doesn't fit on this roof slope here.".into()))}
 }
 fn parsed(id:&str)->f64{val(id).parse().unwrap_or(f64::NAN)}
 fn unique(prefix:&str,floor:usize)->String{thread_local!{static SEQ:std::cell::Cell<u32>=const {std::cell::Cell::new(0)};}let seq=SEQ.with(|s|{s.set(s.get().wrapping_add(1));s.get()});format!("{}{}-{}{}",prefix,(js_sys::Date::now()as u64)%1_000_000_000,seq,floor_tag(floor))}
@@ -100,20 +119,22 @@ pub fn act(target:Element){let command=target.get_attribute("data-action").unwra
  let untouched=doc().get_element_by_id("edit-at").is_some_and(|e|!e.has_attribute("data-typed"));if error.is_some()&&command=="edit-insert-opening"&&untouched{let asked=os.last().unwrap().at;for step in 1..=((wall.length*4.)as usize){let mut done=false;for sign in [1.,-1.]{let mut trial=os.clone();trial.last_mut().unwrap().at=asked+sign*step as f64*0.25;if rules::opening_error(&trial,&wall,&a.c,&rooms).is_none(){os=trial;error=None;done=true;break}}if done{break}}}
  let mut note=String::new();if error.is_some(){let id=os.last().unwrap().id.clone();if let Some((kept,gone))=rules::widen_window(&os,&id,&wall,&a.c,&rooms){os=kept;error=None;note=format!("Window widened; {} next to it {} removed to make room.",if gone==1{"the window"}else{"the windows"},if gone==1{"was"}else{"were"});}}
  if error.is_none(){a.c.opening_overrides.insert(s(&w,"id").into(),os);changed(&mut a);reset_selection(&mut a);if !note.is_empty(){a.message=note;}redraw=true;}else{a.message=error.unwrap();}},
- "edit-add-bump"=>{let Some((side,_))=house_side(s(&t,"wallId"))else{return};let at=n(&t,"at");let(depth,width,full)=bump_size();
-  a.c.custom_bumps.push(bumps::CustomBump{side:side.into(),at,depth,width,full});
-  let placed=validate(&a.c).is_ok()&&bumps::list(&a.c).iter().any(|b|b.side==side&&((b.lo+b.hi)/2.-at).abs()<=width/2.+0.5);
-  if placed{changed(&mut a);reset_selection(&mut a);a.message=format!("Bump-out added: {width} ft wide, {depth} ft out{}.",if full{", full height"}else{""});redraw=true;}else{a.c.custom_bumps.pop();a.message=format!("A {width} ft bump-out doesn't fit here. It needs {width} ft of wall at least 2 ft from the corners, clear of doors, the garage, a balcony and other bump-outs. Try a narrower one or another spot.");}},
+ "edit-add-bump"|"edit-add-bump-near"=>{
+  // From a wall, that wall; from the floor, the nearest outside wall that has room, then the next nearest.
+  let walls:Vec<(String,f64)>=if command=="edit-add-bump"{vec![(s(&t,"wallId").to_string(),n(&t,"at"))]}else{nearest_walls(&a.c,t["requestedX"].as_f64().unwrap_or(n(&t,"x")),t["requestedZ"].as_f64().unwrap_or(n(&t,"z"))).into_iter().map(|(w,at)|(w.to_string(),at)).collect()};
+  let(depth,width,full)=bump_size();let mut result=Err(String::new());
+  for(wall,at)in walls{let Some((side,_))=house_side(&wall)else{continue};result=add_bump(&mut a,side,at,depth,width,full).map(|m|if command=="edit-add-bump-near"{format!("{} On the {} wall.",m,side)}else{m});if result.is_ok(){break}}
+  match result{Ok(m)=>{changed(&mut a);reset_selection(&mut a);a.message=m;redraw=true;},Err(e)=>a.message=e}},
  "edit-resize-bump"=>{let Some(i)=bump_index(s(&t,"wallId"))else{return};let list=bumps::list(&a.c);let Some(old)=list.get(i).cloned()else{return};let(depth,width,full)=bump_size();
   // Every bump-out stays where it is, as one the visitor placed; this one takes the new size about its center.
   let saved=(a.c.custom_bumps.clone(),a.c.bump_outs.clone());
   a.c.custom_bumps=list.iter().enumerate().map(|(j,b)|if j==i{bumps::CustomBump{side:b.side.into(),at:(b.lo+b.hi)/2.,depth,width,full}}else{bumps::CustomBump{side:b.side.into(),at:(b.lo+b.hi)/2.,depth:b.depth,width:b.hi-b.lo,full:b.full}}).collect();a.c.bump_outs="None".into();
   let now=bumps::list(&a.c);let placed=validate(&a.c).is_ok()&&now.len()==list.len()&&now.iter().any(|b|b.side==old.side&&near(b.hi-b.lo,width)&&near(b.depth,depth)&&((b.lo+b.hi)/2.-(old.lo+old.hi)/2.).abs()<=2.01);
   if placed{changed(&mut a);reset_selection(&mut a);a.message=format!("Bump-out resized: {width} ft wide, {depth} ft out{}.",if full{", full height"}else{""});redraw=true;}else{(a.c.custom_bumps,a.c.bump_outs)=saved;a.message=format!("A {width} × {depth} ft bump-out doesn't fit here: it would reach a corner, a door, the garage, a balcony or another bump-out.");}},
- "edit-add-dormer"=>{let Some((_,side))=house_side(s(&t,"wallId"))else{return};let at=n(&t,"at");
-  a.c.custom_dormers.push(additions::dormers::CustomDormer{side:side.into(),at});
-  let notes=model::build(&a.c)["dormerNotes"].to_string();
-  if validate(&a.c).is_ok()&&!notes.contains("No room for the added"){changed(&mut a);reset_selection(&mut a);a.message=format!("Dormer added on the {} roof.",side.to_lowercase());redraw=true;}else{a.c.custom_dormers.pop();a.message="A dormer doesn't fit on this roof slope here: it is too low, too close to a hip or valley, or another dormer is in the way.".into();}},
+ "edit-add-dormer"|"edit-add-dormer-near"=>{let walls:Vec<(String,f64)>=if command=="edit-add-dormer"{vec![(s(&t,"wallId").to_string(),n(&t,"at"))]}else{nearest_walls(&a.c,t["requestedX"].as_f64().unwrap_or(n(&t,"x")),t["requestedZ"].as_f64().unwrap_or(n(&t,"z"))).into_iter().map(|(w,at)|(w.to_string(),at)).collect()};
+  let mut result=Err(String::new());
+  for(wall,at)in walls{let Some((_,side))=house_side(&wall)else{continue};result=add_dormer(&mut a,side,at);if result.is_ok(){break}}
+  match result{Ok(m)=>{changed(&mut a);reset_selection(&mut a);a.message=m;redraw=true;},Err(e)=>a.message=e}},
  "edit-remove-bump"=>{let Some(i)=bump_index(s(&t,"wallId"))else{return};let list=bumps::list(&a.c);if i>=list.len(){return}
   // Keep every other bump-out where it is, as one the visitor placed, and stop adding new ones automatically.
   a.c.custom_bumps=list.iter().enumerate().filter(|(j,_)|*j!=i).map(|(_,b)|bumps::CustomBump{side:b.side.into(),at:(b.lo+b.hi)/2.,depth:b.depth,width:b.hi-b.lo,full:b.full}).collect();a.c.bump_outs="None".into();
