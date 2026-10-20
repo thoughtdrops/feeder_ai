@@ -9,7 +9,9 @@ export function interiorNavigation(camera:T.PerspectiveCamera,orbit:OrbitControl
  orbit.enableDamping=false;orbit.rotateSpeed=.45;orbit.zoomSpeed=.6;orbit.panSpeed=.9;
  orbit.minPolarAngle=Math.PI/18;orbit.maxPolarAngle=Math.PI*.495;
  if(!(orbit as any).groundGuard){(orbit as any).groundGuard=true;orbit.addEventListener('change',()=>keepAboveGround(camera,orbit));}
- orbit.mouseButtons={LEFT:T.MOUSE.ROTATE,MIDDLE:T.MOUSE.DOLLY,RIGHT:T.MOUSE.PAN};
+ // Left-drag turns the view; the wheel zooms; middle-drag or Shift/Ctrl + left-drag pans. The right button is kept free
+ // for the right-click menu (select, insert here, delete).
+ orbit.mouseButtons={LEFT:T.MOUSE.ROTATE,MIDDLE:T.MOUSE.PAN,RIGHT:null as any};
  orbit.touches={ONE:T.TOUCH.ROTATE,TWO:T.TOUCH.DOLLY_PAN};
  if(interior){const span=Math.max(m.w,m.d);camera.fov=50;camera.updateProjectionMatrix();orbit.minDistance=3;orbit.maxDistance=span*4;orbit.target.set(0,m.h*.24,0);camera.position.set(span*.65,m.h+span*.7,-span*.85);orbit.update();}
  return (direction:string)=>{

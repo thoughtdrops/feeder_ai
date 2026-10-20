@@ -27,6 +27,8 @@ pub fn roof(a:&State)->String{
 pub fn outdoor(a:&State)->String{
     let c=&a.c;let mut out=String::from("<details class=control-group data-section=outdoor><summary>Porches, decks &amp; balcony</summary>");
     out.push_str(&select("frontPorch","Front porch",&strings(&crate::porch::FORMS),&c.front_porch));
+    out.push_str(&select("overhangPillars","Overhang pillars · columns under the roof eaves",&strings(&crate::additions::colonnade::CHOICES),&c.overhang_pillars));
+    if c.overhang_pillars!="None"{let n=a.m["overhangPillars"]["posts"].as_array().map_or(0,|p|p.len());out.push_str(&format!("<p class=muted>{}</p>",if n==0{"No eave side has room for pillars: gable ends, the porch, garage, bump-outs and doors are kept clear. Try another side or a hip roof.".to_string()}else{format!("{n} pillars carry the eave overhang, in the porch column style. A deeper overhang sets them farther out.")}));}
     if !["Style matched","None"].contains(&c.front_porch.as_str())&&a.m["porch"].is_null(){out.push_str("<p class=feature-note>Add a door on the front wall to attach this porch.</p>");}
     out.push_str(&select("columnStyle","Porch column style",&strings(&additions::character::COLUMNS),&c.column_style));
     out.push_str(&select("railingStyle","Railing style · porch, deck and balcony",&strings(&additions::character::RAILINGS),&c.railing_style));

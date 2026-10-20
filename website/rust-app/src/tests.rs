@@ -1146,7 +1146,7 @@ fn colonial_plan()->Value{json!({"mainWidthFt":40.6,"mainDepthFt":31.5,"floors":
  for style in ["Colonial","Craftsman","Ranch","Cape Cod","Georgian"]{
   let mut c=generator::starter();c.home_style=style.into();c.stories=heritage::default_stories(style);c.bedrooms=heritage::default_bedrooms(style);architecture::apply(&mut c,true);
   for(choice,side)in[("Front","front"),("Rear","rear")]{c.bump_outs=choice.into();let bs=bumps::list(&c);assert!(bs.iter().any(|b|b.side==side),"{style} {choice}: {:?}",bs);
-   assert!(bs.iter().all(|b|near(b.hi-b.lo,bumps::WIDTH)),"{style} every bump-out is 8 ft wide");
+   assert!(bs.iter().all(|b|near(b.hi-b.lo,c.bump_width)),"{style} every bump-out is 8 ft wide");
    let m=model::build(&c);
    // The porch and the rear deck step around a bump-out instead of running through it.
    let ground=if c.stories>=2{&m["levels"][0]}else{&m};let _=ground;
@@ -1164,11 +1164,11 @@ fn colonial_plan()->Value{json!({"mainWidthFt":40.6,"mainDepthFt":31.5,"floors":
  let mut c=generator::starter();c.bump_outs="None".into();let(rs,_)=layout(&c);let ws=model::walls(&c,&rs);
  let rear=ws.iter().find(|w|w.id=="E2").unwrap();let door=rear.openings.iter().find(|o|o.kind=="door").map_or(-100.,|o|o.at);
  // (The default Colonial's rear balcony posts take part of that wall, so click where it is clear.)
- let at=(6..(c.width as usize-6)).map(|v|v as f64).filter(|v|(v-door).abs()>10.).find(|v|{let mut t=c.clone();t.custom_bumps.push(bumps::CustomBump{side:"rear".into(),at:*v,depth:6.});!bumps::list(&t).is_empty()}).expect("some clear stretch of rear wall");
- c.custom_bumps.push(bumps::CustomBump{side:"rear".into(),at,depth:6.});assert!(validate(&c).is_ok());
+ let at=(6..(c.width as usize-6)).map(|v|v as f64).filter(|v|(v-door).abs()>10.).find(|v|{let mut t=c.clone();t.custom_bumps.push(bumps::CustomBump{side:"rear".into(),at:*v,depth:6.,..Default::default()});!bumps::list(&t).is_empty()}).expect("some clear stretch of rear wall");
+ c.custom_bumps.push(bumps::CustomBump{side:"rear".into(),at,depth:6.,..Default::default()});assert!(validate(&c).is_ok());
  let bs=bumps::list(&c);assert_eq!(bs.len(),1,"{:?}",bs);assert_eq!(bs[0].side,"rear");assert!(((bs[0].lo+bs[0].hi)/2.-at).abs()<=1.01);assert!(near(bs[0].depth,6.));
  // A bump-out never covers a door.
- let mut blocked=c.clone();blocked.custom_bumps=vec![bumps::CustomBump{side:"front".into(),at:{let ws=model::walls(&blocked,&rs);let d=ws.iter().find(|w|w.id=="E1").unwrap().openings.iter().find(|o|o.kind=="door").unwrap().clone();d.at+d.width/2.},depth:4.}];assert!(bumps::list(&blocked).is_empty());
+ let mut blocked=c.clone();blocked.custom_bumps=vec![bumps::CustomBump{side:"front".into(),at:{let ws=model::walls(&blocked,&rs);let d=ws.iter().find(|w|w.id=="E1").unwrap().openings.iter().find(|o|o.kind=="door").unwrap().clone();d.at+d.width/2.},depth:4.,..Default::default()}];assert!(bumps::list(&blocked).is_empty());
  c.custom_bumps[0].side="up".into();assert!(validate(&c).is_err());
 }
 #[test]fn click_added_dormers_sit_on_their_roof_side(){
@@ -1210,12 +1210,88 @@ fn colonial_plan()->Value{json!({"mainWidthFt":40.6,"mainDepthFt":31.5,"floors":
  let m=model::build(&c);let t=&m["trimPackage"];assert_eq!(s(t,"interiorFinish"),"Painted · #ffffff");assert!(s(t,"exteriorFinish").contains("oak")||s(t,"exteriorFinish").contains("tone"),"{}",t["exteriorFinish"]);
  c.interior_trim_finish="Lacquered".into();assert!(validate(&c).is_err());
 }
-#[test]fn a_straight_stair_keeps_room_past_its_bottom_step(){
- let mut c=Config::default();c.design_mode="Blank slate".into();c.stories=2;c.width=32.;c.depth=36.;c.stair_style="Straight".into();
- let(rs,_)=layout(&c);let ws=model::walls(&c,&rs);
- let stair=|z:f64|staging::Furniture{id:"preview".into(),kind:"stairs".into(),room_id:"stairs".into(),x:10.,z,w:8.,d:16.,rotation:0.,local_width:8.,local_depth:16.};
- // Bottom step 1 ft from the rear wall: refused. With 3 ft and more past it: fine.
- assert!(stairs::placement_error(&stair(c.depth-9.),&c,&ws,&[]).is_some_and(|e|e.contains("bottom step")));
- assert!(stairs::placement_error(&stair(c.depth-13.),&c,&ws,&[]).is_none());
- c.stair_style="U-shaped switchback".into();assert!(stairs::placement_error(&stair(c.depth-9.),&c,&ws,&[]).is_none(),"a switchback starts beside its landing");
+#[test]fn a_straight_stair_fits_its_stairwell_with_a_landing_at_the_bottom(){
+ let mut c=generator::starter();c.stair_style="Straight".into();let m=model::build(&c);let s=&m["stair"];
+ // The run tops out at the open end and starts deep in the stairwell, leaving 3 ft and more before the far wall.
+ let risers=n(s,"risers")as usize;let run=(risers-1)as f64*stairs::straight_tread(risers);assert!(16.-run>=3.,"landing {}",16.-run);
+ let o=&s["opening"];assert!(near(n(o,"area"),n(o,"w")*n(o,"d")));assert!(n(o,"w")*n(o,"d")<60.,"the opening follows the 4 ft run");
+ c.stair_style="U-shaped switchback".into();assert!(near(n(&model::build(&c)["stair"]["opening"],"area"),96.));
+}
+#[test]fn catalog_stairs_move_and_the_rooms_rebuild_around_them(){
+ let mut c=generator::starter();c.home_style="Colonial".into();c.stories=2;c.bedrooms=heritage::default_bedrooms("Colonial");architecture::apply(&mut c,true);
+ let m=model::build(&c);let l=&m["levels"][0];
+ let virt=l["furniture"].as_array().unwrap().iter().find(|f|s(f,"id")=="catalog-stairs").expect("catalog stairs are clickable").clone();
+ assert_eq!(s(&m["stair"],"itemId"),"catalog-stairs");
+ let mut f:staging::Furniture=serde_json::from_value(virt).unwrap();
+ let ws:Vec<Wall>=serde_json::from_value(l["walls"].clone()).unwrap();let fs:Vec<staging::Furniture>=serde_json::from_value(l["furniture"].clone()).unwrap();
+ // Try spots around the house; at least one must be accepted, and kitchens/baths/bedrooms are refused.
+ let mut ok=vec![];for x in (4..(c.width as i32-3)).step_by(2){for z in (8..(c.depth as i32-7)).step_by(2){for rot in [0.,std::f64::consts::FRAC_PI_2,std::f64::consts::PI]{let mut g=f.clone();g.x=x as f64;g.z=z as f64;edit::rotate_item(&mut g,rot);if edit::item_error(&g,&c,&ws,&fs).is_none()&&((g.x-f.x).abs()>3.||(g.z-f.z).abs()>3.){ok.push(g);}}}}
+ assert!(!ok.is_empty(),"some new spot is accepted");
+ let g=ok[ok.len()/2].clone();f=g.clone();let mut moved=c.clone();moved.placed_furniture.push(f.clone());validate(&moved).unwrap();
+ let mm=model::build(&moved);assert!(near(n(&mm["stair"],"centerX"),g.x)&&near(n(&mm["stair"],"centerZ"),g.z),"stair follows the move");
+ for fl in 0..moved.stories{let mut cc=moved.clone();cc.active_floor=fl;let(rs,_)=layout(&cc);
+  assert_eq!(rs.iter().filter(|r|r.kind=="stairs").count(),1,"one stairwell on floor {fl}");
+  assert!(near(rs.iter().filter(|r|!wings::is_wing(&r.id)).map(|r|r.w*r.d).sum(),c.width*c.depth),"floor {fl} still covered exactly once");
+  for k in ["kitchen","bath","bedroom"]{assert_eq!(rs.iter().filter(|r|r.kind==k).count(),{let mut o=c.clone();o.active_floor=fl;layout(&o).0.iter().filter(|r|r.kind==k).count()},"floor {fl} keeps every {k}");}}
+ assert!(generator::practical(&moved,&mm),"still a workable home");
+ // A kitchen spot is refused.
+ let(rs,_)=layout(&c);let k=rs.iter().find(|r|r.kind=="kitchen").unwrap();let mut bad=f.clone();bad.x=k.x+k.w/2.;bad.z=k.z+k.d/2.;assert!(edit::item_error(&bad,&c,&ws,&fs).is_some());
+}
+#[test]fn bump_outs_take_any_width_and_can_rise_the_full_height(){
+ let mut c=generator::starter();c.home_style="Colonial".into();c.stories=2;c.bedrooms=heritage::default_bedrooms("Colonial");architecture::apply(&mut c,true);c.bump_outs="Sides".into();
+ for w in bumps::WIDTHS{c.bump_width=w;assert!(validate(&c).is_ok());let bs=bumps::list(&c);assert!(!bs.is_empty(),"{w} ft fits");assert!(bs.iter().all(|b|near(b.hi-b.lo,w)),"{w} ft wide");}
+ c.bump_width=5.;assert!(validate(&c).is_err());c.bump_width=10.;
+ // One story: only the ground floor has the bay.
+ let m=model::build(&c);let bays=|m:&Value,l:usize|m["levels"][l]["rooms"].as_array().unwrap().iter().filter(|r|s(r,"type")=="bay").count();
+ assert!(bays(&m,0)>0);assert_eq!(bays(&m,1),0);
+ c.bump_height="Full height".into();let m=model::build(&c);let bs=bumps::list(&c);assert!(bs.iter().all(|b|b.full));
+ assert_eq!(bays(&m,0),bays(&m,1),"every floor gets the bay");
+ let up=&m["levels"][1];assert!(up["walls"].as_array().unwrap().iter().any(|w|s(w,"id").starts_with("XF-wingb")||s(w,"id").starts_with("XL-wingb")||s(w,"id").starts_with("XR-wingb")),"upper bump walls");
+ assert!(up["walls"].as_array().unwrap().iter().all(|w|!s(w,"id").contains("wingb")||s(w,"id").ends_with("-L2")),"upper walls are tagged for the floor");
+ let ids:Vec<&str>=m["levels"].as_array().unwrap().iter().flat_map(|l|l["walls"].as_array().unwrap().iter().map(|w|s(w,"id"))).collect();let set:std::collections::BTreeSet<&str>=ids.iter().copied().collect();assert_eq!(set.len(),ids.len(),"wall ids are unique across floors");
+ // A full-height bump-out's roof ties in at the main eaves and only the top floor carries it.
+ assert!(m["wings"].as_array().unwrap().iter().all(|g|g["levels"]==json!(2)));
+ assert!(generator::practical(&c,&m));
+ // Additions rise with the house too.
+ let mut w=c.clone();w.bump_outs="None".into();w.shape="L-shape".into();w.wing_stories=2;assert!(validate(&w).is_ok());let m=model::build(&w);
+ assert!(m["levels"][1]["rooms"].as_array().unwrap().iter().any(|r|s(r,"id").starts_with("wing0-upper")),"upper wing room");
+ w.wing_stories=4;assert!(validate(&w).is_err());
+}
+#[test]fn furniture_fits_inside_a_bump_out(){
+ let mut c=generator::starter();c.bump_outs="Sides".into();c.bump_depth=6.;c.bump_width=12.;let bs=bumps::list(&c);assert!(!bs.is_empty());
+ let m=model::build(&c);let l=if c.stories>1{&m["levels"][0]}else{&m};let ws:Vec<Wall>=serde_json::from_value(l["walls"].clone()).unwrap();let fs:Vec<staging::Furniture>=serde_json::from_value(l["furniture"].clone()).unwrap();
+ let r=bumps::rect(&c,&bs[0]);let(cx,cz)=((r[0]+r[2])/2.,(r[1]+r[3])/2.);
+ let(w,d)=edit::item_dimensions("armchair");let f=staging::Furniture{id:"preview".into(),kind:"armchair".into(),room_id:String::new(),x:cx,z:cz,w,d,rotation:0.,local_width:w,local_depth:d};
+ assert_eq!(edit::item_error(&f,&c,&ws,&fs),None,"an armchair fits in the {:?} bay",bs[0].side);
+ let mut out=f.clone();if ["left","right"].contains(&bs[0].side){out.x+=if bs[0].side=="left"{-8.}else{8.};}else{out.z+=if bs[0].side=="front"{-8.}else{8.};}
+ assert!(edit::item_error(&out,&c,&ws,&fs).is_some(),"but not past its outer wall");
+}
+#[test]fn floors_split_by_area_with_the_kitchen_matching_the_baths(){
+ let mut c=generator::starter();c.floor="Natural oak".into();
+ c.zone_floors.insert("wet".into(),"Carrara marble tile".into());c.zone_floors.insert("bedroom".into(),"Honey oak plank vinyl".into());assert!(validate(&c).is_ok());
+ let m=model::build(&c);let levels:Vec<&Value>=m["levels"].as_array().map(|l|l.iter().collect()).unwrap_or_else(||vec![&m]);
+ let zones:Vec<&Value>=levels.iter().flat_map(|l|l["floorZones"].as_array().unwrap()).collect();
+ let rooms:Vec<&Value>=levels.iter().flat_map(|l|l["rooms"].as_array().unwrap()).collect();
+ for r in &rooms{let k=s(r,"type");let z=zones.iter().find(|z|s(z,"roomId")==s(r,"id"));match k{"kitchen"|"bath"=>assert_eq!(z.map(|z|s(z,"floor")),Some("Carrara marble tile"),"{}",s(r,"name")),"bedroom"=>assert_eq!(z.map(|z|s(z,"floor")),Some("Honey oak plank vinyl")),"stairs"=>{},_=>assert!(z.is_none(),"{} keeps the house floor",s(r,"name"))}}
+ let item=|id:&str|m["items"].as_array().unwrap().iter().find(|i|s(i,"id")==id).cloned();
+ assert!(item("tile-floor-wet").is_some_and(|i|n(&i,"net")>20.),"the kitchen and baths are priced as tile");assert!(item("tile-floor").is_none(),"the oak house floor isn't tile");
+ c.zone_floors.insert("living".into(),"Shag".into());assert!(validate(&c).is_err());
+}
+#[test]fn a_widened_window_removes_the_window_next_to_it(){
+ let c=generator::starter();let m=model::build(&c);let l=if c.stories>1{&m["levels"][0]}else{&m};let rooms:Vec<Room>=serde_json::from_value(l["rooms"].clone()).unwrap();
+ let ws:Vec<Wall>=serde_json::from_value(l["walls"].clone()).unwrap();
+ let(wall,i)=ws.iter().filter(|w|w.exterior).find_map(|w|{let mut os=w.openings.clone();os.sort_by(|a,b|a.at.total_cmp(&b.at));(0..os.len().saturating_sub(1)).find(|&i|os[i].kind=="window"&&os[i+1].kind=="window").map(|i|(Wall{openings:os,..w.clone()},i))}).expect("a wall with two windows side by side");
+ let mut os=wall.openings.clone();let next=os[i+1].clone();os[i].width=next.at+next.width-os[i].at;
+ assert!(rules::opening_error(&os,&wall,&c,&rooms).is_some(),"it overlaps the next window");
+ let id=os[i].id.clone();let(kept,gone)=rules::widen_window(&os,&id,&wall,&c,&rooms).expect("the neighbour makes way");
+ assert!(gone>=1&&!kept.iter().any(|o|o.id==next.id)&&kept.iter().any(|o|o.id==id));
+}
+#[test]fn overhang_pillars_carry_the_eaves_clear_of_the_porch_and_doors(){
+ let mut c=generator::starter();c.eave_overhang="Extra deep · 36 in".into();c.overhang_pillars="All around".into();assert!(validate(&c).is_ok());
+ let m=model::build(&c);let posts=additions::colonnade::posts(&c,&m);assert!(!posts.is_empty(),"some eave side gets pillars");
+ assert_eq!(m["overhangPillars"]["posts"].as_array().unwrap().len(),posts.len());
+ for(x,z,h)in &posts{let outside=*x<0.||*x>c.width||*z<0.||*z>c.depth;assert!(outside,"pillars stand outside the walls");assert!(*h>=c.wall_height,"they reach the soffit");
+  for r in m["porch"]["rectangles"].as_array().into_iter().flatten(){assert!(!(*x>n(r,"x")&&*x<n(r,"x")+n(r,"w")&&*z>n(r,"z")&&*z<n(r,"z")+n(r,"d")),"not on the porch");}}
+ assert!(m["items"].as_array().unwrap().iter().any(|i|s(i,"id")=="overhang-columns"));
+ c.overhang_pillars="Everywhere".into();assert!(validate(&c).is_err());
 }

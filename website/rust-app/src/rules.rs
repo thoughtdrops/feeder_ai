@@ -31,3 +31,13 @@ pub fn opening_schedule(c:&Config,rs:&[Room],ws:&[Wall])->Value{
  for r in rs.iter().filter(|r|r.kind=="bedroom"){if !ws.iter().filter(|w|w.exterior).any(|w|w.openings.iter().any(|o|["window","door"].contains(&o.kind.as_str())&&adjacent_rooms(o,w,rs).iter().any(|a|a.id==r.id))){issues.push(format!("{} has no exterior escape candidate after wall edits. Provide a verified escape opening.",r.name));}}
  json!({"edition":c.building_code,"schedule":schedule,"issues":issues,"allHeightGuardrailsPass":schedule.iter().all(|o|o["heightGuardrailPass"]==true),"status":"Model height guardrails; product clear dimensions, finished floor datum and local approval still required","source":OPENING_SOURCE,"source2024":"https://townofseverance.org/DocumentCenter/View/209/2024-IRC-Window-Replacement-Guide-PDF","rules":{"minimumFinishedDoorClearHeightInches":78,"minimumFinishedEgressDoorClearWidthInches":32,"maximumBedroomWindowClearSillInches":44,"minimumEscapeWindowClearWidthInches":20,"minimumEscapeWindowClearHeightInches":24,"minimumEscapeWindowClearAreaSquareFeet":5.7}})
 }
+
+/// When a window is made wider than the space beside it allows, the windows it would run into make way: they are
+/// removed (doors and passages never are). Returns the openings and how many windows went, if that makes it fit.
+pub fn widen_window(os:&[Opening],id:&str,wall:&Wall,c:&Config,rooms:&[Room])->Option<(Vec<Opening>,usize)>{
+ let me=os.iter().find(|o|o.id==id)?;if me.kind!="window"{return None}
+ let(lo,hi)=(me.at-0.5,me.at+me.width+0.5);
+ let kept:Vec<Opening>=os.iter().filter(|o|o.id==id||o.kind!="window"||o.at+o.width<=lo||o.at>=hi).cloned().collect();
+ let gone=os.len()-kept.len();if gone==0{return None}
+ opening_error(&kept,wall,c,rooms).is_none().then_some((kept,gone))
+}
