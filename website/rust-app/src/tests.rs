@@ -1189,3 +1189,33 @@ fn colonial_plan()->Value{json!({"mainWidthFt":40.6,"mainDepthFt":31.5,"floors":
    assert!(n(roof,"area")>0.&&!roof["rafters"].as_array().unwrap().is_empty());}
  }
 }
+#[test]fn small_alcoves_and_landings_open_into_the_hall(){
+ for style in ["Colonial","Georgian"]{let mut c=generator::starter();c.home_style=style.into();c.stories=heritage::default_stories(style);c.bedrooms=heritage::default_bedrooms(style);architecture::apply(&mut c,true);
+  for f in 0..c.stories{let mut cc=c.clone();cc.active_floor=f;let(rs,_)=layout(&cc);
+   assert!(!rs.iter().any(|r|{let n=r.name.to_lowercase();(n.contains("alcove")||n.contains("landing"))&&r.x>0.1&&r.z>0.1&&r.x+r.w<c.width-0.1&&r.z+r.d<c.depth-0.1&&r.w*r.d<=120.}),"{style} floor {f}: {:?}",rs.iter().map(|r|&r.name).collect::<Vec<_>>());
+   assert!(near(rs.iter().filter(|r|!wings::is_wing(&r.id)).map(|r|r.w*r.d).sum(),c.width*c.depth),"{style} floor {f} still covered exactly once");}
+  let m=model::build(&c);assert!(generator::practical(&c,&m),"{style} still a workable home");}
+}
+#[test]fn blank_slate_starts_plain_and_the_first_home_has_oak_floors(){
+ let first=generator::starter();assert_eq!(first.floor,"Natural oak");
+ let mut fancy=generator::starter();fancy.zip="62704".into();fancy.wallpaper="Peacock chinoiserie".into();fancy.garage="Attached".into();fancy.bump_outs="All around".into();fancy.width=36.;fancy.depth=40.;
+ let blank=generator::generate(&fancy,"Blank slate",7,true).unwrap();
+ assert_eq!(blank.design_mode,"Blank slate");assert_eq!(blank.home_style,"Ranch");assert_eq!(blank.wallpaper,"None");assert_eq!(blank.floor,"Natural oak");
+ assert_eq!(blank.garage,"None");assert_eq!(blank.front_porch,"None");assert_eq!(blank.bump_outs,"None");assert_eq!(blank.zip,"62704","location carries over");assert!(near(blank.width,36.)&&near(blank.depth,40.),"size carries over");
+ assert!(validate(&blank).is_ok());
+}
+#[test]fn interior_and_exterior_trim_have_their_own_finish(){
+ let mut c=generator::starter();assert_eq!(c.interior_trim_finish,"Painted");assert_eq!(c.exterior_trim_finish,"Painted");
+ c.colors.insert("interiorTrim".into(),"#ffffff".into());c.colors.insert("trim".into(),"#223344".into());c.exterior_trim_finish="Stained wood".into();assert!(validate(&c).is_ok());
+ let m=model::build(&c);let t=&m["trimPackage"];assert_eq!(s(t,"interiorFinish"),"Painted · #ffffff");assert!(s(t,"exteriorFinish").contains("oak")||s(t,"exteriorFinish").contains("tone"),"{}",t["exteriorFinish"]);
+ c.interior_trim_finish="Lacquered".into();assert!(validate(&c).is_err());
+}
+#[test]fn a_straight_stair_keeps_room_past_its_bottom_step(){
+ let mut c=Config::default();c.design_mode="Blank slate".into();c.stories=2;c.width=32.;c.depth=36.;c.stair_style="Straight".into();
+ let(rs,_)=layout(&c);let ws=model::walls(&c,&rs);
+ let stair=|z:f64|staging::Furniture{id:"preview".into(),kind:"stairs".into(),room_id:"stairs".into(),x:10.,z,w:8.,d:16.,rotation:0.,local_width:8.,local_depth:16.};
+ // Bottom step 1 ft from the rear wall: refused. With 3 ft and more past it: fine.
+ assert!(stairs::placement_error(&stair(c.depth-9.),&c,&ws,&[]).is_some_and(|e|e.contains("bottom step")));
+ assert!(stairs::placement_error(&stair(c.depth-13.),&c,&ws,&[]).is_none());
+ c.stair_style="U-shaped switchback".into();assert!(stairs::placement_error(&stair(c.depth-9.),&c,&ws,&[]).is_none(),"a switchback starts beside its landing");
+}

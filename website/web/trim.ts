@@ -46,8 +46,10 @@ const finishes=[
  {name:'Sealed amber oak',color:'#b58c54'}, {name:'Sealed washed oak',color:'#b8af9d'},
  {name:'Sealed seafoam-tinted oak',color:'#aac4bb'}, {name:'Sealed cedar tone',color:'#b48357'}
 ];
-export function createTrimMaterial(profile:number,textures:T.Texture[],isActive:()=>boolean){
+/** Trim material: painted trim is the chosen color in a smooth satin finish; stained trim is that color over oak grain. */
+export function createTrimMaterial(profile:number,textures:T.Texture[],isActive:()=>boolean,color?:string,painted=false){
  const index=T.MathUtils.clamp(profile,0,9),finish=finishes[index];
+ if(painted){const mat=new T.MeshStandardMaterial({color:color||'#f3efe6',roughness:.42,metalness:0});mat.name='Painted trim';mat.userData={trimFinish:'Painted',textureCell:index,trimProfile:profile};return mat;}
  const placeholder=(color:string)=>{const c=document.createElement('canvas');c.width=c.height=1;const ctx=c.getContext('2d')!;ctx.fillStyle=color;ctx.fillRect(0,0,1,1);return c;};
  const maps=['oak-diff.jpg','oak-nor_gl.jpg','oak-rough.jpg'].map((file,i)=>{
   const texture:T.Texture<HTMLImageElement|HTMLCanvasElement>=new T.Texture<HTMLImageElement|HTMLCanvasElement>(placeholder(i===1?'#8080ff':'#ffffff'));texture.wrapS=texture.wrapT=T.RepeatWrapping;texture.anisotropy=4;texture.needsUpdate=true;texture.userData={file,url:graphicsAsset('/materials/'+file)};if(i===0)texture.colorSpace=T.SRGBColorSpace;textures.push(texture);
@@ -55,7 +57,7 @@ export function createTrimMaterial(profile:number,textures:T.Texture[],isActive:
   // Each texture releases its placeholder upload first, so three's per-source cache stays consistent.
   new T.ImageLoader().load(texture.userData.url,image=>{if(!isActive())return;const old=texture.source,source=new T.Source(image);for(const map of textures)if(map.source===old){map.dispose();map.source=source;map.needsUpdate=true;}},undefined,()=>{});return texture;
  });
- const mat=new T.MeshStandardMaterial({color:finish.color,map:maps[0],normalMap:maps[1],normalScale:new T.Vector2(.34,.34),roughnessMap:maps[2],roughness:.48,metalness:0});mat.name=finish.name;mat.userData={trimFinish:finish.name,textureCell:index,trimProfile:profile};return mat;
+ const mat=new T.MeshStandardMaterial({color:color||finish.color,map:maps[0],normalMap:maps[1],normalScale:new T.Vector2(.34,.34),roughnessMap:maps[2],roughness:.48,metalness:0});mat.name=finish.name;mat.userData={trimFinish:finish.name,textureCell:index,trimProfile:profile};return mat;
 }
 
 export function addScheduledTrim(scene:T.Object3D,m:any,interior:T.Material,exterior:T.Material,visibleHeight:number,roofVisible:boolean){

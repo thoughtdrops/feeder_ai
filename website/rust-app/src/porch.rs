@@ -118,15 +118,13 @@ pub fn shed(c:&Config,side:&str,l:f64,d:f64,eave:f64,top_floor:bool)->Value{
     let mut edges=vec![json!({"a":quad[3],"b":quad[2],"kind":"eave","length":len(quad[3],quad[2])})];
     for(a,b)in[(quad[0],quad[3]),(quad[1],quad[2])]{edges.push(json!({"a":a,"b":b,"kind":"rake","length":len(a,b)}));}
     edges.push(json!({"a":quad[0],"b":quad[1],"kind":"flashing","length":len(quad[0],quad[1])}));
-    // Where it runs back into the main roof, close the triangles under its rakes.
-    let mut profiles=vec![];
-    if back<0.{for u in [-end,l+end]{let(a,b)=(pt(u,back),pt(u,0.));let along_x=near(a[2],b[2]);let(lo,hi)=if (if along_x{a[0]}else{a[2]})<(if along_x{b[0]}else{b[2]}){(a,b)}else{(b,a)};
-        profiles.push(json!({"x":lo[0],"z":lo[2],"axis":if along_x{"x"}else{"z"},"points":[[0.,lo[1]-eave],[if along_x{hi[0]-lo[0]}else{hi[2]-lo[2]},hi[1]-eave]]}));}}
+    // No side infill where it runs back into the main roof: it would start below the ceiling line and show indoors.
+    let profiles:Vec<Value>=vec![];
     let slope=(1.+s*s).sqrt();let run=d+o-back;
     let count=((l+2.*end)/(16./12.)).floor()as usize;
     let rafters:Vec<Value>=(0..=count).map(|i|{let u=-end+i as f64*(l+2.*end)/count.max(1)as f64;let(a,b)=(pt(u,back),pt(u,d+o));let length=len(a,b);
         json!({"id":format!("PR-{}-{}",side,i),"x1":a[0],"y1":a[1],"z1":a[2],"x2":b[0],"y2":b[1],"z2":b[2],"x":a[0],"length":length,"stockLength":(length/2.).ceil()*2.})}).collect();
-    let infill=if back<0.{-back*(2.*d-back)*s}else{0.};
+    let infill=0.;
     json!({"type":"Shed porch roof","facets":[{"id":format!("porch-{}",side),"points":quad,"plane":plane}],"edges":edges,"profiles":profiles,"supports":[],"rafters":rafters,"area":(l+2.*end)*run*slope,"infillArea":infill,"rise":run*s,"pitch":s*12.})
 }
 

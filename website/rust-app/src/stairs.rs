@@ -10,6 +10,8 @@ pub fn bounds(f: &staging::Furniture, rect: [f64;4]) -> [f64;4] {
     [points.iter().map(|p|p[0]).fold(f64::INFINITY,f64::min),points.iter().map(|p|p[1]).fold(f64::INFINITY,f64::min),points.iter().map(|p|p[0]).fold(f64::NEG_INFINITY,f64::max),points.iter().map(|p|p[1]).fold(f64::NEG_INFINITY,f64::max)]
 }
 pub fn approach(f:&staging::Furniture)->[f64;4]{bounds(f,[1.5,-5.3,6.5,-0.3])}
+/// A straight stair's bottom step is at the far end of its run: it needs 3 ft clear beyond it to step onto it.
+pub fn bottom_landing(f:&staging::Furniture,c:&Config)->Option<[f64;4]>{(style(c)=="Straight").then(||bounds(f,[0.,16.3,4.,19.3]))}
 
 pub fn placement_error(f:&staging::Furniture,c:&Config,ws:&[Wall],others:&[staging::Furniture])->Option<String>{
     if c.stories<2{return Some("Choose two or three stories before adding stairs.".into())}
@@ -18,6 +20,11 @@ pub fn placement_error(f:&staging::Furniture,c:&Config,ws:&[Wall],others:&[stagi
     if f.id=="preview"&&custom(c).is_some(){return Some("Click the existing stairs to move, rotate or delete them.".into())}
     let b=approach(f);
     if b[0]<0.3||b[1]<0.3||b[2]>c.width-0.3||b[3]>c.depth-0.3{return Some("Leave a 5 ft clear approach at the stair entrance. Move the stairs inward or rotate them 90°.".into())}
+    if let Some(l)=bottom_landing(f,c){
+        if l[0]<0.3||l[1]<0.3||l[2]>c.width-0.3||l[3]>c.depth-0.3{return Some("Leave 3 ft clear past the bottom step of the straight stair. Move the stairs inward or turn them.".into())}
+        let spot=staging::Furniture{id:f.id.clone(),kind:"rug".into(),room_id:"stairs".into(),x:(l[0]+l[2])/2.,z:(l[1]+l[3])/2.,w:l[2]-l[0],d:l[3]-l[1],rotation:0.,local_width:l[2]-l[0],local_depth:l[3]-l[1]};
+        if c.active_floor==0&&(!edit::clear_of_walls(&spot,ws)||others.iter().any(|o|o.id!=f.id&&edit::item_intersects_rect(o,l))){return Some("Keep 3 ft clear past the bottom step of the straight stair: move walls or items, or turn the stairs.".into())}
+    }
     // Upstairs is cleared by the stair opening. First-floor walls and furniture stay intact.
     if c.active_floor==0{
         let landing=staging::Furniture{id:f.id.clone(),kind:"rug".into(),room_id:"stairs".into(),x:(b[0]+b[2])/2.,z:(b[1]+b[3])/2.,w:b[2]-b[0],d:b[3]-b[1],rotation:0.,local_width:b[2]-b[0],local_depth:b[3]-b[1]};

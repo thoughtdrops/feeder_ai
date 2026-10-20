@@ -12,7 +12,8 @@ pub fn zones(c:&Config,rs:&[Room])->Vec<Clearance>{
   out.push(Clearance{id:format!("clear-{}",r.id),name:if kind=="stairwell"{"Stairwell".into()}else if r.name.to_lowercase().contains("landing"){"Stair landing / turning space".into()}else{r.name.clone()},kind:kind.into(),x,z,w,d});
   if r.kind=="stairs"{
    let z=if r.z<1.{r.z+r.d+0.3}else{r.z-5.3};
-   if let Some(f)=stairs::custom(c){let b=stairs::bounds(f,[1.5,-5.3,6.5,-0.3]);out.push(Clearance{id:format!("approach-{}",r.id),name:if c.active_floor==0{"Lower stair entrance · 5 ft clear"}else{"Upper stair exit · 5 ft clear"}.into(),kind:"landing".into(),x:b[0],z:b[1],w:b[2]-b[0],d:b[3]-b[1]});continue}
+   if let Some(f)=stairs::custom(c){let b=stairs::bounds(f,[1.5,-5.3,6.5,-0.3]);out.push(Clearance{id:format!("approach-{}",r.id),name:if c.active_floor==0{"Lower stair entrance · 5 ft clear"}else{"Upper stair exit · 5 ft clear"}.into(),kind:"landing".into(),x:b[0],z:b[1],w:b[2]-b[0],d:b[3]-b[1]});
+    if c.active_floor==0{if let Some(l)=stairs::bottom_landing(f,c){out.push(Clearance{id:format!("bottom-{}",r.id),name:"Bottom step · 3 ft clear".into(),kind:"landing".into(),x:l[0],z:l[1],w:l[2]-l[0],d:l[3]-l[1]});}}continue}
    out.push(Clearance{id:format!("approach-{}",r.id),name:if c.active_floor==0{"Lower stair entrance · 5 ft clear"}else{"Upper stair exit · 5 ft clear"}.into(),kind:"landing".into(),x:r.x+(r.w-5.)/2.,z,w:5.,d:5.});
   }
  }

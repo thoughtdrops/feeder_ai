@@ -5,7 +5,7 @@ type Palette={siding:T.MeshStandardMaterial;roof:T.MeshStandardMaterial;trim:T.M
 
 // Garage coordinates, framing and quantities come from the Rust model.
 export function addGarage(scene:T.Scene,m:any,config:any,view:string,frameRoof:boolean,palette:Palette,collisions:T.Box3[]){
- const g=m.garage;if(!g||(!['exterior','framing'].includes(view)&&config.activeFloor>0))return;
+ const g=m.garage;if(!g)return;
  const group=new T.Group();group.name='Garage '+g.kind;group.userData.garage=g.kind;scene.add(group);
  const frame=view==='framing',cut=view==='dollhouse',height=cut?4.1:g.h,origin=new T.Vector3(-m.w/2,0,-m.d/2);
  const material=(color:string,roughness=.7,metalness=0)=>new T.MeshStandardMaterial({color,roughness,metalness});
