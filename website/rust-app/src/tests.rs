@@ -1320,6 +1320,13 @@ fn colonial_plan()->Value{json!({"mainWidthFt":40.6,"mainDepthFt":31.5,"floors":
   assert_eq!(xml.matches("<Problem ").count(),count);assert!(count>=3,"{style}: {count} members");
   for tag in["<MemberTypeStringTag>joist</MemberTypeStringTag>","<MemberTypeStringTag>header</MemberTypeStringTag>","<StructuralSystem>2</StructuralSystem>"]{assert!(xml.contains(tag),"{style} has {tag}");}
   if c.stories>1{assert!(xml.contains("Upper floor joist"),"{style}");}
+  // Every problem carries the nodes ForteWEB's importer expects, as the utility's own default problems do.
+  for tag in["<FloorPerformance>","<SelectedFasteners></SelectedFasteners>","<ProductGroups></ProductGroups>"]{assert_eq!(xml.matches(tag).count(),count,"{style}: {tag} on every member");}
+  assert_eq!(xml.matches("<Connector>").count(),2*count,"{style}: two connector slots per member");
+  // Each load lists all six load classes, in psi: 40 psf floor live is 0.277778 psi.
+  assert_eq!(xml.matches("<LoadDef>").count()*6,xml.matches("<Load>").count(),"{style}");
+  assert!(xml.contains("<LoadClass>4</LoadClass><StartMagnitude>0.277778</StartMagnitude>"),"{style}: floor live in psi");
+  assert!(!xml.contains("<BuildingCode>23</BuildingCode>")&&!xml.contains("<LDFDead>0</LDFDead>"),"{style}: default settings");
   if let Some(dir)=&out{std::fs::write(format!("{dir}/design{i}-{}.4te",style.replace(' ',"-")),&xml).unwrap();}
  }
 }
