@@ -103,7 +103,7 @@ const stdHeaders = (r) =>
   (r.status === 204 || (r.headers.get('content-type') || '').startsWith('application/json'));
 
 function setEnv(env) {
-  for (const k of ['GOOGLE_CLIENT_ID', 'SESSION_SECRET', 'KV_REST_API_URL', 'KV_REST_API_TOKEN', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN', 'ANTHROPIC_API_KEY', 'PHOTO_REQUIRE_SIGN_IN']) {
+  for (const k of ['GOOGLE_CLIENT_ID', 'SESSION_SECRET', 'KV_REST_API_URL', 'KV_REST_API_TOKEN', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN', 'ANTHROPIC_API_KEY', 'PHOTO_REQUIRE_SIGN_IN', 'PHOTO_HOURLY_LIMIT']) {
     delete process.env[k];
   }
   Object.assign(process.env, env);
@@ -438,6 +438,20 @@ let firstId;
   check('photo: own key works without signing in', r.status === 200 && sent[1]?.apiKey === VISITOR_KEY, r);
   r = await call(rootPhoto.POST, req('POST', '/api/photo-design', { body: one, headers: { 'x-anthropic-key': VISITOR_KEY } }));
   check('photo (root wrapper): same handler', r.status === 200, r);
+  // The site's key is capped per visitor each hour; the visitor's own key is not.
+  setEnv({ ANTHROPIC_API_KEY: SITE_KEY, PHOTO_HOURLY_LIMIT: '2' });
+  useMemoryStore();
+  sent = [];
+  const ip = { 'x-forwarded-for': '203.0.113.7' };
+  const fromIp = async (extra = {}) => call(photo.POST, req('POST', '/api/photo-design', { body: one, headers: { ...ip, ...extra } }));
+  const first = await fromIp();
+  const second = await fromIp();
+  r = await fromIp();
+  check('photo: site key limited per visitor each hour', first.status === 200 && second.status === 200 && r.status === 429 && /hourly limit/.test(r.data.error) && sent.length === 2, r);
+  r = await fromIp({ 'x-anthropic-key': VISITOR_KEY });
+  check('photo: own key is not limited', r.status === 200 && sent[2]?.apiKey === VISITOR_KEY, r);
+  r = await call(photo.POST, req('POST', '/api/photo-design', { body: one, headers: { 'x-forwarded-for': '203.0.113.8' } }));
+  check('photo: another visitor has their own limit', r.status === 200, r);
   photo.setClientFactory(null);
 }
 
@@ -472,6 +486,10 @@ let firstId;
     r = await post(photo.POST, '/api/photo-design', { imageUrls: [bad] });
     check(`photo links: rejects ${bad}`, r.status === 400, r.status);
   }
+  sent = [];
+  r = await post(photo.POST, '/api/photo-design', { task: 'plan', imageUrls: ['https://listing.example.com/plans/floor-plan.PDF', 'https://listing.example.com/plans/first.png'] });
+  p = sent.at(-1);
+  check('floor-plan links: a PDF goes as a document, a picture as an image', r.status === 200 && p.messages[0].content[0].type === 'document' && p.messages[0].content[0].source.type === 'url' && p.messages[0].content[1].type === 'image', p && p.messages[0].content.slice(0, 2));
   r = await post(photo.POST, '/api/photo-design', { imageUrls: Array(photo.MAX_URLS + 1).fill('https://a.example.com/x.jpg') });
   check('photo links: at most 12', r.status === 400, r.status);
 

@@ -34,7 +34,7 @@ Project settings:
 
 The project settings are the utility's own defaults, so ForteWEB reads them the same way it reads its own files:
 
-- **Building code:** IBC. Pick the code edition in ForteWEB's project settings. The studio itself checks to the 2024 IRC.
+- **Building code:** 2024 IBC. The project notes say to design to the 2024 IBC. File format 5.5 has codes only for IBC, IBC 2012, IBC 2015 and NBCC 2010, so the file carries the general IBC code, which imports cleanly. Confirm the edition in ForteWEB's job settings, and ask Weyerhaeuser for the 2024 IBC code value so the file can set it directly. The studio itself checks houses to the 2024 IRC.
 - **Wind and loads:** 90 mph basic wind speed, Exposure B, and standard load duration factors. Set the site's wind speed in ForteWEB.
 - **Hangers:** Simpson.
 

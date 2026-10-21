@@ -75,9 +75,12 @@ pub fn prepare_walls(c:&Config,rs:&[Room],mut ws:Vec<Wall>)->Vec<Wall>{
   if let Some(rear)=ws.iter_mut().find(|w|w.id==format!("E2{tag}")){
    let(lo,hi)=overlap(c,g);rear.openings.retain(|o|o.at+o.width<lo-0.3||o.at>hi+0.3);
    let suite=rs.iter().any(|r|is_wing(&r.id)&&r.kind=="bedroom"&&near(r.x,g.x));let width=if suite{38./12.}else{(hi-lo-3.).min(8.).max(3.)};
-   let ok=|at:f64|{let mid=at+width/2.;rs.iter().filter(|r|!is_wing(&r.id)&&near(r.z+r.d,c.depth)&&mid>r.x&&mid<r.x+r.w).all(|r|!["bath","stairs"].contains(&r.kind.as_str()))};
-   let centre=lo+(hi-lo-width)/2.;let mut best=None;let mut k=0;while k<=((hi-lo)*2.)as usize{for sign in [1.,-1.]{let at=centre+sign*k as f64*0.5;if best.is_none()&&at>=lo+0.5&&at+width<=hi-0.5&&ok(at){best=Some(at)}}k+=1;}
-   let at=best.unwrap_or(centre);let num=rear.openings.len()+90;rear.openings.push(Opening{id:format!("E2-{}-{}{tag}",if suite{"D"}else{"P"},num),kind:if suite{"door"}else{"passage"}.into(),at,width,bottom:0.,height:82.5/12.});rear.openings.sort_by(|a,b|a.at.total_cmp(&b.at));
+   // The whole opening opens from one room that isn't a bath or the stairwell, so no partition runs into it;
+   // where no room has the full width, the opening narrows (down to a 3 ft door width).
+   let ok=|at:f64,width:f64|rs.iter().any(|r|!is_wing(&r.id)&&near(r.z+r.d,c.depth)&&!["bath","stairs"].contains(&r.kind.as_str())&&at>=r.x+0.3&&at+width<=r.x+r.w-0.3);
+   let mut best=None;let mut size=width;
+   while best.is_none()&&size>=3.-1e-6{let centre=lo+(hi-lo-size)/2.;let mut k=0;while best.is_none()&&k<=((hi-lo)*2.)as usize{for sign in [1.,-1.]{let at=centre+sign*k as f64*0.5;if best.is_none()&&at>=lo+0.5&&at+size<=hi-0.5&&ok(at,size){best=Some(at)}}k+=1;}if best.is_none(){size-=0.5;}}
+   let width=if best.is_some(){size}else{width};let at=best.unwrap_or(lo+(hi-lo-width)/2.);let num=rear.openings.len()+90;rear.openings.push(Opening{id:format!("E2-{}-{}{tag}",if suite{"D"}else{"P"},num),kind:if suite{"door"}else{"passage"}.into(),at,width,bottom:0.,height:82.5/12.});rear.openings.sort_by(|a,b|a.at.total_cmp(&b.at));
   }
   let mut num=0;
   // Where a wing reaches past a side wall, a short front wall (XF, facing the street) closes it.

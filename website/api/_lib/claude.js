@@ -4,6 +4,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { HttpError } from './http.js';
 import { accountsConfigured, requireActiveSession } from './session.js';
+import { createMemoryStore, getStore, storeConfigured } from './store.js';
 
 export const MODEL = 'claude-opus-5-5';
 const KEY_RE = /^sk-ant-[A-Za-z0-9_-]{20,300}$/;
@@ -25,6 +26,31 @@ export function setClientFactory(factory) {
   makeClient = factory || newClient;
 }
 
+// Reads on the site's key are capped per visitor IP (and per signed-in account) each hour, so the key can't be
+// run up without limit. The count lives in Redis when it is configured, otherwise in this instance's memory.
+// A visitor's own key is never limited.
+const HOUR = 3600;
+const fallbackStore = createMemoryStore();
+export function hourlyLimit() {
+  const n = Number(process.env.PHOTO_HOURLY_LIMIT);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 30;
+}
+function clientIp(request) {
+  const raw = request.headers.get('x-real-ip') || request.headers.get('x-forwarded-for') || '';
+  return raw.split(',')[0].trim().slice(0, 64) || 'unknown';
+}
+async function limitSiteKey(request, sub) {
+  const store = storeConfigured() ? getStore() : fallbackStore;
+  const bucket = Math.floor(Date.now() / 1000 / HOUR);
+  const keys = [`ip:${clientIp(request)}:${bucket}`];
+  if (sub) keys.push(`sub:${sub}:${bucket}`);
+  for (const key of keys) {
+    if ((await store.hit(key, HOUR)) > hourlyLimit()) {
+      throw new HttpError(429, 'The photo reader has reached its hourly limit for you. Try again later, or add your own Anthropic API key.');
+    }
+  }
+}
+
 /** A client for this request: the visitor's own key, else the site's (signed-in visitors only when required). */
 export async function clientFor(request) {
   const own = (request.headers.get('x-anthropic-key') || '').trim();
@@ -34,13 +60,15 @@ export async function clientFor(request) {
   }
   const key = serverKey();
   if (!key) throw new HttpError(503, 'Photo modeling needs an Anthropic API key. Add yours in the dialog, or set ANTHROPIC_API_KEY on the site.');
+  let sub = null;
   if (signInRequired()) {
     try {
-      await requireActiveSession(request);
+      sub = (await requireActiveSession(request)).sub;
     } catch {
       throw new HttpError(401, 'Sign in to model homes from photos, or add your own Anthropic API key.');
     }
   }
+  await limitSiteKey(request, sub);
   return { client: makeClient(key), own: false };
 }
 

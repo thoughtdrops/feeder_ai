@@ -2,11 +2,13 @@
 //   uf:user:{sub}    -> JSON string (SET/GET)
 //   uf:builds:{sub}  -> HASH id -> JSON {id,name,updated,summary,design}
 //   uf:revoked:{jti} -> '1' until the signed-out session would have expired
+//   uf:hits:{key}    -> request count for a rate-limit window (expires with the window)
 import { HttpError } from './http.js';
 
 const userKey = (sub) => `uf:user:${sub}`;
 const buildsKey = (sub) => `uf:builds:${sub}`;
 const revokedKey = (jti) => `uf:revoked:${jti}`;
+const hitsKey = (key) => `uf:hits:${key}`;
 
 function redisEnv() {
   const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
@@ -88,6 +90,11 @@ function createRedisStore({ url, token }) {
     async sessionRevoked(jti) {
       return Number(await cmd('EXISTS', revokedKey(jti))) === 1;
     },
+    async hit(key, windowSeconds) {
+      const n = Number(await cmd('INCR', hitsKey(key)));
+      if (n === 1) await cmd('EXPIRE', hitsKey(key), Math.max(1, Math.ceil(windowSeconds)));
+      return n;
+    },
   };
 }
 
@@ -131,6 +138,11 @@ export function createMemoryStore() {
     async sessionRevoked(jti) {
       const until = Number(strings.get(revokedKey(jti)) || 0);
       return until > Date.now();
+    },
+    async hit(key) {
+      const n = Number(strings.get(hitsKey(key)) || 0) + 1;
+      strings.set(hitsKey(key), String(n));
+      return n;
     },
   };
 }

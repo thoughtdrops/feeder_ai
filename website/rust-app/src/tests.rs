@@ -1327,6 +1327,44 @@ fn colonial_plan()->Value{json!({"mainWidthFt":40.6,"mainDepthFt":31.5,"floors":
   assert_eq!(xml.matches("<LoadDef>").count()*6,xml.matches("<Load>").count(),"{style}");
   assert!(xml.contains("<LoadClass>4</LoadClass><StartMagnitude>0.277778</StartMagnitude>"),"{style}: floor live in psi");
   assert!(!xml.contains("<BuildingCode>23</BuildingCode>")&&!xml.contains("<LDFDead>0</LDFDead>"),"{style}: default settings");
+  assert!(xml.contains("<BuildingCode>5</BuildingCode>")&&xml.contains("Design to the 2024 IBC."),"{style}: 2024 IBC");
   if let Some(dir)=&out{std::fs::write(format!("{dir}/design{i}-{}.4te",style.replace(' ',"-")),&xml).unwrap();}
+ }
+}
+// Bug sweep regressions (October 2026): dormer rows, wing passages, bump-outs and garages around wings.
+fn sweep_design(style:&str,f:impl FnOnce(&mut Config))->Config{let mut c=generator::starter();c.home_style=style.into();c.stories=heritage::default_stories(style);c.bedrooms=heritage::default_bedrooms(style);architecture::apply(&mut c,true);f(&mut c);c}
+fn overlap_area(a:[f64;4],b:[f64;4])->f64{((a[2].min(b[2])-a[0].max(b[0])).max(0.))*((a[3].min(b[3])-a[1].max(b[1])).max(0.))}
+#[test]fn menu_dormers_fall_back_to_a_size_that_fits(){
+ for style in["Colonial","Georgian","Craftsman","Coastal"]{for kind in["Style matched","Gable","Shed"]{
+  let c=sweep_design(style,|c|{c.dormer_style=kind.into();c.dormer_count=2;});
+  let m=model::build(&c);assert_eq!(m["dormers"].as_array().map_or(0,|d|d.len()),2,"{style} {kind}: {}",m["dormerNotes"]);
+ }}
+}
+#[test]fn wing_passage_opens_from_one_room(){
+ for style in["Colonial","Victorian","Ranch","Craftsman","Cape Cod"]{for shape in&wings::SHAPES[1..]{
+  let c=sweep_design(style,|c|c.shape=(*shape).into());let m=model::build(&c);
+  let rooms:Vec<Room>=serde_json::from_value(m["rooms"].clone()).unwrap();
+  let fits=|r:&Room|!wings::is_wing(&r.id)&&near(r.z+r.d,c.depth)&&!["bath","stairs"].contains(&r.kind.as_str());
+  // Where only a stairwell or bath backs onto a wing, there is no room to open from; that layout is left as is.
+  if !wings::rects(&c).iter().all(|g|rooms.iter().any(|r|fits(r)&&r.x.max(g.x).max(0.)+3.5<=(r.x+r.w).min(g.x+g.w).min(c.width))){continue}
+  for w in m["walls"].as_array().unwrap().iter().filter(|w|s(w,"id")=="E2"){for o in w["openings"].as_array().unwrap().iter().filter(|o|s(o,"id").starts_with("E2-P-")){
+   let(a,b)=(n(w,"x")+n(o,"at"),n(w,"x")+n(o,"at")+n(o,"width"));
+   assert!(rooms.iter().any(|r|fits(r)&&a>=r.x-1e-6&&b<=r.x+r.w+1e-6),"{style} {shape}: passage {a}–{b} straddles a partition, bath or stairwell");
+  }}
+ }}
+}
+#[test]fn clicked_bump_outs_stay_clear_of_wings_and_inside_one_room(){
+ let c=sweep_design("Colonial",|c|{c.shape="T-shape".into();c.wing_width=8.;c.wing_depth=28.;c.custom_bumps=vec![bumps::CustomBump{side:"rear".into(),at:0.,width:14.,depth:2.,full:true}];});
+ assert!(validate(&c).is_ok());
+ for b in bumps::list(&c){for g in wings::rects(&c){assert!(overlap_area(bumps::rect(&c,&b),[g.x,g.z,g.x+g.w,g.z+g.d])<1e-6,"bump-out overlaps {}",g.id);}}
+ let c=sweep_design("Tudor",|c|{c.width=34.;c.depth=40.;c.custom_bumps=vec![bumps::CustomBump{side:"right".into(),at:16.,width:14.,depth:2.,full:false}];});
+ let(rs,_)=layout(&c);
+ for b in bumps::list(&c).into_iter().filter(|b|b.side=="right"){let[_,z0,_,z1]=bumps::rect(&c,&b);assert!(rs.iter().any(|r|!wings::is_wing(&r.id)&&near(r.x+r.w,c.width)&&z0>=r.z-1e-6&&z1<=r.z+r.d+1e-6),"bump-out {z0}–{z1} spans two rooms");}
+}
+#[test]fn garages_stay_clear_of_wings(){
+ for(kind,width,depth,ww,wd)in[("Attached",62.,20.,40.,18.),("Detached",40.,20.,24.,8.)]{
+  let c=sweep_design("Craftsman",|c|{c.stories=1;c.width=width;c.depth=depth;c.shape="U-shape".into();c.wing_width=ww;c.wing_depth=wd;c.garage=kind.into();c.garage_side="Automatic".into();});
+  let m=model::build(&c);let g=&m["garage"];let rect=[n(g,"x"),n(g,"z"),n(g,"x")+n(g,"w"),n(g,"z")+n(g,"d")];
+  for w in wings::rects(&c){assert!(overlap_area(rect,[w.x,w.z,w.x+w.w,w.z+w.d])<1e-6,"{kind} garage {rect:?} overlaps {} at {},{} {}×{}",w.id,w.x,w.z,w.w,w.d);}
  }
 }

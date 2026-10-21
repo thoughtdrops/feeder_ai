@@ -13,6 +13,10 @@ const FLOOR:u8=1;const ROOF:u8=2;const WALL:u8=3;
 const UNIFORM_AREA:u8=3;
 const SNOW:usize=0;const ROOF_LIVE:usize=3;const FLOOR_LIVE:usize=4;const DEAD:usize=5;
 /// Roof loads the studio's own checks assume, in psf.
+/// The code edition the project is meant to be designed to. File format 5.5 has codes only for IBC, IBC 2012,
+/// IBC 2015 and NBCC 2010. So the file uses the general IBC code (5), which imports cleanly, and names the edition in
+/// the project notes.
+pub const DESIGN_CODE:&str="2024 IBC";
 const ROOF_LIVE_PSF:f64=20.;const SNOW_PSF:f64=30.;const ROOF_DEAD_PSF:f64=15.;const WALL_DEAD_PSF:f64=10.;
 
 #[derive(Clone,Copy)]struct Support{kind:u8,material:u8,length:f64,hanger:bool}
@@ -138,9 +142,10 @@ fn write(c:&Config,containers:&[(String,Vec<Member>)],fh:f64)->String{
  let mut x=X(String::from("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"));
  x.0.push_str("<Project xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">");
  x.v("Version","5.5");x.v("PAEVersion","");x.v("JobNameReset","");
- // Project settings: the utility's defaults (IBC, 90 mph wind, Simpson hangers, standard load duration factors).
+ // Project settings: the utility's defaults (general IBC code, 90 mph wind, Simpson hangers, standard load duration
+ // factors). The notes name the code edition to design to.
  x.open("ForteSettings");
- x.v("Notes",trimmed(&format!("Exported from the Universal Frame studio (design UF-{}). {} × {} ft, {} stor{}, {:.0}:12 roof. Preliminary loads and member layout for ForteWEB design; set the building code, site snow, wind and seismic loads, and verify bearings and connections.",c.seed,c.width,c.depth,c.stories,if c.stories==1{"y"}else{"ies"},c.pitch),1000));
+ x.v("Notes",trimmed(&format!("Exported from the Universal Frame studio (design UF-{}). {} × {} ft, {} stor{}, {:.0}:12 roof. Design to the {DESIGN_CODE}. Preliminary loads and member layout for ForteWEB design; confirm the code edition in Job Settings, set site snow, wind and seismic loads, and verify bearings and connections.",c.seed,c.width,c.depth,c.stories,if c.stories==1{"y"}else{"ies"},c.pitch),1000));
  x.v("SoftwareOperator","Universal Frame studio");x.v("DoNotApplyWindLoad",false);x.v("OccupancyCategory",1);x.v("IsHurricaneProneRegion",false);x.v("BasicWindSpeed","90 mph");
  x.v("NbccSelectedRegion",0);x.v("NbccSelectedLocation",0);x.v("LoadApplicationOption",0);x.v("CustomWindPressure","1.5");x.v("SlopeAdjustRoofDeadLoadsValue",1);
  x.v("UOMSetting",1);x.v("ConnectorManufacturer",2);x.v("BuildingCode",5);x.v("IBC2015Selected",false);x.v("RepetitiveMemberIncrease",true);

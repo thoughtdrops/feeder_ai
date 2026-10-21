@@ -138,7 +138,7 @@ change('[data-field="garage"]','None');const garageBase=snapshot();assert.equal(
 for(const kind of ['Attached','Detached']){
  change('[data-field="garage"]',kind);const state=snapshot();assert.equal(state.config.garage,kind);assert.equal(state.model.garage.area,576);assert.ok(state.model.total>garageBase.model.total);assert.equal(state.model.area,garageBase.model.area);assert.equal(state.model.items.find(i=>i.id==='garage-overheaddoor').qty,1);
  safariTap('[data-view="plan"]');assert.ok(q('svg .garage-plan').textContent.includes('24 × 24'));const vb=q('svg').getAttribute('viewBox').split(' ').map(Number);assert.ok(vb[0]<=state.model.siteBounds.minX&&vb[1]<=state.model.siteBounds.minZ);assert.ok(vb[0]+vb[2]>=state.model.siteBounds.maxX);
- safariTap('[data-view="walk"]');assert.ok(q('[data-field="room"] option[value="G-GARAGE"]'));change('[data-field="room"]','G-GARAGE');assert.equal(lastScene.jump,'G-GARAGE');
+ safariTap('[data-view="walk"]');assert.equal(document.querySelector('.room-select'),null,'the walkthrough has no Go to room menu');
  safariTap('[data-view="framing"]');assert.ok(q('[data-field="frameOpening"] option[value="G-OVERHEAD"]'));change('[data-field="frameOpening"]','G-OVERHEAD');assert.equal(lastScene.frameOpening,'G-OVERHEAD');
  safariTap('[data-view="exterior"]');assert.equal(lastScene.view,'exterior');safariTap('[data-view="walk"]');assert.equal(lastScene.view,'walk');
 }

@@ -20,7 +20,9 @@ pub fn footprint(c:&Config,rooms:&[Room])->Option<[f64;4]>{if c.garage!="Attache
 
 fn placement(c: &Config, rooms: &[Room]) -> Placement {
     if c.garage != "Attached" {
-        let left=c.garage_side=="Left";return Placement { x: if left{-frontage(c)-8.}else{c.width+8.}, z: 0., left, entry: None };
+        // A detached garage stands 8 ft clear of the house, and of any wing that reaches past that side.
+        let wings=crate::wings::rects(c);let west=wings.iter().map(|g|g.x).fold(0.,f64::min);let east=wings.iter().map(|g|g.x+g.w).fold(c.width,f64::max);
+        let left=c.garage_side=="Left";return Placement { x: if left{west-frontage(c)-8.}else{east+8.}, z: 0., left, entry: None };
     }
     // A garage the visitor positioned stays there; its door goes into the best room it borders.
     if let Some(z)=c.garage_offset{
@@ -37,7 +39,8 @@ fn placement(c: &Config, rooms: &[Room]) -> Placement {
             let lo=r.z.max(0.)+0.4;let hi=(r.z+r.d).min(SIZE).min(c.depth)-0.4;
             (hi-lo>=38./12.).then(||(r.z+r.d/2.-19./12.).clamp(lo,hi-38./12.))
         });
-        return Placement{x:if left{-frontage(c)}else{c.width},z:0.,left,entry};
+        let x=if left{-frontage(c)}else{c.width};
+        return Placement{x,z:clear_z(c,x),left,entry};
     }
     // Put the protected connection in a social/utility room, never a bedroom.
     // The garage can project forward of a small home instead of covering bedrooms.
@@ -60,7 +63,15 @@ fn placement(c: &Config, rooms: &[Room]) -> Placement {
         }
     }
     candidates.sort_by(|a, b| a.0.total_cmp(&b.0));
-    candidates.first().map(|v| v.1.clone()).unwrap_or(Placement { x: if c.garage_side=="Left"{-frontage(c)}else{c.width}, z: 0., left: c.garage_side=="Left", entry: None })
+    let x=if c.garage_side=="Left"{-frontage(c)}else{c.width};
+    candidates.first().map(|v| v.1.clone()).unwrap_or(Placement { x, z: clear_z(c,x), left: c.garage_side=="Left", entry: None })
+}
+/// Flush with the front, unless an L or U wing reaches past that side; then it ends where the nearest wing begins
+/// (forward of the house by up to 16 ft, on the 2 ft grid).
+fn clear_z(c:&Config,x:f64)->f64{
+    if clear_of_wings(c,x,0.){return 0.}
+    let start=crate::wings::rects(c).iter().filter(|g|x+frontage(c)>g.x+1e-6&&x<g.x+g.w-1e-6).map(|g|g.z).fold(f64::INFINITY,f64::min);
+    (((start-SIZE)/2.).floor()*2.).clamp(-16.,0.)
 }
 
 fn shared_range(c: &Config, p: &Placement) -> (f64, f64) { (p.z.max(0.), (p.z + SIZE).min(c.depth)) }
