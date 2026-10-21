@@ -183,14 +183,14 @@ function cleanPhotos(raw, task) {
   });
 }
 
-/** Photos found on a listing page, passed to Claude by address. */
+/** Photos and floor plans found on a listing page, passed to Claude by address (a .pdf link as a document). */
 function cleanUrls(raw) {
   if (raw === undefined) return [];
   if (!Array.isArray(raw) || raw.length > MAX_URLS) throw new HttpError(400, `Use at most ${MAX_URLS} photo links`);
   return raw.map((u, i) => {
     const url = publicUrl(u);
     if (!url) throw new HttpError(400, `Photo link ${i + 1} must be a public https address`);
-    return { type: 'image', source: { type: 'url', url } };
+    return /\.pdf$/i.test(new URL(url).pathname) ? { type: 'document', source: { type: 'url', url } } : { type: 'image', source: { type: 'url', url } };
   });
 }
 

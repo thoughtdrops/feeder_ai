@@ -92,9 +92,11 @@ fn add_bump(a:&mut State,side:&'static str,at:f64,depth:f64,width:f64,full:bool)
  Err(format!("A {width} ft bump-out doesn't fit on this wall: it needs {width} ft of wall at least 2 ft from the corners, clear of doors, the garage, a balcony and other bump-outs. Try a narrower one."))
 }
 fn add_dormer(a:&mut State,side:&'static str,at:f64)->Result<String,String>{
+ // Only a note the new dormer brings counts: an earlier added dormer that no longer fits must not block this one.
+ let notes=|c:&Config|->Vec<String>{serde_json::from_value::<Vec<String>>(model::build(c)["dormerNotes"].clone()).unwrap_or_default().into_iter().filter(|n|n.contains("added")||n.contains("gable end")||n.contains("too shallow")).collect()};
+ let mut before=notes(&a.c);
  a.c.custom_dormers.push(additions::dormers::CustomDormer{side:side.into(),at});
- let notes:Vec<String>=serde_json::from_value(model::build(&a.c)["dormerNotes"].clone()).unwrap_or_default();
- let problem=notes.iter().find(|n|n.contains("added")||n.contains("gable end")||n.contains("too shallow")).cloned();
+ let problem=notes(&a.c).into_iter().find(|n|if let Some(i)=before.iter().position(|b|b==n){before.remove(i);false}else{true});
  if validate(&a.c).is_ok()&&problem.is_none(){Ok(format!("Dormer added on the {} roof.",side.to_lowercase()))}else{a.c.custom_dormers.pop();Err(problem.unwrap_or("A dormer doesn't fit on this roof slope here.".into()))}
 }
 fn parsed(id:&str)->f64{val(id).parse().unwrap_or(f64::NAN)}
