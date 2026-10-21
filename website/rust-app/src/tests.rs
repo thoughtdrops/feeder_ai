@@ -1311,3 +1311,15 @@ fn colonial_plan()->Value{json!({"mainWidthFt":40.6,"mainDepthFt":31.5,"floors":
  // Style-matched bump-outs stay off a blank slate unless clicked on.
  let mut s2=b.clone();s2.bump_outs="Style matched".into();assert!(bumps::list(&s2).is_empty());
 }
+#[test]fn forteweb_export_lists_every_member_kind(){
+ let out=std::env::var("FORTE_OUT").ok();
+ let mut c=generator::starter();
+ for(i,style)in["Colonial","Ranch","Victorian","Craftsman","Cape Cod"].iter().enumerate(){c.home_style=(*style).into();c.stories=heritage::default_stories(style);c.bedrooms=heritage::default_bedrooms(style);architecture::apply(&mut c,true);
+  let m=model::build(&c);let(xml,count)=forte::export(&c,&m);
+  assert!(xml.starts_with("<?xml")&&xml.contains("<Version>5.5</Version>")&&xml.ends_with("</Project>"));
+  assert_eq!(xml.matches("<Problem ").count(),count);assert!(count>=3,"{style}: {count} members");
+  for tag in["<MemberTypeStringTag>joist</MemberTypeStringTag>","<MemberTypeStringTag>header</MemberTypeStringTag>","<StructuralSystem>2</StructuralSystem>"]{assert!(xml.contains(tag),"{style} has {tag}");}
+  if c.stories>1{assert!(xml.contains("Upper floor joist"),"{style}");}
+  if let Some(dir)=&out{std::fs::write(format!("{dir}/design{i}-{}.4te",style.replace(' ',"-")),&xml).unwrap();}
+ }
+}

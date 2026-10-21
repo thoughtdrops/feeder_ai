@@ -1,6 +1,6 @@
 #![recursion_limit="512"]
 use serde::{Deserialize,Serialize};use serde_json::{json,Value};use std::{collections::BTreeMap,sync::OnceLock};
-mod panels;mod cladding;mod surfaces;mod objects;mod additions;mod pricing;mod porch;mod security;mod stairs;mod structural;mod accessibility;mod heritage;mod budget;mod generator;mod garage;mod architecture;mod roof;mod storeys;mod frame;mod model;mod facade;mod rules;mod staging;mod edit;mod finishes;mod materials;mod trim;mod piers;mod wings;mod roofing;mod units;mod interior_design;mod photo;mod traced;mod furnish;mod bumps;pub mod process;
+mod panels;mod cladding;mod surfaces;mod objects;mod additions;mod pricing;mod porch;mod security;mod stairs;mod structural;mod accessibility;mod heritage;mod budget;mod generator;mod garage;mod architecture;mod roof;mod storeys;mod frame;mod model;mod facade;mod rules;mod staging;mod edit;mod finishes;mod materials;mod trim;mod piers;mod wings;mod roofing;mod units;mod interior_design;mod photo;mod traced;mod furnish;mod bumps;pub mod process;pub mod forte;
 #[cfg(target_arch="wasm32")]mod ui;
 #[cfg(test)]mod tests;
 pub fn catalog()->&'static Value{static C:OnceLock<Value>=OnceLock::new();C.get_or_init(||serde_json::from_str(include_str!("../data/catalog.json")).unwrap())}
