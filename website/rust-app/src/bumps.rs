@@ -86,6 +86,8 @@ fn plan(c:&Config)->Vec<Bump>{
  let style_matched=c.bump_outs=="Style matched";
  let mut fixed:Vec<[f64;4]>=garage::footprint(c,&rs).into_iter().collect();
  if let Some(b)=additions::balconies::planned(c){fixed.push(if b.side=="Rear"{[b.x,c.depth,b.x+b.w,c.depth+b.d]}else{[c.width,0.,c.width+b.w,b.d]});}
+ // ...and of the L, T or U wings.
+ fixed.extend(wings::rects(c).iter().map(|w|[w.x,w.z,w.x+w.w,w.z+w.d]));
  let mut soft:Vec<[f64;4]>=porch["rectangles"].as_array().map(|a|a.iter().map(|r|[n(r,"x"),n(r,"z"),n(r,"x")+n(r,"w"),n(r,"z")+n(r,"d")]).collect()).unwrap_or_default();
  if additions::rear_kind(c)!="None"{soft.push(rear_outdoor(c,&ws));}
  let pad=|r:[f64;4]|[r[0]-1.5,r[1]-1.5,r[2]+1.5,r[3]+1.5];
@@ -103,9 +105,11 @@ fn plan(c:&Config)->Vec<Bump>{
   let width=if cb.width>0.{cb.width}else{c.bump_width};
   let lo=grid(cb.at-width/2.).clamp(2.,(len-2.-width).max(2.));let hi=lo+width;if hi>len-2.+1e-6{continue}
   let depth=if cb.depth>0.{cb.depth}else if c.bump_depth>0.{c.bump_depth}else{4.};
-  let room=rs.iter().filter(|r|!wings::is_wing(&r.id)&&r.kind!="stairs").find(|r|{let(a,b)=if ["front","rear"].contains(&side){(r.x,r.x+r.w)}else{(r.z,r.z+r.d)};touches(c,r,side)&&(lo+hi)/2.>a&&(lo+hi)/2.<b});
+  let room=rs.iter().filter(|r|!wings::is_wing(&r.id)&&r.kind!="stairs").find(|r|{let(a,b)=if ["front","rear"].contains(&side){(r.x,r.x+r.w)}else{(r.z,r.z+r.d)};touches(c,r,side)&&lo>=a-1e-6&&hi<=b+1e-6});
   let Some(r)=room else{continue};
-  if let Some(b)=fit(c,side,lo,hi,depth,r,wall,&main_roof,&fixed,&out,cb.full){out.push(b);}
+  // A full-height bump-out also needs one room behind it on every floor above.
+  let full=cb.full&&(1..c.stories).all(|f|{let mut u=c.clone();u.active_floor=f;layout(&u).0.iter().any(|q|!wings::is_wing(&q.id)&&!["stairs","bath"].contains(&q.kind.as_str())&&touches(c,q,side)&&{let(a,b)=if ["front","rear"].contains(&side){(q.x,q.x+q.w)}else{(q.z,q.z+q.d)};lo>=a-1e-6&&hi<=b+1e-6})});
+  if let Some(b)=fit(c,side,lo,hi,depth,r,wall,&main_roof,&fixed,&out,full){out.push(b);}
  }
  // A traced plan's bump-outs come from the plan, scaled to the house (none if the plan has none); a chosen
  // side, or any other house, gets them by the rules here.

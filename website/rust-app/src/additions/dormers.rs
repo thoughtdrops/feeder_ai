@@ -153,9 +153,14 @@ pub fn apply(c:&Config,m:&mut Value,t:&mut model::Takeoff){
     }
     // Then the automatic row, so a click-added dormer that did not fit never turns into one somewhere else.
     let target=selected.len()+auto;
+    // Where the roof is too low for the house's dormer size and type, the row takes the first fallback that fits,
+    // as a clicked dormer does.
+    let mut row_spec=house;
+    if auto>0&&!candidates.iter().any(|v|v.8==house){for sp in fallbacks(house).into_iter().skip(1){let extra=generate(sp,None);if !extra.is_empty(){candidates.extend(extra);row_spec=sp;break}}}
+    let width=row_spec.width;
     for side in ["Front","Rear","Left","Right"]{
         if selected.len()>=target{break}if c.dormer_side!="Automatic"&&c.dormer_side!=side{continue}let total=if ["Front","Rear"].contains(&side){c.width}else{c.depth};
-        let rows:Vec<_>=candidates.iter().enumerate().filter(|(_,v)|v.1==side&&v.8==house).collect();
+        let rows:Vec<_>=candidates.iter().enumerate().filter(|(_,v)|v.1==side&&v.8==row_spec).collect();
         let capacity=((total-4.+2.)/(width+2.)).floor().max(0.)as usize;
         for count in (1..=(target-selected.len()).min(capacity)).rev(){
             let mut best:Option<(f64,Vec<usize>)>=None;
