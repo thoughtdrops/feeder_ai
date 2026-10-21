@@ -9,6 +9,8 @@ const mt = (t) => (UU && typeof t === 'string' ? UU.text(t) : t);
 const showFt = (ft) => (METRIC ? String(Math.round(ft * 0.3048 * 100) / 100) : String(ft));
 const readFt = (text) => (METRIC ? parseFloat(text) / 0.3048 : parseFloat(text));
 const setStatus = t => { const el = $('#status'); if (el) el.textContent = mt(t); };
+// The running play-by-play stays hidden (the clock card's one-line status covers it); only a problem is shown.
+const showProblem = t => { setStatus(t); const el = $('#status'); if (el) el.classList.add('problem'); };
 const announce = t => { const el = $('#live'); if (el) el.textContent = mt(t); };
 // Building a design hides the intro card, so input errors and milestones show as a short toast under Back home.
 let toastTimer = 0;
@@ -18,7 +20,7 @@ const notice = t => {
   let el = $('#toast'); if (!el) { el = document.createElement('p'); el.id = 'toast'; el.className = 'toast'; el.setAttribute('role', 'status'); const back = $('.intro .back'); (back ? back.parentElement : document.body).appendChild(el); }
   el.textContent = mt(t); el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 7000);
 };
-if (typeof THREE === 'undefined') { setStatus('The 3D library could not load, so the simulation cannot start. Reload the page to try again.'); return; }
+if (typeof THREE === 'undefined') { showProblem('The 3D library could not load, so the simulation cannot start. Reload the page to try again.'); return; }
 
 const PI = Math.PI;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -737,7 +739,7 @@ let renderer;
 try {
   renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', logarithmicDepthBuffer: true });
 } catch (err) {
-  setStatus('This device could not start WebGL, so the 3D view is unavailable.');
+  showProblem('This device could not start WebGL, so the 3D view is unavailable.');
   return;
 }
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
