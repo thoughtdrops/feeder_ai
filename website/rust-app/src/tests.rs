@@ -1327,6 +1327,7 @@ fn colonial_plan()->Value{json!({"mainWidthFt":40.6,"mainDepthFt":31.5,"floors":
   assert_eq!(xml.matches("<LoadDef>").count()*6,xml.matches("<Load>").count(),"{style}");
   assert!(xml.contains("<LoadClass>4</LoadClass><StartMagnitude>0.277778</StartMagnitude>"),"{style}: floor live in psi");
   assert!(!xml.contains("<BuildingCode>23</BuildingCode>")&&!xml.contains("<LDFDead>0</LDFDead>"),"{style}: default settings");
+  assert!(xml.contains("<BuildingCode>5</BuildingCode>")&&xml.contains("Design to the 2024 IBC."),"{style}: 2024 IBC");
   if let Some(dir)=&out{std::fs::write(format!("{dir}/design{i}-{}.4te",style.replace(' ',"-")),&xml).unwrap();}
  }
 }
