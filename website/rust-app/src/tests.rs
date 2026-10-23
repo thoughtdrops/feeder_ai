@@ -1291,7 +1291,9 @@ fn colonial_plan()->Value{json!({"mainWidthFt":40.6,"mainDepthFt":31.5,"floors":
  let mut c=generator::starter();c.eave_overhang="Extra deep · 36 in".into();c.overhang_pillars="All around".into();assert!(validate(&c).is_ok());
  let m=model::build(&c);let posts=additions::colonnade::posts(&c,&m);assert!(!posts.is_empty(),"some eave side gets pillars");
  assert_eq!(m["overhangPillars"]["posts"].as_array().unwrap().len(),posts.len());
- for(x,z,h)in &posts{let outside=*x<0.||*x>c.width||*z<0.||*z>c.depth;assert!(outside,"pillars stand outside the walls");assert!(*h>=c.wall_height,"they reach the soffit");
+ assert!(!m["overhangPillars"]["runs"].as_array().unwrap().is_empty(),"the pillars carry a covered walk");
+ for(x,z,h)in &posts{let outside=*x<0.||*x>c.width||*z<0.||*z>c.depth;assert!(outside,"pillars stand outside the walls");assert!(*h>=6.5&&*h<=c.wall_height+1.,"porch-height columns under the walk's beam");
+  let off=(-x).max(*x-c.width).max(-z).max(*z-c.depth);assert!(off>=4.9,"they stand out at the walk's edge, not against the wall");
   for r in m["porch"]["rectangles"].as_array().into_iter().flatten(){assert!(!(*x>n(r,"x")&&*x<n(r,"x")+n(r,"w")&&*z>n(r,"z")&&*z<n(r,"z")+n(r,"d")),"not on the porch");}}
  assert!(m["items"].as_array().unwrap().iter().any(|i|s(i,"id")=="overhang-columns"));
  c.overhang_pillars="Everywhere".into();assert!(validate(&c).is_err());

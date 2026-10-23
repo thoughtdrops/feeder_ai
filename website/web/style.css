@@ -359,3 +359,8 @@ footer .scope-note{color:var(--muted)}
 .studio-heading .build-library .button{min-height:38px;padding:.4rem .8rem;font-size:.8125rem;white-space:nowrap}
 .studio-heading .check{margin:0;white-space:nowrap}
 @media(max-width:560px){.studio-heading{margin-bottom:.5rem}.studio-heading .generate-group{gap:.4rem}.studio-heading .build-library .button{min-height:36px;padding:.35rem .6rem;font-size:.75rem}.studio-heading .check{font-size:.75rem}}
+/* The edit menu scrolls if it must, without a visible scroll bar. */
+.context-body{scrollbar-width:none}.context-body::-webkit-scrollbar{display:none}
+/* Your home: Layout, Finishes and Build share the row in equal thirds, in larger type. */
+.config-tabs{grid-template-columns:repeat(3,minmax(0,1fr));padding:0}
+.config-tabs button{font-size:1rem;font-weight:650;min-height:54px;letter-spacing:-.01em}
