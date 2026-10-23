@@ -13,7 +13,7 @@ export function attachEditor(el:HTMLElement,canvas:HTMLCanvasElement,scene:T.Sce
  const placeable=editable||view==='walk'||view==='exterior';
  let drag:{wall:any;edge:string;coordinate:number;offset:number;plane:T.Plane;pointerId:number;x:number;z:number;offsetX:number;offsetZ:number}|undefined;
  const allWalls=m.allWalls||m.walls;
- const permitted=(t:any)=>!t||(t.kind==='floor'&&(mode.placing||!!mode.moving))||(view==='exterior'?['wall','opening'].includes(t.kind)&&allWalls.some((w:any)=>w.id===t.wallId&&w.exterior):view==='framing'?['wall','opening'].includes(t.kind)&&m.walls.some((w:any)=>w.id===t.wallId):true);
+ const permitted=(t:any)=>!t||(t.kind==='floor'&&(mode.placing||!!mode.moving))||(t.kind==='roof'?view!=='framing':(view==='exterior'?['wall','opening'].includes(t.kind)&&allWalls.some((w:any)=>w.id===t.wallId&&w.exterior):view==='framing'?['wall','opening'].includes(t.kind)&&m.walls.some((w:any)=>w.id===t.wallId):true));
  const remove=()=>{if(!highlight)return;highlight.traverse(o=>{if(o instanceof T.Mesh||o instanceof T.LineSegments){o.geometry.dispose();(Array.isArray(o.material)?o.material:[o.material]).forEach(v=>v.dispose());}});scene.remove(highlight);highlight=undefined;};
  function setRay(e:PointerEvent){const rect=canvas.getBoundingClientRect();pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);ray.setFromCamera(pointer,camera);}
  function box(bounds:T.Box3,color:string){if(bounds.isEmpty())return;const size=bounds.getSize(new T.Vector3());const fill=new T.Mesh(new T.BoxGeometry(size.x,size.y,size.z),new T.MeshBasicMaterial({color,transparent:true,opacity:.15,depthWrite:false,depthTest:false}));fill.position.copy(bounds.getCenter(new T.Vector3()));fill.renderOrder=1000;const outline=new T.Box3Helper(bounds,new T.Color(color));(outline.material as T.Material).depthTest=false;outline.renderOrder=1001;highlight!.add(fill,outline);}
@@ -35,6 +35,7 @@ export function attachEditor(el:HTMLElement,canvas:HTMLCanvasElement,scene:T.Sce
    bounds=new T.Box3().setFromCenterAndSize(new T.Vector3(wall.x+(along?at+width/2:0)-m.w/2,baseY+bottom+height/2,wall.z+(along?0:at+width/2)-m.d/2),new T.Vector3(along?width:.58,height,along?.58:width));
    if(mode.handles)handles(wall);
   }else if(t.kind==='furniture'){scene.traverse(o=>{if(o.userData.editTarget?.id===t.id&&o.userData.editTarget.kind==='furniture'){const part=new T.Box3().setFromObject(o);if(bounds)bounds.union(part);else bounds=part;}});}
+  else if(t.kind==='roof'){bounds=new T.Box3().setFromCenterAndSize(new T.Vector3(t.x-m.w/2,baseY+(t.y||0),t.z-m.d/2),new T.Vector3(1.6,.3,1.6));}
   else{const f=t.placement;if(f){
    // A see-through 3D ghost of the item: red where it would hit something, green where it can go. When the spot under
    // the cursor is blocked but a clear spot is close by, the red ghost stays at the cursor and a green one shows where it will land.
