@@ -345,3 +345,17 @@ html.account-modal-open,html.account-modal-open body{overflow:hidden}
 @media(min-width:851px){.estimate-heading .cost-totals{display:none}}
 /* Every material category lives in one drop-down. */
 .materials-list[open]{padding-bottom:.4rem}.materials-list .category-list{margin:.6rem -1rem 0}
+/* Generate sits at the end of the top row. */
+.header-modes.design-mode-buttons .button.header-generate{background:var(--gold);color:#273b2d;border:1px solid #d8ae32;font-weight:700}
+.header-modes.design-mode-buttons .button.header-generate:hover{filter:brightness(1.05)}
+/* The design heading is gone: the keep-dimensions switch and saved builds sit in one compact row. */
+.studio-heading{justify-content:flex-end;margin-bottom:.75rem}
+.studio-heading .generate-group{flex-direction:row;align-items:center;flex-wrap:wrap;gap:.6rem}
+/* Footer: the theme switch and the code/price basis. */
+footer .theme-toggle{min-height:40px}
+footer .scope-note{color:var(--muted)}
+.studio-heading .generate-group{flex-wrap:nowrap;justify-content:flex-end;width:100%}
+.studio-heading .generate-repeat,.studio-heading .build-library{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:.4rem;margin:0}
+.studio-heading .build-library .button{min-height:38px;padding:.4rem .8rem;font-size:.8125rem;white-space:nowrap}
+.studio-heading .check{margin:0;white-space:nowrap}
+@media(max-width:560px){.studio-heading{margin-bottom:.5rem}.studio-heading .generate-group{gap:.4rem}.studio-heading .build-library .button{min-height:36px;padding:.35rem .6rem;font-size:.75rem}.studio-heading .check{font-size:.75rem}}
