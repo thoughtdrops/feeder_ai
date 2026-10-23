@@ -71,7 +71,7 @@ fn remove_sections(mut ws:Vec<Wall>,c:&Config)->Vec<Wall>{
  }
  ws
 }
-pub fn item_dimensions(kind:&str)->(f64,f64){if let Some(o)=objects::find(kind){return(o.width,o.depth)}match kind{"stairs"=>(8.,16.),"sofa"=>(7.,3.),"bed"=>(5.,6.7),"toilet"=>(2.,2.6),"vanity"=>(3.,2.),"shower"=>(3.,3.),"kitchen"=>(6.,2.5),"island"=>(5.,3.),"counter-run"=>(6.,2.),"pantry-tower"=>(2.5,2.),"fridge"=>(2.7,2.7),"dining"=>(6.,5.),"chair"=>(2.,2.),"armchair"=>(3.,3.),"desk"=>(4.,2.),"wardrobe"=>(4.,2.),"laundry"=>(5.,2.7),"coffee"=>(3.5,2.),"nightstand"=>(1.8,1.5),"rug"=>(6.,4.),"plant"=>(1.3,1.3),"floorlamp"=>(1.6,1.6),"side-table"=>(2.,2.),"bench"=>(4.,1.6),"bookcase"=>(3.,1.1),"entry-console"=>(4.,1.2),"floor-vase"=>(1.,1.),"floor-mirror"=>(2.6,0.7),"tall-plant"=>(2.,2.),_=>(3.,2.)}}
+pub fn item_dimensions(kind:&str)->(f64,f64){if let Some(o)=objects::find(kind){return(o.width,o.depth)}match kind{"stairs"=>(8.,16.),"sofa"=>(7.,3.),"bed"=>(5.,6.7),"toilet"=>(2.,2.6),"vanity"=>(3.,2.),"shower"=>(3.,3.),"kitchen"=>(6.,2.5),"island"=>(5.,3.),"counter-run"=>(6.,2.),"pantry-tower"=>(2.5,2.),"fridge"=>(2.7,2.7),"dining"=>(6.,5.),"chair"=>(2.,2.),"armchair"=>(3.,3.),"desk"=>(4.,2.),"wardrobe"=>(4.,2.),"laundry"=>(5.,2.7),"coffee"=>(3.5,2.),"nightstand"=>(1.8,1.5),"rug"=>(6.,4.),"plant"=>(1.3,1.3),"floorlamp"=>(1.6,1.6),"side-table"=>(2.,2.),"bench"=>(4.,1.6),"bookcase"=>(3.,1.1),"entry-console"=>(4.,1.2),"floor-vase"=>(1.,1.),"floor-mirror"=>(2.6,0.7),"tall-plant"=>(2.,2.),"console"=>(6.,1.5),_=>(3.,2.)}}
 pub fn rotate_item(f:&mut staging::Furniture,rotation:f64){let rotation=if f.kind=="stairs"{f.local_width=8.;f.local_depth=16.;(rotation/std::f64::consts::FRAC_PI_2).round()*std::f64::consts::FRAC_PI_2}else{rotation};f.rotation=rotation.rem_euclid(std::f64::consts::TAU);let(c,s)=(f.rotation.cos().abs(),f.rotation.sin().abs());f.w=f.local_width*c+f.local_depth*s;f.d=f.local_width*s+f.local_depth*c;}
 fn corners(f:&staging::Furniture,pad:f64)->[[f64;2];4]{let(c,s)=(f.rotation.cos(),f.rotation.sin());let(w,d)=(f.local_width/2.+pad,f.local_depth/2.+pad);[[-w,-d],[w,-d],[w,d],[-w,d]].map(|[x,z]|[f.x+c*x-s*z,f.z+s*x+c*z])}
 fn rectangle(r:[f64;4])->[[f64;2];4]{[[r[0],r[1]],[r[2],r[1]],[r[2],r[3]],[r[0],r[3]]]}
@@ -80,11 +80,17 @@ pub fn item_intersects_rect(f:&staging::Furniture,r:[f64;4])->bool{intersects(co
 pub fn valid_item(f:&staging::Furniture,c:&Config,ws:&[Wall],others:&[staging::Furniture])->bool{
  item_error(f,c,ws,others).is_none()
 }
+/// Rugs lie flat under other furniture.
+pub fn is_rug(kind:&str)->bool{kind=="rug"||kind.ends_with("-rug")}
+/// Ceiling lights and wall art hang overhead: they only need to be indoors, and floor furniture, doorways and walking
+/// routes pass beneath them.
+pub fn overhead(kind:&str)->bool{["ceiling-light","pendant-light","chandelier","painting"].contains(&kind)}
 pub fn item_error(f:&staging::Furniture,c:&Config,ws:&[Wall],others:&[staging::Furniture])->Option<String>{let(rs,_)=layout(c);let zones=accessibility::zones(c,&rs);item_error_with_zones(f,c,ws,others,&zones)}
 fn item_error_with_zones(f:&staging::Furniture,c:&Config,ws:&[Wall],others:&[staging::Furniture],zones:&[accessibility::Clearance])->Option<String>{
  if ![f.x,f.z,f.w,f.d,f.rotation,f.local_width,f.local_depth].iter().all(|v|v.is_finite())||f.local_width<0.3||f.local_depth<0.3{return Some("Enter valid item dimensions and a position.".into())}
  let bounds=[f.x-f.w/2.,f.z-f.d/2.,f.x+f.w/2.,f.z+f.d/2.];
  if !indoors(c,bounds){return Some("The whole item must fit inside the house. Click farther from the outside edge.".into())}
+ if overhead(&f.kind){return None}
  if f.kind=="stairs"&&c.design_mode!="Blank slate"{return stairs::placement_error(f,c,ws,others)}if f.kind=="stairs"{if let Some(error)=stairs::placement_error(f,c,ws,others){return Some(error)}}else if let Some(error)=accessibility::item_error(f,zones){return Some(error)}
  if !clear_of_walls(f,ws){return Some(if hits_wall(f,ws){"This would run into a wall. Move it away from the wall or make it smaller.".into()}else{"Keep the doorway clear: leave walking room in front of the door or passage.".into()})}
  if let Some(o)=blocking_item(f,others){return Some(format!("This position overlaps a {}. Move outside its footprint.",o.kind))}
@@ -94,8 +100,8 @@ fn item_error_with_zones(f:&staging::Furniture,c:&Config,ws:&[Wall],others:&[sta
 /// table, so those two may share a footprint; rugs lie under everything.
 pub fn blocking_item<'a>(f:&staging::Furniture,others:&'a [staging::Furniture])->Option<&'a staging::Furniture>{
  let pair=|a:&str,b:&str|(a=="coffee"&&b=="sectional")||(a=="sectional"&&b=="coffee");
- if f.kind=="rug"{return None}
- others.iter().filter(|o|o.id!=f.id&&o.kind!="rug"&&!pair(&f.kind,&o.kind)).find(|o|intersects(corners(f,0.),corners(o,0.05)))
+ if is_rug(&f.kind)||overhead(&f.kind){return None}
+ others.iter().filter(|o|o.id!=f.id&&!is_rug(&o.kind)&&!overhead(&o.kind)&&!pair(&f.kind,&o.kind)).find(|o|intersects(corners(f,0.),corners(o,0.05)))
 }
 /// Whether a footprint is all indoors: inside the main house, a bump-out or an addition on this floor, or across the
 /// opening between them (each outside wall keeps the same 0.28 ft clearance).
@@ -114,7 +120,7 @@ fn hits_wall(f:&staging::Furniture,ws:&[Wall])->bool{ws.iter().any(|wall|{let ax
 /// into its bump-out or addition (a passage in an outside wall) doesn't, so the bay itself can be furnished.
 pub fn clear_of_walls(f:&staging::Furniture,ws:&[Wall])->bool{
  for wall in ws{let axis=wall.axis=="x";let mut start=0.;let mut openings=wall.openings.clone();openings.sort_by(|a,b|a.at.total_cmp(&b.at));for o in openings.iter().filter(|o|o.kind!="window").map(|o|(o.at,o.width)).chain(std::iter::once((wall.length,0.))){let a=if axis{[wall.x+start,wall.z-0.28,wall.x+o.0,wall.z+0.28]}else{[wall.x-0.28,wall.z+start,wall.x+0.28,wall.z+o.0]};if item_intersects_rect(f,a){return false}start=o.0+o.1;}
-  if f.kind!="rug"{for o in openings.iter().filter(|o|o.kind!="window"){let mut areas=vec![];if o.kind=="door"{let at=if axis{wall.x+o.at}else{wall.z+o.at};areas.push(if axis{[at,wall.z+0.28,at+o.width+1.5,wall.z+5.]}else{[wall.x+0.28,at,wall.x+5.,at+o.width+1.5]});areas.push(if axis{[at,wall.z-4.,at+o.width+1.,wall.z-0.28]}else{[wall.x-4.,at,wall.x-0.28,at+o.width+1.]});}else if !wall.exterior{areas.push(if axis{[wall.x+o.at-0.2,wall.z-3.,wall.x+o.at+o.width+0.2,wall.z+3.]}else{[wall.x-3.,wall.z+o.at-0.2,wall.x+3.,wall.z+o.at+o.width+0.2]});}if areas.iter().any(|a|item_intersects_rect(f,*a)){return false}}}
+  if !is_rug(&f.kind){for o in openings.iter().filter(|o|o.kind!="window"){let mut areas=vec![];if o.kind=="door"{let at=if axis{wall.x+o.at}else{wall.z+o.at};areas.push(if axis{[at,wall.z+0.28,at+o.width+1.5,wall.z+3.5]}else{[wall.x+0.28,at,wall.x+3.5,at+o.width+1.5]});areas.push(if axis{[at,wall.z-3.,at+o.width+1.,wall.z-0.28]}else{[wall.x-3.,at,wall.x-0.28,at+o.width+1.]});}else if !wall.exterior{areas.push(if axis{[wall.x+o.at-0.2,wall.z-2.5,wall.x+o.at+o.width+0.2,wall.z+2.5]}else{[wall.x-2.5,wall.z+o.at-0.2,wall.x+2.5,wall.z+o.at+o.width+0.2]});}if areas.iter().any(|a|item_intersects_rect(f,*a)){return false}}}
  }true
 }
 pub fn overlap(a:[f64;4],b:[f64;4])->bool{a[0]<b[2]-0.001&&a[2]>b[0]+0.001&&a[1]<b[3]-0.001&&a[3]>b[1]+0.001}

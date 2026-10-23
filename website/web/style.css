@@ -334,3 +334,14 @@ html.account-modal-open,html.account-modal-open body{overflow:hidden}
 
 /* "Model from photos" is turned off for now; delete this rule to show it again. */
 .photo-home{display:none!important}
+
+/* Design modes: one row of four under the logo. */
+.header-modes{grid-column:1/-1;justify-self:center;display:flex;justify-content:center;gap:.4rem;flex-wrap:nowrap;width:max-content;max-width:100%;padding:.15rem 0 .1rem;background:transparent}
+.header-modes .button{flex:0 1 auto;min-height:40px;padding:.5rem .9rem;font-size:.8125rem;white-space:nowrap}
+@media(max-width:560px){.header-modes{gap:.25rem}.header-modes .button{flex:1 1 0;min-width:0;padding:.45rem .25rem;font-size:.6875rem;white-space:normal;line-height:1.2}}
+.handoff-buttons{display:flex;gap:.5rem;flex-wrap:wrap}
+/* Below the viewer: floor area and the one materials total. */
+.home-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(min-width:851px){.estimate-heading .cost-totals{display:none}}
+/* Every material category lives in one drop-down. */
+.materials-list[open]{padding-bottom:.4rem}.materials-list .category-list{margin:.6rem -1rem 0}

@@ -27,7 +27,7 @@ fn fixture()->Config{let mut c=Config::default();c.stories=1;c.wall_height=9.;c.
  c.custom_textures.get_mut("general").unwrap().data_url="data:image/svg+xml,<svg onload=alert(1)>".into();assert!(validate(&c).is_err());c.custom_textures.get_mut("general").unwrap().data_url=format!("data:image/jpeg;base64,/9j/{}","A".repeat(200000));assert!(validate(&c).is_err());
 }
 #[test]fn forty_staging_objects_have_valid_placement_dimensions_and_itemized_prices(){
- assert_eq!(objects::all().len(),40);let mut c=fixture();c.width=24.;c.depth=24.;c.design_mode="Blank slate".into();
+ assert_eq!(objects::all().len(),54);let mut c=fixture();c.width=24.;c.depth=24.;c.design_mode="Blank slate".into();
  for obj in objects::all(){let(w,d)=edit::item_dimensions(&obj.kind);assert_eq!((w,d),(obj.width,obj.depth));c.placed_furniture=vec![staging::Furniture{id:format!("F-test-{}",obj.kind),kind:obj.kind.clone(),room_id:"custom".into(),x:12.,z:12.,w,d,local_width:w,local_depth:d,rotation:0.}];let m=model::build(&c);assert_eq!(m["furniture"].as_array().unwrap().len(),1,"{}",obj.kind);let row=m["items"].as_array().unwrap().iter().find(|i|s(i,"id")==format!("stage-{}",obj.kind)).unwrap();assert_eq!(n(row,"qty"),1.);assert!(n(row,"price")>0.);}
 }
 
@@ -1239,7 +1239,8 @@ fn colonial_plan()->Value{json!({"mainWidthFt":40.6,"mainDepthFt":31.5,"floors":
 }
 #[test]fn bump_outs_take_any_width_and_can_rise_the_full_height(){
  let mut c=generator::starter();c.home_style="Colonial".into();c.stories=2;c.bedrooms=heritage::default_bedrooms("Colonial");architecture::apply(&mut c,true);c.bump_outs="Sides".into();
- for w in bumps::WIDTHS{c.bump_width=w;assert!(validate(&c).is_ok());let bs=bumps::list(&c);assert!(!bs.is_empty(),"{w} ft fits");assert!(bs.iter().all(|b|near(b.hi-b.lo,w)),"{w} ft wide");}
+ // Automatic bump-outs open from one room, so they come up to 16 ft wide; wider ones are placed by hand.
+ for w in bumps::WIDTHS.into_iter().filter(|w|*w<=16.){c.bump_width=w;assert!(validate(&c).is_ok());let bs=bumps::list(&c);assert!(!bs.is_empty(),"{w} ft fits");assert!(bs.iter().all(|b|near(b.hi-b.lo,w)),"{w} ft wide");}
  c.bump_width=5.;assert!(validate(&c).is_err());c.bump_width=10.;
  // One story: only the ground floor has the bay.
  let m=model::build(&c);let bays=|m:&Value,l:usize|m["levels"][l]["rooms"].as_array().unwrap().iter().filter(|r|s(r,"type")=="bay").count();
@@ -1359,12 +1360,22 @@ fn overlap_area(a:[f64;4],b:[f64;4])->f64{((a[2].min(b[2])-a[0].max(b[0])).max(0
  for b in bumps::list(&c){for g in wings::rects(&c){assert!(overlap_area(bumps::rect(&c,&b),[g.x,g.z,g.x+g.w,g.z+g.d])<1e-6,"bump-out overlaps {}",g.id);}}
  let c=sweep_design("Tudor",|c|{c.width=34.;c.depth=40.;c.custom_bumps=vec![bumps::CustomBump{side:"right".into(),at:16.,width:14.,depth:2.,full:false}];});
  let(rs,_)=layout(&c);
- for b in bumps::list(&c).into_iter().filter(|b|b.side=="right"){let[_,z0,_,z1]=bumps::rect(&c,&b);assert!(rs.iter().any(|r|!wings::is_wing(&r.id)&&near(r.x+r.w,c.width)&&z0>=r.z-1e-6&&z1<=r.z+r.d+1e-6),"bump-out {z0}–{z1} spans two rooms");}
+ for b in bumps::list(&c).into_iter().filter(|b|b.side=="right"){let(z0,z1)=b.open;assert!(rs.iter().any(|r|!wings::is_wing(&r.id)&&near(r.x+r.w,c.width)&&z0>=r.z-1e-6&&z1<=r.z+r.d+1e-6),"the opening {z0}–{z1} spans two rooms");}
 }
 #[test]fn garages_stay_clear_of_wings(){
  for(kind,width,depth,ww,wd)in[("Attached",62.,20.,40.,18.),("Detached",40.,20.,24.,8.)]{
   let c=sweep_design("Craftsman",|c|{c.stories=1;c.width=width;c.depth=depth;c.shape="U-shape".into();c.wing_width=ww;c.wing_depth=wd;c.garage=kind.into();c.garage_side="Automatic".into();});
   let m=model::build(&c);let g=&m["garage"];let rect=[n(g,"x"),n(g,"z"),n(g,"x")+n(g,"w"),n(g,"z")+n(g,"d")];
   for w in wings::rects(&c){assert!(overlap_area(rect,[w.x,w.z,w.x+w.w,w.z+w.d])<1e-6,"{kind} garage {rect:?} overlaps {} at {},{} {}×{}",w.id,w.x,w.z,w.w,w.d);}
+ }
+}
+#[test]fn room_sized_bump_outs_go_anywhere(){
+ // A 20 × 12 ft addition fits on the rear and on the left of the default house (the garage is on the right and the
+ // porch at the front), opening from the room at its center; the house still builds and prices.
+ for side in["rear","left"]{
+  let at=(0..60).map(|a|a as f64).find(|at|{let mut c=generator::starter();c.bump_outs="None".into();c.custom_bumps=vec![bumps::CustomBump{side:side.into(),at:*at,depth:12.,width:20.,full:false}];bumps::list(&c).len()==1}).unwrap_or_else(||panic!("{side}: no spot"));
+  let mut c=generator::starter();c.bump_outs="None".into();c.custom_bumps=vec![bumps::CustomBump{side:side.into(),at,depth:12.,width:20.,full:false}];
+  assert!(validate(&c).is_ok());let b=&bumps::list(&c)[0];assert!(near(b.hi-b.lo,20.)&&near(b.depth,12.));assert!(b.open.1-b.open.0>=3.5);
+  let m=model::build(&c);assert!(n(&m,"materialsBudgetTotal")>0.);
  }
 }

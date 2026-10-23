@@ -457,7 +457,7 @@ function __wbg_adapter_4(arg0, arg1, arg2) {
     wasm.__wbindgen_export_5(arg0, arg1, addHeapObject(arg2));
 }
 
-function __wbg_adapter_13(arg0, arg1) {
+function __wbg_adapter_7(arg0, arg1) {
     wasm.__wbindgen_export_6(arg0, arg1);
 }
 
@@ -834,6 +834,10 @@ function __wbg_get_imports() {
     imports.wbg.__wbg_selectScene_0775549b795abfb8 = function(arg0, arg1) {
         ufBridge.selectScene(getStringFromWasm0(arg0, arg1));
     };
+    imports.wbg.__wbg_sessionStorage_9300e3bd274fb75b = function() { return handleError(function (arg0) {
+        const ret = getObject(arg0).sessionStorage;
+        return isLikeNone(ret) ? 0 : addHeapObject(ret);
+    }, arguments) };
     imports.wbg.__wbg_setAttribute_d1baf9023ad5696f = function() { return handleError(function (arg0, arg1, arg2, arg3, arg4) {
         getObject(arg0).setAttribute(getStringFromWasm0(arg1, arg2), getStringFromWasm0(arg3, arg4));
     }, arguments) };
@@ -985,7 +989,7 @@ function __wbg_get_imports() {
     };
     imports.wbg.__wbindgen_cast_3e0f7cd5ff36de98 = function(arg0, arg1) {
         // Cast intrinsic for `Closure(Closure { dtor_idx: 5, function: Function { arguments: [], shim_idx: 6, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-        const ret = makeMutClosure(arg0, arg1, 5, __wbg_adapter_13);
+        const ret = makeMutClosure(arg0, arg1, 5, __wbg_adapter_7);
         return addHeapObject(ret);
     };
     imports.wbg.__wbindgen_cast_95d13c41ef29a3dd = function(arg0, arg1) {

@@ -24,7 +24,7 @@ pub fn wall_error(w:&Wall,c:&Config)->Option<String>{
  zones(c,&rs).iter().filter(|z|["stairwell","landing"].contains(&z.kind.as_str())).find(|z|edit::overlap(bounds,z.rect())).map(|z|format!("Keep {} free of walls. Move the wall outside the blue clearance area.",z.name))
 }
 pub fn item_error(f:&staging::Furniture,zones:&[Clearance])->Option<String>{if f.kind=="stairs"{return None}
- zones.iter().filter(|z|f.kind!="rug"||["stairwell","landing"].contains(&z.kind.as_str())).find(|z|edit::item_intersects_rect(f,z.rect())).map(|z|format!("Keep {} clear. Snap outside the blue circulation area.",z.name))
+ zones.iter().filter(|z|!edit::is_rug(&f.kind)||["stairwell","landing"].contains(&z.kind.as_str())).find(|z|edit::item_intersects_rect(f,z.rect())).map(|z|format!("Keep {} clear. Snap outside the blue circulation area.",z.name))
 }
 pub fn report(c:&Config,rs:&[Room],ws:&[Wall],fs:&[staging::Furniture])->Value{
  let zones=zones(c,rs);let mut issues=vec![];
