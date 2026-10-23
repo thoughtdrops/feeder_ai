@@ -52,4 +52,14 @@ export function addOverhangPillars(scene:T.Object3D,m:any,wood:T.MeshStandardMat
  for(const post of p.posts){const base=-.45,height=m.cutView?4.1:post.height-base;const side=Math.abs(post.z)<.01||post.z<0||post.z>m.d?'x':'z';
   addColumn(group,p.columnStyle,post.x-m.w/2,base,post.z-m.d/2,height,side as 'x'|'z',wood,siding);
   const plinth=new T.Mesh(new T.BoxGeometry(.9,.5,.9),siding);plinth.position.set(post.x-m.w/2,base+.05,post.z-m.d/2);plinth.castShadow=plinth.receiveShadow=true;plinth.name='Overhang pillar footing';group.add(plinth);}
+ if(m.cutView)return;
+ // Each run of pillars carries a beam and a shallow shed roof back to the house: a covered walk, not loose posts.
+ const roofMat=new T.MeshStandardMaterial({color:'#4f565c',roughness:.8,side:T.DoubleSide});const soffit=(siding as T.MeshStandardMaterial).clone();soffit.side=T.DoubleSide;
+ for(const r of p.runs||[]){const out=r.depth,edge=out+.5,drop=(r.attach-r.beamTop)*edge/out,a=r.from-.4,b=r.to+.4;
+  const pt=(u:number,off:number,y:number)=>{const[x,z]=r.side==='front'?[u,-off]:r.side==='rear'?[u,m.d+off]:r.side==='left'?[-off,u]:[m.w+off,u];return new T.Vector3(x-m.w/2,y,z-m.d/2);};
+  const quad=(y0:number,y1:number,mat:T.Material,name:string)=>{const g=new T.BufferGeometry().setFromPoints([pt(a,0,y0),pt(b,0,y0),pt(b,edge,y1),pt(a,0,y0),pt(b,edge,y1),pt(a,edge,y1)]);g.computeVertexNormals();const q=new T.Mesh(g,mat);q.castShadow=q.receiveShadow=true;q.name=name;group.add(q);};
+  quad(r.attach+.12,r.attach+.12-drop,roofMat,'Covered walk roof');quad(r.attach-.05,r.attach-.05-drop,soffit,'Covered walk soffit');
+  const along=r.side==='front'||r.side==='rear',mid=pt((r.from+r.to)/2,out,r.beamTop-r.beam/2),len=r.to-r.from+.8;
+  const beam=new T.Mesh(new T.BoxGeometry(along?len:.55,r.beam,along?.55:len),wood);beam.position.copy(mid);beam.castShadow=beam.receiveShadow=true;beam.name='Covered walk beam';group.add(beam);
+  const fascia=new T.Mesh(new T.BoxGeometry(along?len:.12,.5,along?.12:len),siding);fascia.position.copy(pt((r.from+r.to)/2,edge,r.attach-drop-.1));fascia.name='Covered walk fascia';group.add(fascia);}
 }
