@@ -8,10 +8,10 @@ use std::cell::{Cell,RefCell};
 // Bump-outs ride the wing machinery (rooms, walls, floor, roof, piers and pricing); see `wings::all`.
 pub const CHOICES:[&str;6]=["None","Style matched","Front","Sides","Rear","All around"];
 pub const SIDES:[&str;4]=["front","rear","left","right"];
-/// How far a bump-out projects: 0 lets the house style decide.
-pub const DEPTHS:[f64;5]=[0.,2.,4.,6.,8.];
-/// How wide a bump-out runs along the wall, 4 to 16 ft (8 ft unless chosen).
-pub const WIDTHS:[f64;7]=[4.,6.,8.,10.,12.,14.,16.];
+/// How far a bump-out projects: 0 lets the house style decide. 10 and 12 ft make a room-sized addition.
+pub const DEPTHS:[f64;7]=[0.,2.,4.,6.,8.,10.,12.];
+/// How wide a bump-out runs along the wall, 4 to 24 ft (8 ft unless chosen).
+pub const WIDTHS:[f64;10]=[4.,6.,8.,10.,12.,14.,16.,18.,20.,24.];
 /// One story, or full height: the bump-out rises through every floor with the main walls and its roof meets the
 /// main roof at the eaves, so the house reads as one uniform bump from the ground to the roof.
 pub const HEIGHTS:[&str;2]=["One story","Full height"];
@@ -21,10 +21,10 @@ pub const HEIGHTS:[&str;2]=["One story","Full height"];
 #[derive(Clone,Serialize,Deserialize,Debug,Default,PartialEq)]#[serde(rename_all="camelCase",default)]
 pub struct CustomBump{pub side:String,pub at:f64,pub depth:f64,pub width:f64,pub full:bool}
 pub fn validate(c:&Config)->Result<(),String>{
- if !DEPTHS.contains(&c.bump_depth){return Err("Choose a bump-out depth of 2, 4, 6 or 8 ft.".into())}
- if !WIDTHS.contains(&c.bump_width){return Err("Choose a bump-out width from 4 to 16 ft.".into())}
+ if !DEPTHS.contains(&c.bump_depth){return Err("Choose a bump-out depth from 2 to 12 ft.".into())}
+ if !WIDTHS.contains(&c.bump_width){return Err("Choose a bump-out width from 4 to 24 ft.".into())}
  if !HEIGHTS.contains(&c.bump_height.as_str()){return Err("Choose a one-story or full-height bump-out.".into())}
- if c.custom_bumps.len()>12||!c.custom_bumps.iter().all(|b|SIDES.contains(&b.side.as_str())&&b.at.is_finite()&&(0.0..=100.).contains(&b.at)&&DEPTHS.contains(&b.depth)&&(b.width==0.||WIDTHS.contains(&b.width))){return Err("Each added bump-out needs a wall side, a position along the wall, a depth of 2, 4, 6 or 8 ft and a width from 4 to 16 ft.".into())}
+ if c.custom_bumps.len()>12||!c.custom_bumps.iter().all(|b|SIDES.contains(&b.side.as_str())&&b.at.is_finite()&&(0.0..=100.).contains(&b.at)&&DEPTHS.contains(&b.depth)&&(b.width==0.||WIDTHS.contains(&b.width))){return Err("Each added bump-out needs a wall side, a position along the wall, a depth from 2 to 12 ft and a width from 4 to 24 ft.".into())}
  Ok(())
 }
 #[derive(Clone,Debug,PartialEq)]pub struct Bump{
@@ -37,6 +37,9 @@ pub fn validate(c:&Config)->Result<(),String>{
  pub tie:f64,
  /// Rises through every floor (full height) rather than the ground floor only.
  pub full:bool,
+ /// The stretch of the house wall it opens through: the part behind the room at its center, so a wide addition that
+ /// runs behind two rooms never has a partition running into its opening.
+ pub open:(f64,f64),
 }
 impl Bump{pub fn levels(&self,c:&Config)->usize{if self.full{c.stories.max(1)}else{1}}}
 thread_local!{
@@ -105,11 +108,15 @@ fn plan(c:&Config)->Vec<Bump>{
   let width=if cb.width>0.{cb.width}else{c.bump_width};
   let lo=grid(cb.at-width/2.).clamp(2.,(len-2.-width).max(2.));let hi=lo+width;if hi>len-2.+1e-6{continue}
   let depth=if cb.depth>0.{cb.depth}else if c.bump_depth>0.{c.bump_depth}else{4.};
-  let room=rs.iter().filter(|r|!wings::is_wing(&r.id)&&r.kind!="stairs").find(|r|{let(a,b)=if ["front","rear"].contains(&side){(r.x,r.x+r.w)}else{(r.z,r.z+r.d)};touches(c,r,side)&&lo>=a-1e-6&&hi<=b+1e-6});
+  // It opens from the room at its center (at least 3.5 ft of that room's wall); a wide one may run on behind the
+  // next room, whose wall stays closed.
+  let mid=(lo+hi)/2.;let span=|r:&Room|if ["front","rear"].contains(&side){(r.x,r.x+r.w)}else{(r.z,r.z+r.d)};
+  let host=|q:&Room,skip:&[&str]|!wings::is_wing(&q.id)&&!skip.contains(&q.kind.as_str())&&touches(c,q,side)&&{let(a,b)=span(q);mid>a&&mid<b&&hi.min(b)-lo.max(a)>=3.5-1e-6};
+  let room=rs.iter().find(|r|host(r,&["stairs"]));
   let Some(r)=room else{continue};
-  // A full-height bump-out also needs one room behind it on every floor above.
-  let full=cb.full&&(1..c.stories).all(|f|{let mut u=c.clone();u.active_floor=f;layout(&u).0.iter().any(|q|!wings::is_wing(&q.id)&&!["stairs","bath"].contains(&q.kind.as_str())&&touches(c,q,side)&&{let(a,b)=if ["front","rear"].contains(&side){(q.x,q.x+q.w)}else{(q.z,q.z+q.d)};lo>=a-1e-6&&hi<=b+1e-6})});
-  if let Some(b)=fit(c,side,lo,hi,depth,r,wall,&main_roof,&fixed,&out,full){out.push(b);}
+  // A full-height bump-out also needs such a room behind it on every floor above.
+  let full=cb.full&&(1..c.stories).all(|f|{let mut u=c.clone();u.active_floor=f;layout(&u).0.iter().any(|q|host(q,&["stairs","bath"]))});
+  if let Some(mut b)=fit(c,side,lo,hi,depth,r,wall,&main_roof,&fixed,&out,full){let(a,z)=span(r);b.open=(lo.max(a),hi.min(z));out.push(b);}
  }
  // A traced plan's bump-outs come from the plan, scaled to the house (none if the plan has none); a chosen
  // side, or any other house, gets them by the rules here.
@@ -150,7 +157,7 @@ fn touches(c:&Config,r:&Room,side:&str)->bool{match side{"front"=>near(r.z,0.),"
 /// gable where it projects further than half its width, otherwise the style's own.
 fn fit(c:&Config,side:&'static str,lo:f64,hi:f64,depth:f64,r:&Room,wall:&Wall,main_roof:&Value,blocked:&[[f64;4]],out:&[Bump],full:bool)->Option<Bump>{
  if wall.openings.iter().any(|o|o.kind!="window"&&o.at<hi+1.&&o.at+o.width>lo-1.){return None}
- let full=full&&c.stories>1;let mut b=Bump{side,lo,hi,depth,roof:style(c).1,room:r.name.clone(),tie:0.,full};
+ let full=full&&c.stories>1;let mut b=Bump{side,lo,hi,depth,roof:style(c).1,room:r.name.clone(),tie:0.,full,open:(lo,hi)};
  let fp=rect(c,&b);let pad=[fp[0]-1.5,fp[1]-1.5,fp[2]+1.5,fp[3]+1.5];
  if blocked.iter().any(|p|edit::overlap(pad,*p))||out.iter().any(|o|edit::overlap(pad,rect(c,o))){return None}
  let gable_end=main_roof["profiles"][["front","rear","left","right"].iter().position(|s|*s==side).unwrap()]["points"].as_array().is_some_and(|p|p.iter().any(|q|q[1].as_f64().unwrap_or(0.)>1.));

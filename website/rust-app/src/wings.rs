@@ -164,7 +164,7 @@ fn bump_walls(c:&Config,g:&Wing,b:&bumps::Bump,mut ws:Vec<Wall>,sill:&dyn Fn(boo
  let(w,p)=(b.hi-b.lo,b.depth);
  if let Some(host)=ws.iter_mut().find(|wl|wl.id==format!("{}{tag}",bumps::host_wall(b.side))){
   host.openings.retain(|o|o.at+o.width<b.lo-0.3||o.at>b.hi+0.3);let num=host.openings.len()+90;
-  host.openings.push(Opening{id:format!("{}-P{}",host.id,num),kind:"passage".into(),at:b.lo+0.5,width:w-1.,bottom:0.,height:82.5/12.});host.openings.sort_by(|a,b|a.at.total_cmp(&b.at));
+  host.openings.push(Opening{id:format!("{}-P{}",host.id,num),kind:"passage".into(),at:b.open.0+0.5,width:(b.open.1-b.open.0-1.).max(2.5),bottom:0.,height:82.5/12.});host.openings.sort_by(|a,b|a.at.total_cmp(&b.at));
  }
  let(dw,dd)=(c.width,c.depth);let id=&format!("{}{tag}",g.id);
  let(outer,returns):((String,f64,f64,&str),[(String,f64,f64,&str);2])=match b.side{

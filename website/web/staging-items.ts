@@ -58,6 +58,23 @@ export function addStagingObject(scene:T.Object3D,f:any,m:any,interior:any,wood:
   case 'coat-stand':{cyl(0,2.9,0,.065,5.4,wood);for(let i=0;i<4;i++){const a=i*Math.PI/2;const arm=box(Math.sin(a)*w*.25,4.75,Math.cos(a)*d*.25,.07,.55,w*.46,wood);arm.rotation.y=a;box(Math.sin(a)*w*.3,.3,Math.cos(a)*d*.3,.12,.12,.65,wood);}break;}
   case 'storage-bench':{drawers(2,1.25);box(0,1.68,0,w,.26,d,upholstery,.12);break;}
   case 'pedestal':{box(0,1.4,0,w,2.3,d,ivory,.04);const points=[new T.Vector2(.05,0),new T.Vector2(.28,.2),new T.Vector2(.16,.48),new T.Vector2(.3,.75),new T.Vector2(.09,1.1)];const art=new T.Mesh(new T.LatheGeometry(points,36),metal);art.position.y=2.59;group.add(art);break;}
+  // Hearth, TV, rugs, open counters, stocked shelves, wall art and ceiling lights.
+  case 'fireplace':{const stone=new T.MeshStandardMaterial({color:'#b9b1a3',roughness:.85});box(0,2,0,w,4,d,stone,.03);box(0,1.35,d/2-.05,w*.5,1.9,.12,black,.02);box(0,4.15,.05,w+.35,.22,d+.25,wood,.03);box(0,.12,d/2+.45,w*.8,.24,.9,stone,.02);const fire=new T.MeshStandardMaterial({color:'#ff9a3c',emissive:'#ff6a1a',emissiveIntensity:1.4,roughness:.6});box(0,.75,d/2-.08,w*.32,.35,.06,fire,.02);break;}
+  case 'tv-stand':{box(0,.95,0,w,1.3,d);for(const x of [-1,1])box(x*w/4,.95,d/2+.02,w/2-.12,1.15,.04,wood,.015);box(0,2.6,-d*.15,w*.86,2,.12,black,.03);box(0,1.75,-d*.15,.5,.32,.4,black,.02);break;}
+  case 'large-rug':case 'runner-rug':{box(0,.025,0,w,.05,d,accent,0);box(0,.03,0,w-.5,.05,d-.5,upholstery,0);break;}
+  case 'round-rug':{const rug=cyl(0,.025,0,Math.min(w,d)/2,.05,accent);rug.receiveShadow=true;cyl(0,.03,0,Math.min(w,d)/2-.35,.05,upholstery);break;}
+  case 'bar-counter':{box(0,3,0,w,.14,d,ivory,.03);legs(2.7,.2);break;}
+  case 'counter-slab':{box(0,3,0,w,.14,d,ivory,.03);for(const x of [-1,1])box(x*(w/2-.08),1.48,-d*.1,.1,2.9,d*.8,wood,.02);for(const x of [-1,0,1])box(x*w/3,2.78,-d/2+.12,.08,.38,d*.6,metal,.01);break;}
+  case 'pantry-shelf':case 'electronics-shelf':{for(const x of [-1,1])box(x*(w/2-.05),3.3,0,.07,6.6,d,steel,.01);const levels=[.35,1.6,2.85,4.1,5.35,6.55];for(const y of levels)box(0,y,0,w,.08,d,wood,.01);
+   const food=['#c94f3d','#e2b64c','#5c8d4e','#ece4d2','#8a5a3c','#3d6c9a'].map(color=>new T.MeshStandardMaterial({color,roughness:.6}));
+   levels.slice(0,5).forEach((y,i)=>{for(let k=0;k<5;k++){const x=-w/2+.4+k*(w-.8)/4;if(f.kind==='pantry-shelf'){if(i===1&&k===2){box(x,y+.5,0,.95,.6,d*.7,black,.03);box(x+.18,y+.5,d*.36,.4,.4,.02,glass,0);}else if(k%2)cyl(x,y+.35,0,.17,.6,food[(i+k)%6],.17);else box(x,y+.42,0,.42,.75,d*.45,food[(i*2+k)%6],.02);}else{if(k===2)box(x,y+.55,0,1,.62,.08,black,.02);else if(k%2)box(x,y+.3,0,.55,.45,d*.6,black,.04);else{cyl(x-.1,y+.42,0,.13,.75,black,.11);cyl(x+.15,y+.42,0,.13,.75,black,.11);}}}});break;}
+  case 'decor-shelf':{for(const y of [3.8,5.0,6.2]){box(0,y,0,w,.1,d,wood,.015);}books(3.8);sphere(w*.3,5.35,0,.22,.32,.22,ivory);cyl(-w*.25,5.3,0,.14,.55,accent,.1);const plant=new T.MeshStandardMaterial({color:'#4f7b4a',roughness:.8});sphere(w*.2,6.5,0,.3,.25,.25,plant);cyl(w*.2,6.25,0,.15,.3,ivory);break;}
+  case 'painting':{const canvas=new T.MeshStandardMaterial({color:interior.accent,roughness:.85});box(0,5,0,w,Math.min(2.4,w*.7),.1,wood,.02);box(0,5,.06,w-.3,Math.min(2.4,w*.7)-.3,.02,canvas,0);box(-w*.15,5.2,.08,w*.3,.5,.01,upholstery,0);break;}
+  case 'ceiling-light':case 'pendant-light':case 'chandelier':{const H=m.h||8,lamp=new T.MeshStandardMaterial({color:'#fff6df',emissive:'#ffe8b0',emissiveIntensity:1.1,roughness:.4});
+   if(f.kind==='ceiling-light'){cyl(0,H-.12,0,Math.min(w,d)/2,.16,lamp,Math.min(w,d)/2*.85);box(0,H-.02,0,.25,.04,.25,steel,0);}
+   else if(f.kind==='pendant-light'){cyl(0,H-1.1,0,.015,2.2,black);cyl(0,H-2.4,0,Math.min(w,d)/2,.6,black,.12);sphere(0,H-2.55,0,.18,.18,.18,lamp);}
+   else{cyl(0,H-.9,0,.03,1.8,metal);const ring=new T.Mesh(new T.TorusGeometry(Math.min(w,d)/2-.15,.04,8,40),metal);ring.rotation.x=Math.PI/2;ring.position.y=H-2;group.add(ring);for(let i=0;i<8;i++){const a=i*Math.PI/4,r=Math.min(w,d)/2-.15;cyl(Math.cos(a)*r,H-1.85,Math.sin(a)*r,.05,.3,ivory);sphere(Math.cos(a)*r,H-1.62,Math.sin(a)*r,.07,.11,.07,lamp);}}
+   break;}
  }
  group.updateMatrixWorld(true);const bounds=new T.Box3().setFromObject(group),size=bounds.getSize(new T.Vector3());
  if(!size.x||!size.z){return false;}group.scale.set(Math.min(1,w/size.x),1,Math.min(1,d/size.z));group.rotation.y=-f.rotation;
