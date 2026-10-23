@@ -27,7 +27,7 @@ fn fixture()->Config{let mut c=Config::default();c.stories=1;c.wall_height=9.;c.
  c.custom_textures.get_mut("general").unwrap().data_url="data:image/svg+xml,<svg onload=alert(1)>".into();assert!(validate(&c).is_err());c.custom_textures.get_mut("general").unwrap().data_url=format!("data:image/jpeg;base64,/9j/{}","A".repeat(200000));assert!(validate(&c).is_err());
 }
 #[test]fn forty_staging_objects_have_valid_placement_dimensions_and_itemized_prices(){
- assert_eq!(objects::all().len(),40);let mut c=fixture();c.width=24.;c.depth=24.;c.design_mode="Blank slate".into();
+ assert_eq!(objects::all().len(),54);let mut c=fixture();c.width=24.;c.depth=24.;c.design_mode="Blank slate".into();
  for obj in objects::all(){let(w,d)=edit::item_dimensions(&obj.kind);assert_eq!((w,d),(obj.width,obj.depth));c.placed_furniture=vec![staging::Furniture{id:format!("F-test-{}",obj.kind),kind:obj.kind.clone(),room_id:"custom".into(),x:12.,z:12.,w,d,local_width:w,local_depth:d,rotation:0.}];let m=model::build(&c);assert_eq!(m["furniture"].as_array().unwrap().len(),1,"{}",obj.kind);let row=m["items"].as_array().unwrap().iter().find(|i|s(i,"id")==format!("stage-{}",obj.kind)).unwrap();assert_eq!(n(row,"qty"),1.);assert!(n(row,"price")>0.);}
 }
 
